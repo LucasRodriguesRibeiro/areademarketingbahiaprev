@@ -11,6 +11,7 @@ import { AnnouncementsSection } from './components/AnnouncementsSection';
 import { PopsSection } from './components/PopsSection';
 import { PartnerSection } from './components/PartnerSection';
 import { MembersSection } from './components/MembersSection';
+import { TasksSection } from './components/TasksSection';
 import { PartnerDetailModal } from './components/PartnerDetailModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { Footer } from './components/Footer';
@@ -22,7 +23,7 @@ import { LogOut, Camera } from 'lucide-react';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks'>('feed');
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
@@ -130,6 +131,7 @@ function MainAppContent() {
             {activeTab === 'feed' && <FeedSection />}
             {activeTab === 'announcements' && <AnnouncementsSection />}
             {activeTab === 'members' && <MembersSection onOpenProfileModal={() => setIsProfileModalOpen(true)} />}
+            {activeTab === 'tasks' && <TasksSection />}
             {activeTab === 'pops' && <PopsSection />}
             {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
             {activeTab === 'about' && <AboutCompanySection />}

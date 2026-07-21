@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio, BookOpen } from 'lucide-react';
+import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
 interface HeaderProps {
-  activeTab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members';
-  onTabChange: (tab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members') => void;
+  activeTab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+  onTabChange: (tab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
@@ -118,6 +118,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           >
             <Users className="h-4 w-4 text-purple-400" />
             <span>Equipe</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('tasks')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'tasks'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <ListTodo className="h-4 w-4 text-emerald-400" />
+            <span>Minhas Tarefas</span>
           </button>
 
           <button

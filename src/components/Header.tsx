@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Sparkles } from 'lucide-react';
+import { BahiaPrevLogo } from './BahiaPrevLogo';
 
 export const Header: React.FC = () => {
   return (
-    <header className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-16 sm:py-24 border-b border-slate-100">
+    <header className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-14 sm:py-20 border-b border-slate-100">
       {/* Background grid elements */}
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#f1f5f9_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f9_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-60" />
       
@@ -12,11 +13,21 @@ export const Header: React.FC = () => {
       <div className="absolute top-1/4 left-10 w-72 h-32 border-2 border-brand-red/5 rounded-full -rotate-12 -z-10 pointer-events-none hidden md:block" />
       <div className="absolute bottom-1/4 right-10 w-96 h-40 border-2 border-brand-blue/5 rounded-full rotate-12 -z-10 pointer-events-none hidden md:block" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+        {/* Animated full high-fidelity logo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7 }}
+          className="mb-8"
+        >
+          <BahiaPrevLogo className="h-28 sm:h-36 drop-shadow-xl hover:scale-105 transition-transform duration-300 cursor-pointer" />
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
           className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-xs font-bold text-white border border-brand-blue shadow-lg shadow-brand-blue/10 mb-6"
         >
           <span className="flex h-2 w-2 rounded-full bg-brand-red animate-pulse" />

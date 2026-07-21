@@ -1,0 +1,6 @@
+{
+  "name": "Área de apoio Marketing para clientes",
+  "description": "Portal oficial do Plano Bahia Prev para consulta de rede credenciada, suporte ao parceiro e materiais promocionais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

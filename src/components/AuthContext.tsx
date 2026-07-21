@@ -14,6 +14,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
+  avatarUrl?: string;
   createdAt: string;
 }
 
@@ -25,6 +26,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateAvatarUrl: (url: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,40 +38,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [providerNotEnabled, setProviderNotEnabled] = useState(false);
 
   useEffect(() => {
-    // Auto-create/ensure the administrator user exists in the system
-    const ensureAdminUser = async () => {
-      try {
-        const adminEmail = 'marketing@bahiaprev.com.br';
-        const adminPassword = 'LucasLucas2020$';
-        const adminName = 'Lucas';
-        const adminRole = 'Administrador';
+    // Auto-create/ensure initial system users exist
+    const ensureInitialUsers = async () => {
+      const defaultUsers = [
+        {
+          email: 'marketing@bahiaprev.com.br',
+          password: 'LucasLucas2020$',
+          name: 'Lucas',
+          role: 'Administrador'
+        },
+        {
+          email: 'lucasrodrigues@bahiaprev.com.br',
+          password: 'mkt@BP2025',
+          name: 'Lucas Rodrigues',
+          role: 'Analista de Marketing'
+        },
+        {
+          email: 'jairoqueiroz@bahiaprev.com.br',
+          password: 'mkt@BP2025',
+          name: 'Jairo Queiroz',
+          role: 'Diretor'
+        }
+      ];
 
-        // Try creating the admin user
-        const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
-        const firebaseUser = userCredential.user;
-        
-        const newProfile: UserProfile = {
-          uid: firebaseUser.uid,
-          name: adminName,
-          email: adminEmail,
-          role: adminRole,
-          createdAt: new Date().toISOString()
-        };
+      for (const u of defaultUsers) {
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, u.email, u.password);
+          const firebaseUser = userCredential.user;
+          
+          const newProfile: UserProfile = {
+            uid: firebaseUser.uid,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            createdAt: new Date().toISOString()
+          };
 
-        // Save profile to Firestore
-        await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
-        console.log("Admin user created successfully!");
-      } catch (error: any) {
-        if (error.code === 'auth/operation-not-allowed') {
-          console.warn("E-mail/Password provider is not enabled in Firebase Console.");
-          setProviderNotEnabled(true);
-        } else if (error.code !== 'auth/email-already-in-use') {
-          console.error("Auto-creation of admin user:", error);
+          // Save profile to Firestore
+          await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
+          console.log(`User ${u.email} created successfully!`);
+        } catch (error: any) {
+          if (error.code === 'auth/operation-not-allowed') {
+            console.warn("E-mail/Password provider is not enabled in Firebase Console.");
+            setProviderNotEnabled(true);
+          } else if (error.code !== 'auth/email-already-in-use') {
+            console.error(`Auto-creation of user ${u.email}:`, error);
+          }
         }
       }
     };
 
-    ensureAdminUser();
+    ensureInitialUsers();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -134,6 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateAvatarUrl = async (url: string) => {
+    if (!user) return;
+    const userDocRef = doc(db, 'users', user.uid);
+    await setDoc(userDocRef, { avatarUrl: url }, { merge: true });
+    setProfile(prev => prev ? { ...prev, avatarUrl: url } : null);
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
@@ -146,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, login, signUp, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, login, signUp, logout, updateAvatarUrl }}>
       {children}
     </AuthContext.Provider>
   );

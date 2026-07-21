@@ -6,21 +6,25 @@
 import { useState } from 'react';
 import { Header } from './components/Header';
 import { FeedSection } from './components/FeedSection';
+import { AboutCompanySection } from './components/AboutCompanySection';
 import { AnnouncementsSection } from './components/AnnouncementsSection';
+import { PopsSection } from './components/PopsSection';
 import { PartnerSection } from './components/PartnerSection';
 import { MembersSection } from './components/MembersSection';
 import { PartnerDetailModal } from './components/PartnerDetailModal';
+import { UserProfileModal } from './components/UserProfileModal';
 import { Footer } from './components/Footer';
 import { Partner } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { AuthForm } from './components/AuthForm';
-import { LogOut, Radio, Sparkles } from 'lucide-react';
+import { LogOut, Camera } from 'lucide-react';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'feed' | 'announcements' | 'partners' | 'members'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members'>('feed');
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleScrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -42,24 +46,71 @@ function MainAppContent() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-500/15 selection:text-blue-900 antialiased font-sans">
       {/* Top User Status & Info Bar */}
-      <div className="bg-slate-950 text-white text-[11px] sm:text-xs font-semibold py-2.5 px-4 border-b border-slate-900 tracking-wide">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-300">
-              PrevHub • Conectado como <span className="text-white font-bold">{profile?.name}</span> ({profile?.role})
-            </span>
+      <div className="bg-slate-950 text-white text-xs py-2.5 px-4 sm:px-6 border-b border-slate-800/80 shadow-inner">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          
+          {/* Top Left Collaborator Badge & Photo Upload Button */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div 
+              onClick={() => setIsProfileModalOpen(true)}
+              className="flex items-center gap-3 bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 px-3 py-1.5 rounded-full shadow-sm cursor-pointer transition-colors group"
+              title="Clique para alterar sua foto de perfil"
+            >
+              <div className="relative shrink-0">
+                {profile?.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt={profile.name}
+                    className="h-8 w-8 rounded-full object-cover border-2 border-blue-500 shadow-md group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-black text-xs flex items-center justify-center shadow-md">
+                    {profile?.name ? profile.name.charAt(0).toUpperCase() : 'C'}
+                  </div>
+                )}
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-slate-950 animate-pulse" />
+              </div>
+
+              <div className="flex flex-col text-left">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="text-white font-bold text-xs tracking-tight group-hover:text-blue-300 transition-colors">
+                    {profile?.name || 'Colaborador'}
+                  </span>
+                  <span className="text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded font-semibold">
+                    {profile?.role || 'Bahia Prev'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  Bahia Prev • PrevHub Conectado
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsProfileModalOpen(true)}
+              className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Camera className="h-3 w-3 text-blue-400" />
+              <span>Alterar Foto</span>
+            </button>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden sm:inline text-white/20">|</span>
+
+          {/* Top Right Controls & Logout */}
+          <div className="flex items-center gap-4 text-xs">
+            <span className="hidden md:inline text-slate-400 font-normal">
+              E-mail: <strong className="text-slate-200 font-medium">{user?.email}</strong>
+            </span>
+            <span className="hidden sm:inline text-slate-800">|</span>
             <button 
               onClick={logout}
-              className="text-slate-400 hover:text-white hover:underline transition-colors focus:outline-none cursor-pointer flex items-center gap-1.5"
+              className="text-slate-300 hover:text-red-400 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 font-semibold text-xs"
+              title="Encerrar sessão no PrevHub"
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3.5 w-3.5 text-red-400" />
               Sair
             </button>
           </div>
+
         </div>
       </div>
 
@@ -78,8 +129,10 @@ function MainAppContent() {
           >
             {activeTab === 'feed' && <FeedSection />}
             {activeTab === 'announcements' && <AnnouncementsSection />}
-            {activeTab === 'partners' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
-            {activeTab === 'members' && <MembersSection />}
+            {activeTab === 'members' && <MembersSection onOpenProfileModal={() => setIsProfileModalOpen(true)} />}
+            {activeTab === 'pops' && <PopsSection />}
+            {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
+            {activeTab === 'about' && <AboutCompanySection />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -87,12 +140,17 @@ function MainAppContent() {
       {/* Main Footer */}
       <Footer onScrollToTop={handleScrollToTop} />
 
-      {/* Partner Detail Modal */}
+      {/* Modals */}
       <AnimatePresence>
         {selectedPartner && (
           <PartnerDetailModal 
             partner={selectedPartner} 
             onClose={() => setSelectedPartner(null)} 
+          />
+        )}
+        {isProfileModalOpen && (
+          <UserProfileModal
+            onClose={() => setIsProfileModalOpen(false)}
           />
         )}
       </AnimatePresence>

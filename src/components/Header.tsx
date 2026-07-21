@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio } from 'lucide-react';
+import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio, BookOpen } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
 interface HeaderProps {
-  activeTab: 'feed' | 'announcements' | 'partners' | 'members';
-  onTabChange: (tab: 'feed' | 'announcements' | 'partners' | 'members') => void;
+  activeTab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members';
+  onTabChange: (tab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           <BahiaPrevLogo className="h-20 sm:h-24 drop-shadow-2xl hover:scale-105 transition-transform duration-300 cursor-pointer" />
         </motion.div>
 
-        {/* PrevHub Tag Badge */}
+        {/* PrevHub Official Badge */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
           <span className="tracking-widest uppercase text-[11px] text-red-400 font-extrabold">PrevHub</span>
           <span className="text-white/30">•</span>
-          <span className="text-slate-200 font-medium">Rede de Comunicação Interna Bahia Prev</span>
+          <span className="text-slate-200 font-medium">Espaço Oficial de Comunicação Interna Bahia Prev</span>
         </motion.div>
 
         <motion.h1
@@ -46,16 +46,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="font-sans text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white max-w-3xl mx-auto leading-tight"
         >
-          Conectando Ideias, Equipes & Benefícios
+          PrevHub • Comunicação Interna Bahia Prev
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-3 text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed font-normal"
+          className="mt-3.5 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal"
         >
-          O espaço oficial de interação do Bahia Prev. Compartilhe atualizações no feed, acompanhe comunicados e consulte nossa rede de parceiros.
+          Aprenda sobre a empresa, conheça todos os parceiros, suas funções e acompanhe todos os nossos comunicados.
         </motion.p>
 
         {/* Navigation Tabs Bar */}
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
             }`}
           >
             <Radio className="h-4 w-4 text-red-400" />
-            <span>Mural PrevHub</span>
+            <span>Feed</span>
           </button>
 
           <button
@@ -85,15 +85,27 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           </button>
 
           <button
-            onClick={() => onTabChange('partners')}
+            onClick={() => onTabChange('marketing')}
             className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'partners'
+              activeTab === 'marketing'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
             }`}
           >
             <Handshake className="h-4 w-4 text-emerald-400" />
-            <span>Rede de Parceiros</span>
+            <span>Área de Marketing</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('about')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'about'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <Sparkles className="h-4 w-4 text-amber-300" />
+            <span>Sobre Nós</span>
           </button>
 
           <button
@@ -104,8 +116,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
                 : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
             }`}
           >
-            <Users className="h-4 w-4 text-blue-400" />
-            <span>Membros</span>
+            <Users className="h-4 w-4 text-purple-400" />
+            <span>Equipe</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('pops')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'pops'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <BookOpen className="h-4 w-4 text-cyan-400" />
+            <span>Acessar POP</span>
           </button>
         </div>
 

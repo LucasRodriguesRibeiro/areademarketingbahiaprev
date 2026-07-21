@@ -173,6 +173,50 @@ export const AuthForm: React.FC = () => {
             </div>
           )}
 
+          {/* Quick Account Preset Selector */}
+          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+              Contas de Acesso Rápido:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('marketing@bahiaprev.com.br');
+                  setPassword('LucasLucas2020$');
+                }}
+                className="p-2 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-left text-xs transition-all cursor-pointer"
+              >
+                <strong className="text-slate-900 block font-bold truncate">Lucas (Admin)</strong>
+                <span className="text-[10px] text-blue-600 font-semibold block">marketing@...</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('jairoqueiroz@bahiaprev.com.br');
+                  setPassword('mkt@BP2025');
+                }}
+                className="p-2 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300 rounded-lg text-left text-xs transition-all cursor-pointer"
+              >
+                <strong className="text-slate-900 block font-bold truncate">Jairo Queiroz</strong>
+                <span className="text-[10px] text-purple-600 font-semibold block">Diretor</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('lucasrodrigues@bahiaprev.com.br');
+                  setPassword('mkt@BP2025');
+                }}
+                className="p-2 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg text-left text-xs transition-all cursor-pointer"
+              >
+                <strong className="text-slate-900 block font-bold truncate">Lucas R.</strong>
+                <span className="text-[10px] text-emerald-600 font-semibold block">Analista Mkt</span>
+              </button>
+            </div>
+          </div>
+
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-1">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">

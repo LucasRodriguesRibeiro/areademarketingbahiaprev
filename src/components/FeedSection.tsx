@@ -76,6 +76,9 @@ export const FeedSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
+  // Permission check: Administrador and Diretor (Jairo Queiroz) can publish posts & announcements
+  const canPublish = profile?.role === 'Administrador' || profile?.role === 'Diretor' || profile?.email === 'marketing@bahiaprev.com.br' || profile?.email === 'jairoqueiroz@bahiaprev.com.br';
+
   // New post form state
   const [newContent, setNewContent] = useState('');
   const [newCategory, setNewCategory] = useState('Geral');
@@ -153,6 +156,10 @@ export const FeedSection: React.FC = () => {
   // Handle create post
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canPublish) {
+      alert("Seu perfil de Analista de Marketing pode curtir e comentar, mas não possui permissão para publicar novas postagens no feed.");
+      return;
+    }
     if (!newContent.trim() || !user || !profile) return;
 
     setPublishing(true);
@@ -285,9 +292,17 @@ export const FeedSection: React.FC = () => {
           {/* Create Post Card */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
-                {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
-              </div>
+              {profile?.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.name}
+                  className="h-10 w-10 rounded-full object-cover border-2 border-blue-500 shadow-sm shrink-0"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
+                  {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">
                   {profile?.name}
@@ -298,69 +313,81 @@ export const FeedSection: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleCreatePost} className="space-y-3">
-              <textarea
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                placeholder={`No que você está pensando, ${profile?.name?.split(' ')[0]}? Compartilhe com a equipe...`}
-                rows={3}
-                className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
-              />
+            {!canPublish ? (
+              <div className="flex items-start gap-3 bg-slate-50 border border-slate-200/80 p-4 rounded-xl text-xs text-slate-600">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-900 block font-bold text-xs mb-0.5">
+                    Modo Interativo • Analista de Marketing ({profile?.name})
+                  </strong>
+                  Seu perfil está configurado com permissão para curtir e comentar em todas as publicações do feed. A criação de novos posts é exclusiva dos administradores.
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreatePost} className="space-y-3">
+                <textarea
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder={`No que você está pensando, ${profile?.name?.split(' ')[0]}? Compartilhe com a equipe...`}
+                  rows={3}
+                  className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                />
 
-              {showImageInput && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                  <input
-                    type="url"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Cole a URL da imagem (opcional, ex: https://exemplo.com/imagem.png)"
-                    className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </motion.div>
-              )}
+                {showImageInput && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <input
+                      type="url"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      placeholder="Cole a URL da imagem (opcional, ex: https://exemplo.com/imagem.png)"
+                      className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </motion.div>
+                )}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2">
-                  {/* Category Selector */}
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
-                  >
-                    <option value="Geral">📌 Geral</option>
-                    <option value="Comunicado">📢 Comunicado</option>
-                    <option value="Marketing">🎯 Marketing</option>
-                    <option value="Ideia">💡 Ideia</option>
-                    <option value="Evento">🎉 Evento</option>
-                    <option value="Parceria">🤝 Parceria</option>
-                  </select>
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    {/* Category Selector */}
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      <option value="Geral">📌 Geral</option>
+                      <option value="Comunicado">📢 Comunicado</option>
+                      <option value="Marketing">🎯 Marketing</option>
+                      <option value="Ideia">💡 Ideia</option>
+                      <option value="Evento">🎉 Evento</option>
+                      <option value="Parceria">🤝 Parceria</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowImageInput(!showImageInput)}
+                      className="text-xs font-semibold text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ImageIcon className="h-4 w-4 text-slate-500" />
+                      <span>Anexar Imagem</span>
+                    </button>
+                  </div>
 
                   <button
-                    type="button"
-                    onClick={() => setShowImageInput(!showImageInput)}
-                    className="text-xs font-semibold text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    type="submit"
+                    disabled={publishing || !newContent.trim()}
+                    className="px-5 py-2 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
                   >
-                    <ImageIcon className="h-4 w-4 text-slate-500" />
-                    <span>Anexar Imagem</span>
+                    {publishing ? (
+                      <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5" />
+                        <span>Publicar no PrevHub</span>
+                      </>
+                    )}
                   </button>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={publishing || !newContent.trim()}
-                  className="px-5 py-2 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
-                >
-                  {publishing ? (
-                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Publicar no PrevHub</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
 
           {/* Category Filter Pills */}
@@ -559,9 +586,17 @@ export const FeedSection: React.FC = () => {
           
           {/* User Profile Card Widget */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm text-center">
-            <div className="h-16 w-16 rounded-full bg-slate-900 text-white font-black text-xl flex items-center justify-center mx-auto mb-3 shadow-md">
-              {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
-            </div>
+            {profile?.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt={profile.name}
+                className="h-16 w-16 rounded-full object-cover border-2 border-blue-500 shadow-md mx-auto mb-3"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-slate-900 text-white font-black text-xl flex items-center justify-center mx-auto mb-3 shadow-md">
+                {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
             <h3 className="font-bold text-slate-900 text-base">{profile?.name}</h3>
             <p className="text-xs font-semibold text-blue-600 mb-3">{profile?.role}</p>
             <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">

@@ -1,0 +1,41 @@
+{
+  "collections": {
+    "users": {
+      "description": "User profiles for PrevHub members and collaborators",
+      "fields": {
+        "uid": { "type": "string", "description": "Unique user ID from Firebase Auth" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "description": "Email address" },
+        "role": { "type": "string", "description": "Job title or role in the company (e.g. Diretor, Marketing, Atendimento)" },
+        "avatarUrl": { "type": "string", "description": "Avatar image URL or photo" },
+        "createdAt": { "type": "timestamp", "description": "When the account was created" }
+      }
+    },
+    "posts": {
+      "description": "Feed posts in the PrevHub internal communication network",
+      "fields": {
+        "authorUid": { "type": "string", "description": "ID of post author" },
+        "authorName": { "type": "string", "description": "Author name" },
+        "authorRole": { "type": "string", "description": "Author job title/role" },
+        "content": { "type": "string", "description": "Post text content" },
+        "category": { "type": "string", "description": "Category or channel (Geral, Comunicados, Marketing, Eventos, Ideias, Parcerias)" },
+        "imageUrl": { "type": "string", "description": "Optional attached image URL" },
+        "likesCount": { "type": "number", "description": "Total likes" },
+        "likedBy": { "type": "array", "description": "Array of user UIDs who liked this post" },
+        "commentsCount": { "type": "number", "description": "Total comments count" },
+        "isAnnouncement": { "type": "boolean", "description": "Whether this post is an official corporate announcement" },
+        "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
+      }
+    },
+    "posts/{postId}/comments": {
+      "description": "Comments on internal feed posts",
+      "fields": {
+        "authorUid": { "type": "string", "description": "Commenter UID" },
+        "authorName": { "type": "string", "description": "Commenter name" },
+        "authorRole": { "type": "string", "description": "Commenter role" },
+        "content": { "type": "string", "description": "Comment text" },
+        "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
+      }
+    }
+  }
+}

@@ -1,65 +1,118 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  activeTab: 'feed' | 'announcements' | 'partners' | 'members';
+  onTabChange: (tab: 'feed' | 'announcements' | 'partners' | 'members') => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
   return (
-    <header className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-14 sm:py-20 border-b border-slate-100">
-      {/* Background grid elements */}
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#f1f5f9_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f9_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-60" />
-      
-      {/* Interactive orbits subtle floating details in background to match logo's red orbits */}
-      <div className="absolute top-1/4 left-10 w-72 h-32 border-2 border-brand-red/5 rounded-full -rotate-12 -z-10 pointer-events-none hidden md:block" />
-      <div className="absolute bottom-1/4 right-10 w-96 h-40 border-2 border-brand-blue/5 rounded-full rotate-12 -z-10 pointer-events-none hidden md:block" />
+    <header className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 py-10 sm:py-14 text-white border-b border-slate-800 shadow-xl">
+      {/* Subtle background grid & glowing blurred shapes */}
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30" />
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
-        {/* Animated full high-fidelity logo */}
+        {/* Animated Bahia Prev Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7 }}
-          className="mb-8"
+          transition={{ duration: 0.5 }}
+          className="mb-4"
         >
-          <BahiaPrevLogo className="h-28 sm:h-36 drop-shadow-xl hover:scale-105 transition-transform duration-300 cursor-pointer" />
+          <BahiaPrevLogo className="h-20 sm:h-24 drop-shadow-2xl hover:scale-105 transition-transform duration-300 cursor-pointer" />
         </motion.div>
 
+        {/* PrevHub Tag Badge */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-xs font-bold text-white border border-brand-blue shadow-lg shadow-brand-blue/10 mb-6"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md px-4 py-1.5 text-xs font-bold text-white border border-white/15 shadow-lg mb-4"
         >
-          <span className="flex h-2 w-2 rounded-full bg-brand-red animate-pulse" />
-          <span className="tracking-wider uppercase text-[10px]">PLANO BAHIA PREV</span>
-          <span className="text-white/40">|</span>
-          <span className="text-white/90 font-medium">Área de Marketing</span>
+          <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="tracking-widest uppercase text-[11px] text-red-400 font-extrabold">PrevHub</span>
+          <span className="text-white/30">•</span>
+          <span className="text-slate-200 font-medium">Rede de Comunicação Interna Bahia Prev</span>
         </motion.div>
 
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="font-sans text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-brand-blue max-w-4xl mx-auto leading-[1.15]"
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="font-sans text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white max-w-3xl mx-auto leading-tight"
         >
-          Portal de Benefícios <br className="hidden sm:block" />
-          <span className="relative inline-block mt-2 text-brand-blue">
-            & Apoio ao Parceiro
-            <span className="absolute -bottom-2 left-0 w-full h-1.5 bg-brand-red rounded-full"></span>
-          </span>
+          Conectando Ideias, Equipes & Benefícios
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-8 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-3 text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed font-normal"
         >
-          Seja bem-vindo ao nosso espaço oficial de suporte ao credenciado. Clique em um parceiro abaixo para conferir seus detalhes de convênio, copiar contatos de atendimento e baixar os materiais.
+          O espaço oficial de interação do Bahia Prev. Compartilhe atualizações no feed, acompanhe comunicados e consulte nossa rede de parceiros.
         </motion.p>
+
+        {/* Navigation Tabs Bar */}
+        <div className="mt-8 p-1.5 bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-700/80 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shadow-xl">
+          <button
+            onClick={() => onTabChange('feed')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'feed'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <Radio className="h-4 w-4 text-red-400" />
+            <span>Mural PrevHub</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('announcements')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'announcements'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <Megaphone className="h-4 w-4 text-amber-400" />
+            <span>Comunicados</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('partners')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'partners'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <Handshake className="h-4 w-4 text-emerald-400" />
+            <span>Rede de Parceiros</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('members')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'members'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+            }`}
+          >
+            <Users className="h-4 w-4 text-blue-400" />
+            <span>Membros</span>
+          </button>
+        </div>
+
       </div>
     </header>
   );
 };
+
 
 

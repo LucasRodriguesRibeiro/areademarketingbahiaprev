@@ -19,10 +19,10 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToTop }) => {
             <BahiaPrevLogo className="h-20 sm:h-24 w-auto shrink-0 drop-shadow-md" />
             <div>
               <h3 className="font-sans font-extrabold text-white text-lg tracking-tight">
-                PLANO BAHIA PREV
+                PREVHUB • BAHIA PREV
               </h3>
               <p className="text-xs text-brand-red font-bold uppercase tracking-wider mt-1">
-                A Nossa Empresa &amp; Rede de Credenciados
+                Rede de Comunicação Interna &amp; Rede de Credenciados
               </p>
               <p className="text-xs text-slate-400 mt-3 leading-relaxed">
                 Oferecemos suporte completo aos parceiros e materiais de marketing atualizados. Acesse nossos canais oficiais para dúvidas e novos credenciamentos.

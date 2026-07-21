@@ -5,7 +5,7 @@ import { SUPPORT_MATERIALS } from '../data';
 import { 
   X, Copy, Check, Phone, ArrowUpRight, 
   Sparkles, Download, Edit2, Sliders, 
-  CheckCircle, Tag, AlertCircle 
+  CheckCircle, Tag, AlertCircle, Instagram
 } from 'lucide-react';
 
 interface PartnerDetailModalProps {
@@ -183,7 +183,7 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ partner,
                 {partner.name}
               </h2>
               <span className="text-[10px] sm:text-xs font-semibold text-slate-400 mt-1 block">
-                {partner.category} • Benefícios do Parceiro
+                Parceiro em {partner.city} • Benefícios do Parceiro
               </span>
             </div>
           </div>
@@ -225,18 +225,6 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ partner,
                     <Phone className="h-4 w-4 text-slate-500" />
                     <span>Número para Contato / Copiar</span>
                   </div>
-                  
-                  {partner.website && (
-                    <a
-                      href={partner.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold w-fit"
-                    >
-                      Website
-                      <ArrowUpRight className="h-3 w-3" />
-                    </a>
-                  )}
                 </div>
 
                 {/* Main Action Number Button */}
@@ -269,6 +257,22 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ partner,
                 <p className="text-[10px] sm:text-[11px] text-slate-400 mt-2.5 text-center">
                   Clique acima para copiar o número instantaneamente para a área de transferência.
                 </p>
+
+                {/* Beautiful Instagram access button requested by user */}
+                {partner.website && (
+                  <div className="mt-4 pt-4 border-t border-slate-200/50">
+                    <a
+                      href={partner.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full p-3 rounded-xl border border-pink-500/15 bg-gradient-to-r from-pink-500/5 to-purple-500/5 hover:from-pink-500/10 hover:to-purple-500/10 text-pink-600 hover:text-pink-700 flex items-center justify-center gap-2 font-bold text-xs sm:text-sm tracking-wide transition-all cursor-pointer group"
+                    >
+                      <Instagram className="h-4 w-4 shrink-0 text-pink-500 group-hover:scale-110 transition-transform" />
+                      <span>Acessar Instagram</span>
+                      <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-slate-400" />
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Quick instructions banner */}

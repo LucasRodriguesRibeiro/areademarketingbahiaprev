@@ -102,9 +102,6 @@ export const PartnerSection: React.FC<PartnerSectionProps> = ({ onSelectPartner 
                           {partner.name}
                         </h3>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-100 rounded-md px-1.5 py-0.5 inline-block">
-                            {partner.category}
-                          </span>
                           <span className="text-[9px] font-semibold text-red-600 bg-red-50 border border-red-100/50 rounded-md px-1.5 py-0.5 inline-block flex items-center gap-0.5">
                             <MapPin className="h-2.5 w-2.5 text-red-500" />
                             {partner.city}

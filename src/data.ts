@@ -247,7 +247,7 @@ export const PARTNERS: Partner[] = [
     description: 'Localizado em Wanderley. Musculação e atividade física com estrutura adequada. Falar com instrutor Beto.',
     logoColor: 'from-blue-700 to-red-600',
     telephone: '77 99913-8555',
-    website: 'https://instagram.com/academiapoweroficial',
+    website: 'https://www.instagram.com/academiapowerofficial/',
     exclusiveMaterials: ['post_desconto_parceiro'],
     city: 'Wanderley'
   },

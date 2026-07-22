@@ -899,38 +899,6 @@ export const FeedSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Important Notices Box */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-sm border border-slate-800">
-            <div className="flex items-center gap-2 mb-3">
-              <Megaphone className="h-4 w-4 text-red-400" />
-              <h4 className="font-extrabold text-sm tracking-wide uppercase text-slate-200">Avisos Fixados</h4>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Lembrete de equipe: Todos os novos cupons de descontos para clínicas e óticas conveniadas estão disponíveis na aba <span className="font-bold text-white">Rede de Parceiros</span>.
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-700/80">
-              <span>Bahia Prev • Gestão de Comunicação</span>
-            </div>
-          </div>
-
-          {/* Quick Stats Widget */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-              <span>Engajamento PrevHub</span>
-            </h4>
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="block text-xl font-extrabold text-slate-900">{posts.length}</span>
-                <span className="text-[11px] text-slate-500">Posts Ativos</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="block text-xl font-extrabold text-blue-600">100%</span>
-                <span className="text-[11px] text-slate-500">Rede Conectada</span>
-              </div>
-            </div>
-          </div>
-
         </div>
 
       </div>

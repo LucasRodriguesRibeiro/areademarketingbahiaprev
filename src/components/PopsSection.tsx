@@ -202,11 +202,6 @@ export const PopsSection: React.FC = () => {
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-xs font-bold">
-            <BookOpen className="h-4 w-4 text-cyan-400" />
-            <span>CENTRAL DE POPs & MANUAIS OPERACIONAIS</span>
-          </div>
-
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
             Procedimentos Operacionais Padrão (POP)
           </h2>
@@ -214,13 +209,6 @@ export const PopsSection: React.FC = () => {
           <p className="text-slate-300 text-sm leading-relaxed">
             Consulte os Procedimentos Operacionais Padrão (POP) específicos e direcionados para a função individual do seu cargo no Bahia Prev.
           </p>
-
-          <div className="pt-2 flex items-center gap-3">
-            <div className="bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/15 flex items-center gap-2 text-xs font-bold text-white">
-              <UserCheck className="h-4 w-4 text-emerald-400" />
-              <span>Seu Cargo Atual: <strong className="text-cyan-300">{userRole}</strong></span>
-            </div>
-          </div>
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">

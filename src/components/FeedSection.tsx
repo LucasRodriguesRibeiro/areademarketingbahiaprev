@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { playNotificationSound } from '../utils/sound';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
 import { 
@@ -64,10 +65,6 @@ export interface Comment {
 const CATEGORIES = [
   { id: 'Todos', label: 'Todos os Posts', icon: Filter },
   { id: 'Comunicado', label: '📢 Comunicados', color: 'bg-red-50 text-red-700 border-red-200' },
-  { id: 'Marketing', label: '🎯 Marketing', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { id: 'Ideia', label: '💡 Ideias', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { id: 'Evento', label: '🎉 Eventos', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { id: 'Parceria', label: '🤝 Parcerias', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 ];
 
 export const FeedSection: React.FC = () => {
@@ -75,6 +72,7 @@ export const FeedSection: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const knownPostIdsRef = useRef<Set<string> | null>(null);
 
   // Permission check: Administrador and Diretor (Jairo Queiroz) can publish posts & announcements
   const canPublish = profile?.role === 'Administrador' || profile?.role === 'Diretor' || profile?.email === 'marketing@bahiaprev.com.br' || profile?.email === 'jairoqueiroz@bahiaprev.com.br';
@@ -143,6 +141,22 @@ export const FeedSection: React.FC = () => {
         ...docSnap.data()
       })) as Post[];
 
+      // Real-time sound notification trigger for new posts or announcements
+      if (knownPostIdsRef.current === null) {
+        knownPostIdsRef.current = new Set(fetchedPosts.map(p => p.id));
+      } else {
+        const newPosts = fetchedPosts.filter(p => !knownPostIdsRef.current!.has(p.id));
+        if (newPosts.length > 0) {
+          const hasAnnouncement = newPosts.some(p => p.isAnnouncement || p.category === 'Comunicado');
+          if (hasAnnouncement) {
+            playNotificationSound('announcement');
+          } else {
+            playNotificationSound('post');
+          }
+        }
+        knownPostIdsRef.current = new Set(fetchedPosts.map(p => p.id));
+      }
+
       setPosts(fetchedPosts);
       setLoading(false);
     }, (error) => {
@@ -177,6 +191,12 @@ export const FeedSection: React.FC = () => {
         isAnnouncement: newCategory === 'Comunicado',
         createdAt: serverTimestamp()
       });
+
+      if (newCategory === 'Comunicado') {
+        playNotificationSound('announcement');
+      } else {
+        playNotificationSound('post');
+      }
 
       setNewContent('');
       setNewImageUrl('');
@@ -355,10 +375,6 @@ export const FeedSection: React.FC = () => {
                     >
                       <option value="Geral">📌 Geral</option>
                       <option value="Comunicado">📢 Comunicado</option>
-                      <option value="Marketing">🎯 Marketing</option>
-                      <option value="Ideia">💡 Ideia</option>
-                      <option value="Evento">🎉 Evento</option>
-                      <option value="Parceria">🤝 Parceria</option>
                     </select>
 
                     <button

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { playNotificationSound } from '../utils/sound';
 import { 
   CheckCircle2, 
   Circle, 
@@ -78,9 +79,10 @@ export const TasksSection: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [collaborators, setCollaborators] = useState<MemberOption[]>(DEFAULT_MEMBERS);
   const [loading, setLoading] = useState(true);
+  const knownTaskIdsRef = useRef<Set<string> | null>(null);
   
   // Filters and search
-  const [statusFilter, setStatusFilter] = useState<'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'minhas' | 'diretas'>('todas');
+  const [statusFilter, setStatusFilter] = useState<'abertas' | 'atrasadas' | 'concluida'>('abertas');
   const [priorityFilter, setPriorityFilter] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -240,6 +242,17 @@ export const TasksSection: React.FC = () => {
             }
           });
 
+          // Sound notification check for new tasks arriving in real time
+          if (knownTaskIdsRef.current === null) {
+            knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+          } else {
+            const hasNewTask = loaded.some((t) => !knownTaskIdsRef.current!.has(t.id));
+            if (hasNewTask) {
+              playNotificationSound('task');
+            }
+            knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+          }
+
           if (loaded.length === 0) {
             setTasks(getDefaultTasks());
           } else {
@@ -282,7 +295,7 @@ export const TasksSection: React.FC = () => {
   // Handle Create Task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!isAdmin || !newTitle.trim()) return;
 
     setSubmitting(true);
 
@@ -333,6 +346,7 @@ export const TasksSection: React.FC = () => {
         id: docRef.id,
       };
       saveTasksLocally([createdTask, ...tasks]);
+      playNotificationSound('task');
     } catch (err) {
       console.warn('Could not save to Firestore, saving locally:', err);
       const offlineTask: Task = {
@@ -340,6 +354,7 @@ export const TasksSection: React.FC = () => {
         id: 'local-' + Date.now(),
       };
       saveTasksLocally([offlineTask, ...tasks]);
+      playNotificationSound('task');
     } finally {
       setSubmitting(false);
       setNewTitle('');
@@ -383,21 +398,30 @@ export const TasksSection: React.FC = () => {
     }
   };
 
+  // Overdue calculation helper
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isTaskOverdue = (task: Task) => {
+    if (task.status === 'concluida') return false;
+    if (!task.dueDate) return false;
+    return task.dueDate < todayStr;
+  };
+
   // Calculations
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.status === 'concluida').length;
-  const inProgressTasks = tasks.filter((t) => t.status === 'em_andamento').length;
-  const pendingTasks = tasks.filter((t) => t.status === 'pendente').length;
-  const directTasksCount = tasks.filter((t) => t.assignedToEmail?.toLowerCase() === userEmail.toLowerCase() || t.assignedToName?.toLowerCase().includes(userName.toLowerCase())).length;
+  const overdueTasksCount = tasks.filter((t) => isTaskOverdue(t)).length;
+  const openTasksCount = tasks.filter((t) => t.status !== 'concluida' && !isTaskOverdue(t)).length;
   const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Filtered Tasks
   const filteredTasks = tasks.filter((task) => {
+    const overdue = isTaskOverdue(task);
+
     const matchesStatus = 
-      statusFilter === 'todas' ? true :
-      statusFilter === 'diretas' ? (task.assignedToType === 'specific_user' && (task.assignedToEmail?.toLowerCase() === userEmail.toLowerCase() || task.assignedToName?.toLowerCase().includes(userName.toLowerCase()))) :
-      statusFilter === 'minhas' ? (task.userId === userId || task.userEmail === userEmail) :
-      task.status === statusFilter;
+      statusFilter === 'abertas' ? (task.status !== 'concluida' && !overdue) :
+      statusFilter === 'atrasadas' ? overdue :
+      statusFilter === 'concluida' ? (task.status === 'concluida') :
+      true;
 
     const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter;
     const matchesSearch = 
@@ -447,39 +471,39 @@ export const TasksSection: React.FC = () => {
       </div>
 
       {/* Progress & Metrics Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Total */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Metric 1: Total Abertas */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">
-              Total Visíveis
+            <span className="text-[11px] font-extrabold text-blue-600 uppercase tracking-wider block">
+              Tarefas Abertas
             </span>
             <span className="text-2xl font-black text-slate-900 mt-1 block">
-              {totalTasks}
+              {openTasksCount}
             </span>
           </div>
-          <div className="h-12 w-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
-            <ListTodo className="h-6 w-6" />
+          <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100">
+            <Clock className="h-6 w-6" />
           </div>
         </div>
 
-        {/* Metric 2: Tarefas no meu nome */}
-        <div className="bg-white rounded-2xl p-5 border border-blue-200 shadow-sm flex items-center justify-between">
+        {/* Metric 2: Atrasadas */}
+        <div className="bg-white rounded-2xl p-5 border border-red-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-extrabold text-blue-700 uppercase tracking-wider block">
-              Atribuídas a Mim
+            <span className="text-[11px] font-extrabold text-red-600 uppercase tracking-wider block">
+              Atrasadas
             </span>
-            <span className="text-2xl font-black text-blue-600 mt-1 block">
-              {directTasksCount}
+            <span className="text-2xl font-black text-red-600 mt-1 block">
+              {overdueTasksCount}
             </span>
           </div>
-          <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
-            <UserCheck className="h-6 w-6" />
+          <div className="h-12 w-12 rounded-2xl bg-red-50 text-red-600 border border-red-200 flex items-center justify-center font-bold">
+            <AlertCircle className="h-6 w-6" />
           </div>
         </div>
 
         {/* Metric 3: Concluídas */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div className="bg-white rounded-2xl p-5 border border-emerald-200 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[11px] font-extrabold text-emerald-600 uppercase tracking-wider block">
               Concluídas
@@ -491,23 +515,6 @@ export const TasksSection: React.FC = () => {
           <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-        </div>
-
-        {/* Metric 4: Progress Bar */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-500 uppercase">
-            <span>Progresso das Tarefas</span>
-            <span className="text-blue-600 font-black">{completionPercentage}%</span>
-          </div>
-          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden my-2 border border-slate-200/60">
-            <div 
-              className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${completionPercentage}%` }}
-            />
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium text-right">
-            {completedTasks} de {totalTasks} concluídas
-          </span>
         </div>
       </div>
 
@@ -529,59 +536,52 @@ export const TasksSection: React.FC = () => {
         {/* Status Filters */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           <button
-            onClick={() => setStatusFilter('todas')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 ${
-              statusFilter === 'todas'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Todas
-          </button>
-
-          <button
-            onClick={() => setStatusFilter('diretas')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 ${
-              statusFilter === 'diretas'
+            onClick={() => setStatusFilter('abertas')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              statusFilter === 'abertas'
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
-            }`}
-          >
-            <UserCheck className="h-3.5 w-3.5 text-blue-500" />
-            <span>No Meu Nome ({directTasksCount})</span>
-          </button>
-
-          <button
-            onClick={() => setStatusFilter('pendente')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 ${
-              statusFilter === 'pendente'
-                ? 'bg-amber-600 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Pendentes ({pendingTasks})
+            <Clock className="h-3.5 w-3.5" />
+            <span>Abertas ({openTasksCount})</span>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('atrasadas')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              statusFilter === 'atrasadas'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+            }`}
+          >
+            <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+            <span>Atrasadas ({overdueTasksCount})</span>
           </button>
 
           <button
             onClick={() => setStatusFilter('concluida')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
               statusFilter === 'concluida'
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Concluídas ({completedTasks})
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Concluídas ({completedTasks})</span>
           </button>
         </div>
 
-        {/* Add New Task Button */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Criar / Atribuir Tarefa</span>
-        </button>
+        {/* Add New Task Button - Admin Only */}
+        {isAdmin && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Criar / Atribuir Tarefa</span>
+          </button>
+        )}
       </div>
 
       {/* Task Cards List */}
@@ -589,6 +589,7 @@ export const TasksSection: React.FC = () => {
         {filteredTasks.length > 0 ? (
           filteredTasks.map((task) => {
             const isAssignedToMe = task.assignedToEmail?.toLowerCase() === userEmail.toLowerCase() || task.assignedToName?.toLowerCase().includes(userName.toLowerCase());
+            const overdue = isTaskOverdue(task);
 
             return (
               <motion.div
@@ -598,6 +599,8 @@ export const TasksSection: React.FC = () => {
                 className={`bg-white rounded-2xl p-5 border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
                   task.status === 'concluida'
                     ? 'border-emerald-200 bg-emerald-50/20 opacity-80'
+                    : overdue
+                    ? 'border-red-300 bg-red-50/20 shadow-sm ring-1 ring-red-400/30'
                     : isAssignedToMe
                     ? 'border-blue-300 bg-blue-50/20 shadow-md ring-1 ring-blue-400/30'
                     : 'border-slate-200/80 shadow-sm hover:border-blue-200'
@@ -675,9 +678,11 @@ export const TasksSection: React.FC = () => {
                       )}
 
                       {task.dueDate && (
-                        <span className="flex items-center gap-1 text-slate-500">
-                          <Calendar className="h-3 w-3" />
-                          <span>Prazo: {task.dueDate.split('-').reverse().join('/')}</span>
+                        <span className={`flex items-center gap-1 ${
+                          overdue ? 'text-red-600 font-extrabold bg-red-50 px-2 py-0.5 rounded-lg border border-red-200' : 'text-slate-500'
+                        }`}>
+                          {overdue ? <AlertCircle className="h-3 w-3 text-red-600" /> : <Calendar className="h-3 w-3" />}
+                          <span>Prazo: {task.dueDate.split('-').reverse().join('/')} {overdue ? '(Atrasada)' : ''}</span>
                         </span>
                       )}
 
@@ -729,19 +734,21 @@ export const TasksSection: React.FC = () => {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Todas as tarefas atribuídas ao seu nome ou para a equipe aparecem aqui.
             </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
-            >
-              Criar / Atribuir Nova Tarefa
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Criar / Atribuir Nova Tarefa
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Modal Nova Tarefa com Seleção Nominal de Colaborador */}
+      {/* Modal Nova Tarefa com Seleção Nominal de Colaborador (Apenas Admin) */}
       <AnimatePresence>
-        {isModalOpen && (
+        {isModalOpen && isAdmin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}

@@ -1,5 +1,5 @@
 {
-  "name": "PrevHub",
+  "name": "PrevHub | Comunicação Bahia Prev",
   "description": "Rede de comunicação interna e portal de colaboradores do Bahia Prev.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

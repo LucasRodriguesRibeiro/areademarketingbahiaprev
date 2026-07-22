@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export type TabType = 'home' | 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
 
 interface HeaderProps {
   activeTab: TabType;
@@ -12,8 +12,7 @@ interface HeaderProps {
 
 const TAB_NAMES: Record<TabType, { name: string; icon: React.ElementType; color: string }> = {
   home: { name: 'Página Inicial', icon: Home, color: 'text-blue-400' },
-  feed: { name: 'Feed Interativo', icon: Radio, color: 'text-red-400' },
-  announcements: { name: 'Comunicados Oficiais', icon: Megaphone, color: 'text-amber-400' },
+  feed: { name: 'Feed & Comunicados', icon: Radio, color: 'text-red-400' },
   tasks: { name: 'Minhas Tarefas', icon: ListTodo, color: 'text-emerald-400' },
   marketing: { name: 'Área de Marketing', icon: Handshake, color: 'text-purple-400' },
   pops: { name: 'Procedimentos POP', icon: BookOpen, color: 'text-cyan-400' },
@@ -88,19 +87,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
             }`}
           >
             <Radio className="h-3.5 w-3.5 text-red-400" />
-            <span>Feed</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('announcements')}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'announcements'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <Megaphone className="h-3.5 w-3.5 text-amber-400" />
-            <span>Comunicados</span>
+            <span>Feed & Comunicados</span>
           </button>
 
           <button

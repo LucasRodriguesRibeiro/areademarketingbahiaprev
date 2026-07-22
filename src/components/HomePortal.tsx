@@ -16,7 +16,7 @@ import {
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export type TabType = 'home' | 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
 
 interface HomePortalProps {
   onSelectTab: (tab: TabType) => void;
@@ -39,27 +39,15 @@ interface ModuleCard {
 const MODULES: ModuleCard[] = [
   {
     id: 'feed',
-    title: 'Feed Interativo',
-    badge: 'Publicações & Redes',
-    description: 'Acompanhe novidades, interaja com postagens e veja as atualizações em tempo real da Bahia Prev.',
-    hoverDestination: 'Página do Feed Interativo de Notícias',
+    title: 'Feed & Comunicados',
+    badge: 'Publicações & Notícias',
+    description: 'Acompanhe novidades, comunicados oficiais da diretoria e interaja com as postagens da equipe Bahia Prev.',
+    hoverDestination: 'Página do Feed de Notícias e Comunicados',
     icon: Radio,
     iconBg: 'from-blue-600 to-indigo-600 text-white',
     borderColor: 'border-blue-500/30 hover:border-blue-500',
     hoverGlow: 'hover:shadow-blue-500/20',
     accentColor: 'text-blue-400 bg-blue-500/10 border-blue-500/30'
-  },
-  {
-    id: 'announcements',
-    title: 'Comunicados Oficiais',
-    badge: 'Mural da Diretoria',
-    description: 'Avisos importantes, diretrizes corporativas, comunicados urgentes e notas da liderança.',
-    hoverDestination: 'Página dedicada de Comunicados Oficiais',
-    icon: Megaphone,
-    iconBg: 'from-amber-500 to-orange-600 text-white',
-    borderColor: 'border-amber-500/30 hover:border-amber-500',
-    hoverGlow: 'hover:shadow-amber-500/20',
-    accentColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30'
   },
   {
     id: 'tasks',

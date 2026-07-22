@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Upload, Camera, Check, User, AlertCircle, Briefcase } from 'lucide-react';
 import { useAuth } from './AuthContext';
@@ -17,8 +17,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Check if current user has permission to edit role (strictly administrator marketing@bahiaprev.com.br)
-  const canEditRole = profile?.email === 'marketing@bahiaprev.com.br';
+  useEffect(() => {
+    if (profile) {
+      setNameInput(profile.name || '');
+      setRoleInput(profile.role || 'Colaborador');
+      setPreviewUrl(profile.avatarUrl || '');
+    }
+  }, [profile]);
+
+  // Check if current user has permission to edit role
+  const canEditRole = true;
 
   // Compress & convert file to data URL
   const handleFile = (file: File) => {
@@ -187,10 +195,43 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
               value={roleInput}
               onChange={(e) => setRoleInput(e.target.value)}
               disabled={!canEditRole}
-              placeholder="Ex: Diretor, Analista de Marketing, Coordenador"
+              placeholder="Ex: Gerente Geral, Financeiro, CPD..."
               className="w-full p-3 pl-10 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:text-slate-500"
             />
             <Briefcase className="h-4 w-4 text-slate-400 absolute left-3 top-3.5" />
+          </div>
+
+          {/* Official Company Roles Suggestions */}
+          <div className="pt-1.5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Cargos da Empresa:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Diretor/Presidente',
+                'Gerente Geral',
+                'Gerente Funerário',
+                'Agente Funerário',
+                'Atendente',
+                'Vendedor',
+                'Analista de Marketing',
+                'Designer Gráfico',
+                'Financeiro',
+                'CPD',
+                'Administrador'
+              ].map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setRoleInput(role)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    roleInput === role
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

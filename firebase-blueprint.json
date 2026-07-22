@@ -6,7 +6,7 @@
         "uid": { "type": "string", "description": "Unique user ID from Firebase Auth" },
         "name": { "type": "string", "description": "Full name of the user" },
         "email": { "type": "string", "description": "Email address" },
-        "role": { "type": "string", "description": "Job title or role in the company (e.g. Diretor, Marketing, Atendimento)" },
+        "role": { "type": "string", "description": "Job title or role in the company" },
         "avatarUrl": { "type": "string", "description": "Avatar image URL or photo" },
         "createdAt": { "type": "timestamp", "description": "When the account was created" }
       }
@@ -18,7 +18,7 @@
         "authorName": { "type": "string", "description": "Author name" },
         "authorRole": { "type": "string", "description": "Author job title/role" },
         "content": { "type": "string", "description": "Post text content" },
-        "category": { "type": "string", "description": "Category or channel (Geral, Comunicados, Marketing, Eventos, Ideias, Parcerias)" },
+        "category": { "type": "string", "description": "Category or channel" },
         "imageUrl": { "type": "string", "description": "Optional attached image URL" },
         "likesCount": { "type": "number", "description": "Total likes" },
         "likedBy": { "type": "array", "description": "Array of user UIDs who liked this post" },
@@ -27,15 +27,38 @@
         "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
       }
     },
-    "posts/{postId}/comments": {
-      "description": "Comments on internal feed posts",
+    "announcements": {
+      "description": "Official company announcements and board notices",
       "fields": {
-        "authorUid": { "type": "string", "description": "Commenter UID" },
-        "authorName": { "type": "string", "description": "Commenter name" },
-        "authorRole": { "type": "string", "description": "Commenter role" },
-        "content": { "type": "string", "description": "Comment text" },
-        "createdAt": { "type": "timestamp", "description": "Creation timestamp" }
+        "title": { "type": "string", "description": "Announcement title" },
+        "category": { "type": "string", "description": "Category" },
+        "content": { "type": "string", "description": "Announcement body content" },
+        "urgent": { "type": "boolean", "description": "Urgent/pinned status" },
+        "date": { "type": "string", "description": "Formatted date" },
+        "author": { "type": "string", "description": "Author display name" },
+        "authorUid": { "type": "string", "description": "Author UID" },
+        "authorEmail": { "type": "string", "description": "Author email" },
+        "createdAt": { "type": "timestamp", "description": "Timestamp" }
+      }
+    },
+    "tasks": {
+      "description": "Tasks and action items for team members",
+      "fields": {
+        "userId": { "type": "string", "description": "Creator UID" },
+        "title": { "type": "string", "description": "Task title" },
+        "description": { "type": "string", "description": "Task details" },
+        "priority": { "type": "string", "description": "Priority level" },
+        "status": { "type": "string", "description": "Task completion status" }
+      }
+    },
+    "pops": {
+      "description": "Standard Operating Procedures (POPs)",
+      "fields": {
+        "code": { "type": "string", "description": "POP identifier code" },
+        "title": { "type": "string", "description": "POP title" },
+        "category": { "type": "string", "description": "Department category" }
       }
     }
   }
 }
+

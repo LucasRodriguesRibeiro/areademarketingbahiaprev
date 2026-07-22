@@ -6,7 +6,7 @@ import {
   signOut,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 interface UserProfile {
@@ -16,6 +16,8 @@ interface UserProfile {
   role: string;
   avatarUrl?: string;
   createdAt: string;
+  isOnline?: boolean;
+  lastSeen?: string;
 }
 
 interface AuthContextType {
@@ -45,14 +47,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         {
           email: 'marketing@bahiaprev.com.br',
           password: 'LucasLucas2020$',
-          name: 'Lucas',
+          name: 'Lucas Rodrigues',
           role: 'Administrador'
         },
         {
           email: 'lucasrodrigues@bahiaprev.com.br',
           password: 'mkt@BP2025',
           name: 'Lucas Rodrigues',
-          role: 'Analista de Marketing'
+          role: 'Administrador'
         },
         {
           email: 'jairoqueiroz@bahiaprev.com.br',
@@ -92,31 +94,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ensureInitialUsers();
 
     const getCorrectRole = (email?: string, name?: string, currentRole?: string) => {
+      if (currentRole && currentRole.trim().length > 0) return currentRole;
       const e = (email || '').toLowerCase();
       const n = (name || '').toLowerCase();
-      if (e.includes('jairo') || n.includes('jairo')) return 'Diretor';
-      if (e === 'marketing@bahiaprev.com.br') return 'Administrador';
-      if (e.includes('lucasrodrigues')) return 'Analista de Marketing';
-      if (currentRole && currentRole !== 'Colaborador') return currentRole;
-      return currentRole || 'Colaborador';
+      if (e.includes('jairo') || n.includes('jairo')) return 'Diretor/Presidente';
+      if (e === 'marketing@bahiaprev.com.br' || e.includes('lucas')) return 'Administrador';
+      return 'Colaborador';
     };
+
+    let unsubsDoc: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      if (unsubsDoc) {
+        unsubsDoc();
+        unsubsDoc = null;
+      }
+
       if (firebaseUser) {
-        try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const data = userDocSnap.data() as UserProfile;
-            const correctRole = getCorrectRole(data.email || firebaseUser.email || '', data.name || firebaseUser.displayName || '', data.role);
-            if (data.role !== correctRole) {
-              data.role = correctRole;
-              await setDoc(userDocRef, { role: correctRole }, { merge: true });
-            }
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        // Mark user as online in Firestore
+        setDoc(userDocRef, { isOnline: true, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
+
+        // Keep heartbeat updated
+        const heartbeatInterval = setInterval(() => {
+          setDoc(userDocRef, { isOnline: true, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
+        }, 45000);
+
+        const handleUnload = () => {
+          setDoc(userDocRef, { isOnline: false, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
+        };
+        window.addEventListener('beforeunload', handleUnload);
+        
+        unsubsDoc = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data() as UserProfile;
             setProfile(data);
           } else {
-            // Fallback profile if Firestore doc doesn't exist yet
             const resolvedName = firebaseUser.displayName || (firebaseUser.email?.includes('jairo') ? 'Jairo Queiroz' : firebaseUser.email?.split('@')[0] || 'Usuário');
             const resolvedRole = getCorrectRole(firebaseUser.email || '', resolvedName);
             const initialProfile: UserProfile = {
@@ -124,21 +139,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: resolvedName,
               email: firebaseUser.email || '',
               role: resolvedRole,
+              isOnline: true,
+              lastSeen: new Date().toISOString(),
               createdAt: new Date().toISOString()
             };
             await setDoc(userDocRef, initialProfile, { merge: true });
             setProfile(initialProfile);
           }
-        } catch (error) {
-          console.error("Error loading user profile:", error);
-        }
+          setLoading(false);
+        }, (error) => {
+          console.error("Error listening to user profile:", error);
+          setLoading(false);
+        });
+
+        return () => {
+          clearInterval(heartbeatInterval);
+          window.removeEventListener('beforeunload', handleUnload);
+        };
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubsDoc) unsubsDoc();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -191,6 +218,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setLoading(true);
     try {
+      if (user) {
+        await setDoc(doc(db, 'users', user.uid), { isOnline: false, lastSeen: new Date().toISOString() }, { merge: true });
+      }
       await signOut(auth);
     } catch (error) {
       console.error("Error signing out:", error);

@@ -34,7 +34,14 @@ import {
   Lightbulb,
   PartyPopper,
   Handshake,
-  Filter
+  Filter,
+  Paperclip,
+  FileText,
+  X,
+  Download,
+  ExternalLink,
+  File,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -46,6 +53,9 @@ export interface Post {
   content: string;
   category: string;
   imageUrl?: string;
+  attachmentUrl?: string;
+  attachmentType?: 'image' | 'pdf' | 'doc' | 'file';
+  attachmentName?: string;
   likesCount: number;
   likedBy: string[];
   commentsCount: number;
@@ -94,15 +104,126 @@ export const FeedSection: React.FC = () => {
     return () => unsubUsers();
   }, []);
 
-  // Permission check: Administrador and Diretor (Jairo Queiroz) can publish posts & announcements
-  const canPublish = profile?.role === 'Administrador' || profile?.role === 'Diretor' || profile?.email === 'marketing@bahiaprev.com.br' || profile?.email === 'jairoqueiroz@bahiaprev.com.br';
+  // Permission check: Administrador, Diretor, Analista de Marketing, and Designer Gráfico can publish
+  const canPublish = profile?.role === 'Administrador' || 
+    profile?.role === 'Diretor' || 
+    profile?.role === 'Analista de Marketing' || 
+    profile?.role === 'Designer Gráfico' || 
+    profile?.email === 'marketing@bahiaprev.com.br' || 
+    profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
+    profile?.email === 'jairoqueiroz@bahiaprev.com.br';
 
   // New post form state
   const [newContent, setNewContent] = useState('');
   const [newCategory, setNewCategory] = useState('Geral');
   const [newImageUrl, setNewImageUrl] = useState('');
-  const [showImageInput, setShowImageInput] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<{
+    url: string;
+    type: 'image' | 'pdf' | 'doc' | 'file';
+    name: string;
+    size?: string;
+  } | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert("O arquivo selecionado excede 15MB. Por favor, escolha um arquivo menor.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawResult = event.target?.result as string;
+
+      if (file.type.startsWith('image/')) {
+        // Compress image using Canvas for fast load & Firestore compatibility
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const sizeKB = Math.round(compressedUrl.length / 1024);
+
+            setSelectedAttachment({
+              url: compressedUrl,
+              type: 'image',
+              name: file.name,
+              size: sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`
+            });
+          } else {
+            setSelectedAttachment({
+              url: rawResult,
+              type: 'image',
+              name: file.name,
+              size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            });
+          }
+          setShowUrlInput(false);
+          setNewImageUrl('');
+        };
+        img.onerror = () => {
+          setSelectedAttachment({
+            url: rawResult,
+            type: 'image',
+            name: file.name,
+            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          });
+          setShowUrlInput(false);
+          setNewImageUrl('');
+        };
+        img.src = rawResult;
+      } else {
+        let type: 'image' | 'pdf' | 'doc' | 'file' = 'file';
+        if (file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
+          type = 'pdf';
+        } else if (
+          file.type.includes('word') || 
+          file.name.toLowerCase().endsWith('.doc') || 
+          file.name.toLowerCase().endsWith('.docx')
+        ) {
+          type = 'doc';
+        }
+
+        const sizeFormatted = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+
+        setSelectedAttachment({
+          url: rawResult,
+          type,
+          name: file.name,
+          size: sizeFormatted
+        });
+        setShowUrlInput(false);
+        setNewImageUrl('');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Active comments toggles
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
@@ -110,62 +231,39 @@ export const FeedSection: React.FC = () => {
   const [commentInputMap, setCommentInputMap] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Initial demo seed posts if Firestore is empty
-  const SEED_POSTS: Omit<Post, 'id'>[] = [
-    {
-      authorUid: 'admin-seed-1',
-      authorName: 'Lucas (Marketing Bahia Prev)',
-      authorRole: 'Administrador / Marketing',
-      content: '🚀 Sejam todos muito bem-vindos ao PrevHub! Nossa nova rede de comunicação interna do Bahia Prev. Aqui compartilharemos novidades, materiais de apoio, comunicados de parceiros e trocaremos ideias do dia a dia.',
-      category: 'Comunicado',
-      likesCount: 12,
-      likedBy: [],
-      commentsCount: 2,
-      isAnnouncement: true,
-      createdAt: new Date(Date.now() - 3600000 * 2)
-    },
-    {
-      authorUid: 'admin-seed-2',
-      authorName: 'Equipe de Atendimento',
-      authorRole: 'Suporte Comercial',
-      content: '💡 Dica do dia: Ao atender clientes em busca do desconto de farmácia, lembrem-se de disponibilizar o cupom em formato digital através da nossa página de materiais promocionais!',
-      category: 'Ideia',
-      likesCount: 8,
-      likedBy: [],
-      commentsCount: 1,
-      createdAt: new Date(Date.now() - 3600000 * 5)
-    }
-  ];
-
   // Fetch real-time posts from Firestore
   useEffect(() => {
     const postsRef = collection(db, 'posts');
     const q = query(postsRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
-      if (snapshot.empty) {
-        // Seed initial welcoming post if DB is completely empty
-        try {
-          const firstPost = SEED_POSTS[0];
-          await addDoc(collection(db, 'posts'), {
-            ...firstPost,
-            createdAt: serverTimestamp()
-          });
-        } catch (e) {
-          console.error("Error seeding initial post:", e);
-        }
-      }
-
       const fetchedPosts: Post[] = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data()
       })) as Post[];
 
+      // Clean up any old seed posts or requested test posts if present in Firestore
+      for (const p of fetchedPosts) {
+        if (
+          p.authorUid?.startsWith('admin-seed-') || 
+          p.content?.trim() === 'Teste' || 
+          p.content?.trim() === 'Aviso importante'
+        ) {
+          deleteDoc(doc(db, 'posts', p.id)).catch(() => {});
+        }
+      }
+
+      const realPosts = fetchedPosts.filter(p => 
+        !p.authorUid?.startsWith('admin-seed-') && 
+        p.content?.trim() !== 'Teste' && 
+        p.content?.trim() !== 'Aviso importante'
+      );
+
       // Real-time sound notification trigger for new posts or announcements
       if (knownPostIdsRef.current === null) {
-        knownPostIdsRef.current = new Set(fetchedPosts.map(p => p.id));
+        knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
       } else {
-        const newPosts = fetchedPosts.filter(p => !knownPostIdsRef.current!.has(p.id));
+        const newPosts = realPosts.filter(p => !knownPostIdsRef.current!.has(p.id));
         if (newPosts.length > 0) {
           const hasAnnouncement = newPosts.some(p => p.isAnnouncement || p.category === 'Comunicado');
           if (hasAnnouncement) {
@@ -174,10 +272,10 @@ export const FeedSection: React.FC = () => {
             playNotificationSound('post');
           }
         }
-        knownPostIdsRef.current = new Set(fetchedPosts.map(p => p.id));
+        knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
       }
 
-      setPosts(fetchedPosts);
+      setPosts(realPosts);
       setLoading(false);
     }, (error) => {
       console.error("Error loading feed posts:", error);
@@ -191,20 +289,48 @@ export const FeedSection: React.FC = () => {
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canPublish) {
-      alert("Seu perfil de Analista de Marketing pode curtir e comentar, mas não possui permissão para publicar novas postagens no feed.");
+      alert("Seu perfil não possui permissão para publicar novas postagens no feed.");
       return;
     }
-    if (!newContent.trim() || !user || !profile) return;
+    if ((!newContent.trim() && !selectedAttachment && !newImageUrl.trim()) || !user || !profile) return;
 
     setPublishing(true);
     try {
+      let finalImageUrl: string | null = null;
+      let finalAttachmentUrl: string | null = null;
+      let finalAttachmentType: 'image' | 'pdf' | 'doc' | 'file' | null = null;
+      let finalAttachmentName: string | null = null;
+
+      if (selectedAttachment) {
+        if (selectedAttachment.type === 'image') {
+          finalImageUrl = selectedAttachment.url;
+        } else {
+          finalAttachmentUrl = selectedAttachment.url;
+          finalAttachmentType = selectedAttachment.type;
+          finalAttachmentName = selectedAttachment.name;
+        }
+      } else if (newImageUrl.trim()) {
+        const urlLower = newImageUrl.trim().toLowerCase();
+        if (urlLower.endsWith('.pdf') || urlLower.startsWith('data:application/pdf')) {
+          finalAttachmentUrl = newImageUrl.trim();
+          finalAttachmentType = 'pdf';
+          finalAttachmentName = 'Documento.pdf';
+        } else {
+          finalImageUrl = newImageUrl.trim();
+        }
+      }
+
       await addDoc(collection(db, 'posts'), {
         authorUid: user.uid,
+        authorEmail: user.email || null,
         authorName: profile.name || 'Colaborador',
         authorRole: profile.role || 'Bahia Prev',
         content: newContent.trim(),
         category: newCategory,
-        imageUrl: newImageUrl.trim() || null,
+        imageUrl: finalImageUrl,
+        attachmentUrl: finalAttachmentUrl,
+        attachmentType: finalAttachmentType,
+        attachmentName: finalAttachmentName,
         likesCount: 0,
         likedBy: [],
         commentsCount: 0,
@@ -220,7 +346,8 @@ export const FeedSection: React.FC = () => {
 
       setNewContent('');
       setNewImageUrl('');
-      setShowImageInput(false);
+      setSelectedAttachment(null);
+      setShowUrlInput(false);
       setNewCategory('Geral');
     } catch (err) {
       console.error("Error creating post:", err);
@@ -253,12 +380,21 @@ export const FeedSection: React.FC = () => {
   };
 
   // Handle Delete Post
-  const handleDeletePost = async (postId: string) => {
-    if (!window.confirm("Deseja realmente remover esta publicação do feed?")) return;
+  const handleDeletePost = (postId: string) => {
+    setPostToDelete(postId);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!postToDelete) return;
+    setDeletingPostId(postToDelete);
     try {
-      await deleteDoc(doc(db, 'posts', postId));
+      await deleteDoc(doc(db, 'posts', postToDelete));
+      setPostToDelete(null);
     } catch (err) {
       console.error("Error deleting post:", err);
+      alert("Erro ao excluir publicação. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
     }
   };
 
@@ -329,41 +465,31 @@ export const FeedSection: React.FC = () => {
         {/* Left / Main Feed Column */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* Create Post Card */}
-          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              {profile?.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt={profile.name}
-                  className="h-10 w-10 rounded-full object-cover border-2 border-blue-500 shadow-sm shrink-0"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
-                  {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
-                </div>
-              )}
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  {profile?.name}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {profile?.role} • Bahia Prev
-                </p>
-              </div>
-            </div>
-
-            {!canPublish ? (
-              <div className="flex items-start gap-3 bg-slate-50 border border-slate-200/80 p-4 rounded-xl text-xs text-slate-600">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+          {/* Create Post Card (Visible only to Publishers/Admins/Directors) */}
+          {canPublish && (
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                {profile?.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt={profile.name}
+                    className="h-10 w-10 rounded-full object-cover border-2 border-blue-500 shadow-sm shrink-0"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
+                    {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
                 <div>
-                  <strong className="text-slate-900 block font-bold text-xs mb-0.5">
-                    Modo Interativo • Analista de Marketing ({profile?.name})
-                  </strong>
-                  Seu perfil está configurado com permissão para curtir e comentar em todas as publicações do feed. A criação de novos posts é exclusiva dos administradores.
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {profile?.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {profile?.role} • Bahia Prev
+                  </p>
                 </div>
               </div>
-            ) : (
+
               <form onSubmit={handleCreatePost} className="space-y-3">
                 <textarea
                   value={newContent}
@@ -373,15 +499,69 @@ export const FeedSection: React.FC = () => {
                   className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                 />
 
-                {showImageInput && (
+                {/* Hidden File Input for documents and images */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelected}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  className="hidden"
+                />
+
+                {/* Selected File / Attachment Preview */}
+                {selectedAttachment && (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {selectedAttachment.type === 'image' ? (
+                        <div className="h-12 w-12 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-200">
+                          <img src={selectedAttachment.url} alt="Prévia" className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className={`p-2.5 rounded-lg shrink-0 ${
+                          selectedAttachment.type === 'pdf' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                        }`}>
+                          <FileText className="h-6 w-6" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{selectedAttachment.name}</p>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                          ANEXO: {selectedAttachment.type.toUpperCase()} {selectedAttachment.size ? `• ${selectedAttachment.size}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttachment(null)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                      title="Remover anexo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Optional Web URL Link Input */}
+                {showUrlInput && !selectedAttachment && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                    <input
-                      type="url"
-                      value={newImageUrl}
-                      onChange={(e) => setNewImageUrl(e.target.value)}
-                      placeholder="Cole a URL da imagem (opcional, ex: https://exemplo.com/imagem.png)"
-                      className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        placeholder="Cole a URL da imagem ou documento (ex: https://exemplo.com/arquivo.pdf)"
+                        className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      {newImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewImageUrl('')}
+                          className="p-2 text-slate-400 hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </motion.div>
                 )}
 
@@ -397,19 +577,31 @@ export const FeedSection: React.FC = () => {
                       <option value="Comunicado">📢 Comunicado</option>
                     </select>
 
+                    {/* Button to attach file directly from PC */}
                     <button
                       type="button"
-                      onClick={() => setShowImageInput(!showImageInput)}
-                      className="text-xs font-semibold text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs font-semibold text-slate-700 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200/60 shadow-sm"
                     >
-                      <ImageIcon className="h-4 w-4 text-slate-500" />
-                      <span>Anexar Imagem</span>
+                      <Paperclip className="h-4 w-4 text-blue-600" />
+                      <span>Anexar documento</span>
+                    </button>
+
+                    {/* Secondary URL option */}
+                    <button
+                      type="button"
+                      onClick={() => setShowUrlInput(!showUrlInput)}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Cole um link direto"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>{showUrlInput ? 'Ocultar URL' : 'Colar Link'}</span>
                     </button>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={publishing || !newContent.trim()}
+                    disabled={publishing || (!newContent.trim() && !selectedAttachment && !newImageUrl.trim())}
                     className="px-5 py-2 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
                   >
                     {publishing ? (
@@ -423,25 +615,10 @@ export const FeedSection: React.FC = () => {
                   </button>
                 </div>
               </form>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+
 
           {/* Posts Feed Stream */}
           {loading ? (
@@ -459,7 +636,17 @@ export const FeedSection: React.FC = () => {
             <div className="space-y-4">
               {filteredPosts.map((post) => {
                 const isLikedByMe = user ? post.likedBy?.includes(user.uid) : false;
-                const canDelete = user && (user.uid === post.authorUid || user.email === 'marketing@bahiaprev.com.br');
+                const canDelete = user && (
+                  user.uid === post.authorUid || 
+                  (post.authorEmail && user.email && post.authorEmail.toLowerCase() === user.email.toLowerCase()) ||
+                  (post.authorName && profile?.name && post.authorName.toLowerCase().trim() === profile.name.toLowerCase().trim()) ||
+                  user.email === 'marketing@bahiaprev.com.br' ||
+                  user.email === 'lucasrodrigues@bahiaprev.com.br' ||
+                  user.email === 'jairoqueiroz@bahiaprev.com.br' ||
+                  profile?.role === 'Administrador' ||
+                  profile?.role === 'Diretor' ||
+                  profile?.role === 'Analista de Marketing'
+                );
                 
                 const userProfile = usersMap[post.authorUid];
                 const displayAuthorName = userProfile?.name || post.authorName || 'Colaborador';
@@ -533,17 +720,61 @@ export const FeedSection: React.FC = () => {
                       {post.content}
                     </p>
 
-                    {/* Attached Image */}
-                    {post.imageUrl && (
-                      <div className="mb-4 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-96">
-                        <img 
-                          src={post.imageUrl} 
-                          alt="Anexo da publicação" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                        />
-                      </div>
-                    )}
+                    {/* Attached Image or PDF/Document */}
+                    {(() => {
+                      const img = post.imageUrl || (post.attachmentType === 'image' ? post.attachmentUrl : null);
+                      const isPdfOrDoc = (post.attachmentType && post.attachmentType !== 'image') || (
+                        post.imageUrl && (post.imageUrl.toLowerCase().includes('.pdf') || post.imageUrl.startsWith('data:application/pdf'))
+                      );
+                      const docUrl = isPdfOrDoc ? (post.attachmentUrl || post.imageUrl) : null;
+                      const docName = post.attachmentName || (
+                        docUrl?.startsWith('data:application/pdf') ? 'Documento_Anexo.pdf' : 'Documento Anexo'
+                      );
+
+                      if (img && !isPdfOrDoc) {
+                        return (
+                          <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-900/95 flex items-center justify-center max-h-[480px] w-full shadow-inner">
+                            <img 
+                              src={img} 
+                              alt="Anexo da publicação" 
+                              className="max-h-[480px] w-auto max-w-full object-contain mx-auto transition-transform duration-200"
+                              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (docUrl) {
+                        return (
+                          <div className="mb-4 p-3.5 rounded-xl border border-slate-200/90 bg-slate-50 flex items-center justify-between gap-3 hover:bg-slate-100/80 transition-colors shadow-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-3 rounded-lg bg-red-100 text-red-600 shrink-0 shadow-sm">
+                                <FileText className="h-6 w-6" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate">{docName}</p>
+                                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                  DOCUMENTO ANEXO ({post.attachmentType?.toUpperCase() || 'PDF'})
+                                </p>
+                              </div>
+                            </div>
+                            <a
+                              href={docUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={docName}
+                              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-1.5 shrink-0 shadow-sm"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Visualizar / Baixar</span>
+                              <span className="sm:hidden">Baixar</span>
+                            </a>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })()}
 
                     {/* Footer Actions (Like, Comment, Share) */}
                     <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-600">
@@ -703,6 +934,63 @@ export const FeedSection: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Modal de Confirmação de Exclusão de Post */}
+      <AnimatePresence>
+        {postToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <Trash2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Excluir Publicação</h3>
+                  <p className="text-xs text-slate-500">Esta ação não poderá ser desfeita</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Tem certeza de que deseja remover esta publicação do feed? Ela e seus anexos serão excluídos para todos os colaboradores.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPostToDelete(null)}
+                  disabled={!!deletingPostId}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeletePost}
+                  disabled={!!deletingPostId}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {deletingPostId ? (
+                    <>
+                      <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Excluir Definitivamente</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

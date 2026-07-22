@@ -21,7 +21,12 @@ import {
   ShieldCheck,
   Send,
   Users,
-  UserCheck
+  UserCheck,
+  Paperclip,
+  FileText,
+  Upload,
+  Eye,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
@@ -35,7 +40,7 @@ export interface Task {
   createdByName?: string; // creator Name
   title: string;
   description: string;
-  category: string;
+  category?: string;
   priority: 'baixa' | 'media' | 'alta';
   status: 'pendente' | 'em_andamento' | 'concluida';
   dueDate: string;
@@ -44,6 +49,17 @@ export interface Task {
   assignedToType: 'specific_user' | 'all' | 'me';
   assignedToName?: string;
   assignedToEmail?: string;
+  attachmentName?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  // Completion / Delivery fields
+  completionAttachmentName?: string;
+  completionAttachmentUrl?: string;
+  completionAttachmentType?: string;
+  completionNote?: string;
+  completedAt?: string;
+  completedByEmail?: string;
+  completedByName?: string;
 }
 
 export interface MemberOption {
@@ -58,19 +74,13 @@ const DEFAULT_MEMBERS: MemberOption[] = [
     uid: 'm-lucas-mkt',
     name: 'Lucas Rodrigues',
     email: 'lucasrodrigues@bahiaprev.com.br',
-    role: 'Analista de Marketing'
+    role: 'Administrador'
   },
   {
     uid: 'm-jairo',
     name: 'Jairo Queiroz',
     email: 'jairoqueiroz@bahiaprev.com.br',
     role: 'Diretor'
-  },
-  {
-    uid: 'm-admin',
-    name: 'Lucas',
-    email: 'marketing@bahiaprev.com.br',
-    role: 'Administrador do Sistema'
   }
 ];
 
@@ -85,16 +95,66 @@ export const TasksSection: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'abertas' | 'atrasadas' | 'concluida'>('abertas');
   const [priorityFilter, setPriorityFilter] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUserFilterForCompleted, setSelectedUserFilterForCompleted] = useState<string>('todos');
+
+  // Modal for viewing task details and submitting completion delivery
+  const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null);
+  const [completionAttachmentFile, setCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
+  const [completionNoteText, setCompletionNoteText] = useState<string>('');
 
   // Modal for new task
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [newCategory, setNewCategory] = useState('Geral');
   const [newPriority, setNewPriority] = useState<'baixa' | 'media' | 'alta'>('media');
   const [newDueDate, setNewDueDate] = useState('');
   const [selectedRecipient, setSelectedRecipient] = useState<string>('me'); // 'me' | 'all' | email
+  const [attachmentFile, setAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('O arquivo de entrega deve ter no máximo 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setCompletionAttachmentFile({
+          name: file.name,
+          url: event.target.result as string,
+          type: file.type
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('O arquivo deve ter no máximo 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setAttachmentFile({
+          name: file.name,
+          url: event.target.result as string,
+          type: file.type
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const userRole = profile?.role || 'Colaborador';
   const userEmail = user?.email || 'colaborador@bahiaprev.com.br';
@@ -105,33 +165,51 @@ export const TasksSection: React.FC = () => {
     userRole.toLowerCase().includes('admin') || 
     userRole.toLowerCase().includes('diretor') || 
     userEmail === 'marketing@bahiaprev.com.br' ||
+    userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
     userEmail === 'jairoqueiroz@bahiaprev.com.br';
 
   // Fetch registered team members from Firestore
   useEffect(() => {
     const usersRef = collection(db, 'users');
     const unsubUsers = onSnapshot(usersRef, (snapshot) => {
-      const fetched: MemberOption[] = snapshot.docs.map(docSnap => {
+      const map: Record<string, MemberOption> = {
+        'lucas': {
+          uid: 'm-lucas-mkt',
+          name: 'Lucas Rodrigues',
+          email: 'lucasrodrigues@bahiaprev.com.br',
+          role: 'Administrador'
+        },
+        'jairo': {
+          uid: 'm-jairo',
+          name: 'Jairo Queiroz',
+          email: 'jairoqueiroz@bahiaprev.com.br',
+          role: 'Diretor'
+        }
+      };
+
+      snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        return {
-          uid: docSnap.id,
-          name: data.name || data.email?.split('@')[0] || 'Colaborador',
-          email: data.email || '',
-          role: data.role || 'Colaborador'
-        };
+        const email = (data.email || '').toLowerCase();
+        const name = (data.name || '').toLowerCase();
+
+        if (email.includes('lucas') || name.includes('lucas') || email === 'marketing@bahiaprev.com.br') {
+          map['lucas'] = {
+            uid: docSnap.id,
+            name: 'Lucas Rodrigues',
+            email: 'lucasrodrigues@bahiaprev.com.br',
+            role: 'Administrador'
+          };
+        } else if (email.includes('jairo') || name.includes('jairo')) {
+          map['jairo'] = {
+            uid: docSnap.id,
+            name: 'Jairo Queiroz',
+            email: 'jairoqueiroz@bahiaprev.com.br',
+            role: 'Diretor'
+          };
+        }
       });
 
-      if (fetched.length > 0) {
-        const merged = [...fetched];
-        DEFAULT_MEMBERS.forEach(defMember => {
-          if (!merged.some(m => m.email === defMember.email)) {
-            merged.push(defMember);
-          }
-        });
-        setCollaborators(merged);
-      } else {
-        setCollaborators(DEFAULT_MEMBERS);
-      }
+      setCollaborators(Object.values(map));
     }, (err) => {
       console.warn('Error fetching collaborators list:', err);
       setCollaborators(DEFAULT_MEMBERS);
@@ -237,6 +315,16 @@ export const TasksSection: React.FC = () => {
                 assignedToType: assignedType,
                 assignedToName: assignedName || (assignedType === 'all' ? 'Todos os Colaboradores' : userName),
                 assignedToEmail: assignedEmail || userEmail,
+                attachmentName: data.attachmentName || undefined,
+                attachmentUrl: data.attachmentUrl || undefined,
+                attachmentType: data.attachmentType || undefined,
+                completionAttachmentName: data.completionAttachmentName || undefined,
+                completionAttachmentUrl: data.completionAttachmentUrl || undefined,
+                completionAttachmentType: data.completionAttachmentType || undefined,
+                completionNote: data.completionNote || undefined,
+                completedAt: data.completedAt || undefined,
+                completedByEmail: data.completedByEmail || undefined,
+                completedByName: data.completedByName || undefined,
                 createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
               });
             }
@@ -325,7 +413,7 @@ export const TasksSection: React.FC = () => {
       createdByName: `${userName} (${userRole})`,
       title: newTitle.trim(),
       description: newDescription.trim(),
-      category: newCategory.trim() || 'Geral',
+      category: 'Geral',
       priority: newPriority,
       status: 'pendente',
       dueDate: newDueDate || new Date().toISOString().split('T')[0],
@@ -333,6 +421,11 @@ export const TasksSection: React.FC = () => {
       assignedToType: assignedType,
       assignedToName: assignedName,
       assignedToEmail: assignedEmail,
+      ...(attachmentFile ? {
+        attachmentName: attachmentFile.name,
+        attachmentUrl: attachmentFile.url,
+        attachmentType: attachmentFile.type,
+      } : {})
     };
 
     try {
@@ -361,6 +454,7 @@ export const TasksSection: React.FC = () => {
       setNewDescription('');
       setNewDueDate('');
       setSelectedRecipient('me');
+      setAttachmentFile(null);
       setIsModalOpen(false);
     }
   };
@@ -372,14 +466,65 @@ export const TasksSection: React.FC = () => {
     else if (task.status === 'em_andamento') nextStatus = 'concluida';
     else nextStatus = 'pendente';
 
-    const updated = tasks.map((t) => t.id === task.id ? { ...t, status: nextStatus } : t);
+    const updatePayload: Partial<Task> = {
+      status: nextStatus,
+    };
+
+    if (nextStatus === 'concluida') {
+      updatePayload.completedAt = new Date().toISOString();
+      updatePayload.completedByEmail = userEmail;
+      updatePayload.completedByName = userName;
+    }
+
+    const updated = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload } : t);
     saveTasksLocally(updated);
+
+    if (selectedTaskForView?.id === task.id) {
+      setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
+    }
 
     if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
       try {
-        await updateDoc(doc(db, 'user_tasks', task.id), { status: nextStatus });
+        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
       } catch (err) {
         console.warn('Error updating task status in Firestore:', err);
+      }
+    }
+  };
+
+  // Handle Save Completion Delivery with attachment and note
+  const handleSaveCompletionDelivery = async (task: Task) => {
+    const updatePayload: Partial<Task> = {
+      status: 'concluida',
+      completedAt: new Date().toISOString(),
+      completedByEmail: userEmail,
+      completedByName: userName,
+    };
+
+    if (completionAttachmentFile) {
+      updatePayload.completionAttachmentName = completionAttachmentFile.name;
+      updatePayload.completionAttachmentUrl = completionAttachmentFile.url;
+      updatePayload.completionAttachmentType = completionAttachmentFile.type;
+    }
+    if (completionNoteText.trim()) {
+      updatePayload.completionNote = completionNoteText.trim();
+    }
+
+    const updatedTasks = tasks.map((t) => (t.id === task.id ? { ...t, ...updatePayload } : t));
+    saveTasksLocally(updatedTasks);
+
+    if (selectedTaskForView?.id === task.id) {
+      setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
+    }
+
+    setCompletionAttachmentFile(null);
+    setCompletionNoteText('');
+
+    if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
+      try {
+        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
+      } catch (err) {
+        console.warn('Error saving completion delivery in Firestore:', err);
       }
     }
   };
@@ -411,7 +556,19 @@ export const TasksSection: React.FC = () => {
   const completedTasks = tasks.filter((t) => t.status === 'concluida').length;
   const overdueTasksCount = tasks.filter((t) => isTaskOverdue(t)).length;
   const openTasksCount = tasks.filter((t) => t.status !== 'concluida' && !isTaskOverdue(t)).length;
-  const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // Completed Tasks User List Grouping
+  const completedUsersMap: Record<string, { name: string; email: string; count: number }> = {};
+  tasks.filter(t => t.status === 'concluida').forEach(t => {
+    const name = t.completedByName || t.assignedToName || 'Colaborador';
+    const email = t.completedByEmail || t.assignedToEmail || name;
+    const key = email.toLowerCase();
+    if (!completedUsersMap[key]) {
+      completedUsersMap[key] = { name, email, count: 0 };
+    }
+    completedUsersMap[key].count += 1;
+  });
+  const completedUsersList = Object.values(completedUsersMap);
 
   // Filtered Tasks
   const filteredTasks = tasks.filter((task) => {
@@ -427,11 +584,19 @@ export const TasksSection: React.FC = () => {
     const matchesSearch = 
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (task.category && task.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (task.assignedToName && task.assignedToName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (task.createdByName && task.createdByName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    return matchesStatus && matchesPriority && matchesSearch;
+    const matchesUserCompletedFilter = 
+      statusFilter !== 'concluida' ||
+      selectedUserFilterForCompleted === 'todos' ||
+      task.assignedToEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
+      task.completedByEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
+      task.assignedToName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase()) ||
+      task.completedByName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase());
+
+    return matchesStatus && matchesPriority && matchesSearch && matchesUserCompletedFilter;
   });
 
   return (
@@ -584,6 +749,50 @@ export const TasksSection: React.FC = () => {
         )}
       </div>
 
+      {/* Sub-bar for Completed Tasks: Filter by User List */}
+      {statusFilter === 'concluida' && (
+        <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-2.5 shadow-2xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-xs font-black text-emerald-900 uppercase tracking-wider">
+              <Users className="h-4 w-4 text-emerald-600" />
+              <span>Lista de Usuários com Tarefas Concluídas</span>
+            </div>
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              {completedTasks} tarefa(s) finalizada(s)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setSelectedUserFilterForCompleted('todos')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedUserFilterForCompleted === 'todos'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-100/50'
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Todos os Usuários ({completedTasks})</span>
+            </button>
+
+            {completedUsersList.map((usr) => (
+              <button
+                key={usr.email || usr.name}
+                onClick={() => setSelectedUserFilterForCompleted(usr.email || usr.name)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedUserFilterForCompleted.toLowerCase() === (usr.email || usr.name).toLowerCase()
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-100/50'
+                }`}
+              >
+                <UserCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span>{usr.name} ({usr.count})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Task Cards List */}
       <div className="space-y-3">
         {filteredTasks.length > 0 ? (
@@ -625,9 +834,13 @@ export const TasksSection: React.FC = () => {
                   {/* Task Details */}
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className={`font-extrabold text-sm text-slate-900 leading-snug ${
-                        task.status === 'concluida' ? 'line-through text-slate-400' : ''
-                      }`}>
+                      <h4
+                        onClick={() => setSelectedTaskForView(task)}
+                        className={`font-extrabold text-sm text-slate-900 leading-snug cursor-pointer hover:text-blue-600 transition-colors ${
+                          task.status === 'concluida' ? 'line-through text-slate-400' : ''
+                        }`}
+                        title="Clique para abrir detalhes da tarefa"
+                      >
                         {task.title}
                       </h4>
 
@@ -643,11 +856,6 @@ export const TasksSection: React.FC = () => {
                         <span>Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
                       </span>
 
-                      {/* Category Tag */}
-                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                        {task.category}
-                      </span>
-
                       {/* Priority Badge */}
                       <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase ${
                         task.priority === 'alta'
@@ -661,12 +869,47 @@ export const TasksSection: React.FC = () => {
                     </div>
 
                     {task.description && (
-                      <p className={`text-xs text-slate-600 leading-relaxed ${
-                        task.status === 'concluida' ? 'line-through text-slate-400' : ''
-                      }`}>
+                      <p
+                        onClick={() => setSelectedTaskForView(task)}
+                        className={`text-xs text-slate-600 leading-relaxed cursor-pointer hover:text-slate-900 transition-colors ${
+                          task.status === 'concluida' ? 'line-through text-slate-400' : ''
+                        }`}
+                        title="Clique para abrir detalhes"
+                      >
                         {task.description}
                       </p>
                     )}
+
+                    {/* Attachments Links (Initial & Completion) */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {task.attachmentUrl && (
+                        <a
+                          href={task.attachmentUrl}
+                          download={task.attachmentName || 'documento_anexo'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold text-blue-700 transition-colors shadow-2xs"
+                          title="Documento anexado no envio da tarefa"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate max-w-[200px]">Anexo Inicial: {task.attachmentName || 'Documento'}</span>
+                        </a>
+                      )}
+
+                      {task.completionAttachmentUrl && (
+                        <a
+                          href={task.completionAttachmentUrl}
+                          download={task.completionAttachmentName || 'documento_entrega'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800 transition-colors shadow-2xs"
+                          title="Clique para baixar o documento entregue pelo colaborador"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate max-w-[200px]">Anexo Conclusão: {task.completionAttachmentName || 'Entrega'}</span>
+                        </a>
+                      )}
+                    </div>
 
                     {/* Creator & Due Date Metadata */}
                     <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 pt-0.5">
@@ -674,6 +917,13 @@ export const TasksSection: React.FC = () => {
                         <span className="font-medium text-slate-600 flex items-center gap-1">
                           <User className="h-3 w-3 text-slate-400" />
                           <span>Enviado por: <strong>{task.createdByName}</strong></span>
+                        </span>
+                      )}
+
+                      {task.status === 'concluida' && task.completedByName && (
+                        <span className="font-bold text-emerald-800 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          <span>Concluído por: {task.completedByName}</span>
                         </span>
                       )}
 
@@ -702,27 +952,13 @@ export const TasksSection: React.FC = () => {
                 {/* Action Controls */}
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                   <button
-                    onClick={() => handleToggleStatus(task)}
-                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-colors cursor-pointer ${
-                      task.status === 'concluida'
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        : task.status === 'em_andamento'
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                        : 'bg-amber-500 hover:bg-amber-600 text-white'
-                    }`}
+                    onClick={() => setSelectedTaskForView(task)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    title="Abrir tarefa e ver detalhes"
                   >
-                    {task.status === 'concluida' ? 'Reabrir' : task.status === 'em_andamento' ? 'Concluir' : 'Iniciar'}
+                    <Eye className="h-4 w-4" />
+                    <span>Abrir</span>
                   </button>
-
-                  {(isAdmin || task.userId === userId || task.userEmail === userEmail) && (
-                    <button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                      title="Excluir tarefa"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
               </motion.div>
             );
@@ -834,24 +1070,6 @@ export const TasksSection: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Categoria / Setor
-                    </label>
-                    <select
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="Marketing">Marketing</option>
-                      <option value="Atendimento">Atendimento</option>
-                      <option value="Convênios">Convênios</option>
-                      <option value="Institucional">Institucional</option>
-                      <option value="Administração">Administração</option>
-                      <option value="Geral">Geral</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Prioridade
                     </label>
                     <select
@@ -863,6 +1081,39 @@ export const TasksSection: React.FC = () => {
                       <option value="media">Média</option>
                       <option value="alta">Alta</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                      <Paperclip className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Anexar Documento</span>
+                    </label>
+                    {attachmentFile ? (
+                      <div className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                        <span className="truncate max-w-[110px] font-bold" title={attachmentFile.name}>
+                          {attachmentFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachmentFile(null)}
+                          className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-blue-100 cursor-pointer"
+                          title="Remover anexo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 cursor-pointer transition-colors h-[38px]">
+                        <Paperclip className="h-4 w-4 text-blue-600" />
+                        <span>Anexar Arquivo</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileChange}
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
 
@@ -896,6 +1147,301 @@ export const TasksSection: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal para Visualizar Detalhes da Tarefa Atribuída */}
+      <AnimatePresence>
+        {selectedTaskForView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative space-y-6 max-h-[90vh] overflow-y-auto text-left"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 inline-block">
+                    Detalhes da Tarefa Atribuída
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 leading-snug pt-1">
+                    {selectedTaskForView.title}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedTaskForView(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Status and Badges */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Priority */}
+                <span className={`text-xs font-black px-3 py-1 rounded-lg uppercase ${
+                  selectedTaskForView.priority === 'alta'
+                    ? 'bg-red-100 text-red-700 border border-red-200'
+                    : selectedTaskForView.priority === 'media'
+                    ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                    : 'bg-blue-100 text-blue-700 border border-blue-200'
+                }`}>
+                  Prioridade: {selectedTaskForView.priority === 'alta' ? 'Alta' : selectedTaskForView.priority === 'media' ? 'Média' : 'Baixa'}
+                </span>
+
+                {/* Status */}
+                <span className={`text-xs font-black px-3 py-1 rounded-lg ${
+                  selectedTaskForView.status === 'concluida'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : selectedTaskForView.status === 'em_andamento'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                }`}>
+                  Status: {selectedTaskForView.status === 'concluida' ? 'Concluída' : selectedTaskForView.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}
+                </span>
+
+                {/* Destinado a */}
+                <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg flex items-center gap-1">
+                  <UserCheck className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Para: <strong>{selectedTaskForView.assignedToName || 'Colaborador'}</strong></span>
+                </span>
+              </div>
+
+              {/* Metadata Box */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs text-slate-600">
+                {selectedTaskForView.createdByName && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span>Enviado por: <strong className="text-slate-800">{selectedTaskForView.createdByName}</strong></span>
+                  </div>
+                )}
+                {selectedTaskForView.dueDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span>Prazo Final: <strong className="text-slate-800">{selectedTaskForView.dueDate.split('-').reverse().join('/')}</strong></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Description / Instructions */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>Descrição e Instruções Escritas</span>
+                </h4>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-sm text-slate-800 leading-relaxed whitespace-pre-wrap font-medium max-h-60 overflow-y-auto">
+                  {selectedTaskForView.description || 'Nenhuma instrução adicional gravada para esta tarefa.'}
+                </div>
+              </div>
+
+              {/* Attachment Download Box (if initial attachment exists) */}
+              {selectedTaskForView.attachmentUrl && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Paperclip className="h-4 w-4 text-blue-600" />
+                    <span>Documento Anexo Inicial</span>
+                  </h4>
+                  <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 bg-blue-600 text-white rounded-xl shrink-0">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.attachmentName}>
+                          {selectedTaskForView.attachmentName || 'Documento Anexo'}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Arquivo anexado ao criar a tarefa
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedTaskForView.attachmentUrl}
+                      download={selectedTaskForView.attachmentName || 'documento_anexo'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Baixar Anexo Inicial</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Completion Delivery Box (if delivered document or note exists) */}
+              {(selectedTaskForView.completionAttachmentUrl || selectedTaskForView.completionNote || selectedTaskForView.completedByName) && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h4 className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Entrega e Comprovante de Conclusão</span>
+                  </h4>
+
+                  <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3">
+                    {selectedTaskForView.completedByName && (
+                      <p className="text-xs text-emerald-900 font-bold">
+                        Entregue por: <strong className="text-slate-900">{selectedTaskForView.completedByName}</strong>
+                        {selectedTaskForView.completedAt && (
+                          <span className="font-normal text-emerald-700"> em {new Date(selectedTaskForView.completedAt).toLocaleString('pt-BR')}</span>
+                        )}
+                      </p>
+                    )}
+
+                    {selectedTaskForView.completionNote && (
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-bold text-emerald-800 uppercase">Observação de Entrega:</span>
+                        <p className="text-xs text-slate-800 bg-white/90 p-3 rounded-xl border border-emerald-100 leading-relaxed font-medium">
+                          "{selectedTaskForView.completionNote}"
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedTaskForView.completionAttachmentUrl && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 bg-emerald-600 text-white rounded-xl shrink-0">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.completionAttachmentName}>
+                              {selectedTaskForView.completionAttachmentName || 'Documento de Entrega'}
+                            </p>
+                            <p className="text-[11px] text-emerald-700">
+                              Anexo enviado no término da tarefa
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={selectedTaskForView.completionAttachmentUrl}
+                          download={selectedTaskForView.completionAttachmentName || 'documento_entregue'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Baixar Documento Entregue</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Form to Attach Document and Deliver Completion */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Upload className="h-4 w-4 text-blue-600" />
+                  <span>Anexar Documento de Entrega / Resposta</span>
+                </h4>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Anexe o documento final ou relatório de conclusão para enviar a tarefa entregue ao criador.
+                </p>
+
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    id="completion-file-input"
+                    onChange={handleCompletionFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="completion-file-input"
+                    className="w-full px-4 py-2.5 bg-white border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Paperclip className="h-4 w-4 text-blue-600" />
+                    <span className="truncate">{completionAttachmentFile ? completionAttachmentFile.name : 'Clique para escolher documento de entrega (PDF, Imagem, Doc)'}</span>
+                  </label>
+
+                  {completionAttachmentFile && (
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                      <span className="truncate font-bold">{completionAttachmentFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCompletionAttachmentFile(null)}
+                        className="text-red-500 hover:text-red-700 font-black px-1 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  <textarea
+                    value={completionNoteText}
+                    onChange={(e) => setCompletionNoteText(e.target.value)}
+                    placeholder="Escreva uma observação de entrega (opcional)..."
+                    rows={2}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+
+                  {(completionAttachmentFile || completionNoteText) && (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Enviar Anexo de Entrega & Concluir Tarefa</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleStatus(selectedTaskForView);
+                      const nextStatus = selectedTaskForView.status === 'concluida' ? 'pendente' : selectedTaskForView.status === 'em_andamento' ? 'concluida' : 'em_andamento';
+                      setSelectedTaskForView({ ...selectedTaskForView, status: nextStatus });
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      selectedTaskForView.status === 'concluida'
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        : selectedTaskForView.status === 'em_andamento'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'bg-amber-500 hover:bg-amber-600 text-white'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>
+                      {selectedTaskForView.status === 'concluida'
+                        ? 'Reabrir Tarefa'
+                        : selectedTaskForView.status === 'em_andamento'
+                        ? 'Marcar como Concluída'
+                        : 'Iniciar Tarefa'}
+                    </span>
+                  </button>
+
+                  {(isAdmin || selectedTaskForView.userId === userId || selectedTaskForView.userEmail === userEmail) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteTask(selectedTaskForView.id);
+                        setSelectedTaskForView(null);
+                      }}
+                      className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-200"
+                      title="Excluir esta tarefa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTaskForView(null)}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -12,6 +12,8 @@ interface MemberProfile {
   role: string;
   avatarUrl?: string;
   createdAt?: string;
+  isOnline?: boolean;
+  lastSeen?: string;
 }
 
 interface MembersSectionProps {
@@ -19,7 +21,7 @@ interface MembersSectionProps {
 }
 
 export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileModal }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, updateUserProfile } = useAuth();
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,8 +32,11 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
   const [savingRole, setSavingRole] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Check if current user can edit roles (strictly system administrator marketing@bahiaprev.com.br)
-  const canManageRoles = profile?.email === 'marketing@bahiaprev.com.br';
+  // Check if current user can edit roles
+  const canManageRoles = profile?.email === 'marketing@bahiaprev.com.br' || 
+                         profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
+                         profile?.role === 'Administrador' || 
+                         profile?.role === 'Diretor';
 
   const handleOpenRoleModal = (member: MemberProfile) => {
     setEditingMember(member);
@@ -41,17 +46,37 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
   const handleSaveMemberRole = async () => {
     if (!editingMember || !newRoleInput.trim()) return;
     setSavingRole(true);
+    const updatedRole = newRoleInput.trim();
     try {
       const userRef = doc(db, 'users', editingMember.uid);
       await setDoc(userRef, {
         uid: editingMember.uid,
         name: editingMember.name,
         email: editingMember.email,
-        role: newRoleInput.trim()
+        role: updatedRole
       }, { merge: true });
 
-      setMembers(prev => prev.map(m => m.uid === editingMember.uid ? { ...m, role: newRoleInput.trim() } : m));
-      setToastMsg(`Cargo de ${editingMember.name} atualizado para "${newRoleInput.trim()}"!`);
+      const isCurrentUser = user && (
+        editingMember.uid === user.uid || 
+        editingMember.email?.toLowerCase() === user.email?.toLowerCase() ||
+        editingMember.email?.toLowerCase().includes('lucas') ||
+        editingMember.email?.toLowerCase() === 'marketing@bahiaprev.com.br'
+      );
+
+      if (isCurrentUser) {
+        if (user.uid !== editingMember.uid) {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            name: editingMember.name,
+            email: user.email || editingMember.email,
+            role: updatedRole
+          }, { merge: true });
+        }
+        await updateUserProfile({ role: updatedRole });
+      }
+
+      setMembers(prev => prev.map(m => m.uid === editingMember.uid ? { ...m, role: updatedRole } : m));
+      setToastMsg(`Cargo de ${editingMember.name} atualizado para "${updatedRole}"!`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
     } catch (err) {
@@ -61,14 +86,14 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     }
   };
 
-  // Fallback list featuring the 3 existing profiles of the app
+  // Default team members list
   const DEMO_MEMBERS: MemberProfile[] = [
     {
-      uid: 'm-admin',
-      name: 'Lucas',
-      email: 'marketing@bahiaprev.com.br',
-      role: 'Administrador do Sistema',
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=250&q=80'
+      uid: 'm-lucas',
+      name: 'Lucas Rodrigues',
+      email: 'lucasrodrigues@bahiaprev.com.br',
+      role: 'Administrador',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
     },
     {
       uid: 'm-jairo',
@@ -76,119 +101,86 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       email: 'jairoqueiroz@bahiaprev.com.br',
       role: 'Diretor',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
-    },
-    {
-      uid: 'm-lucas',
-      name: 'Lucas Rodrigues',
-      email: 'lucasrodrigues@bahiaprev.com.br',
-      role: 'Analista de Marketing',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
     }
   ];
-
-  // Map avatars for known emails if Firestore profile doesn't have custom image
-  const getAvatarForMember = (email: string, name: string) => {
-    if (email === 'marketing@bahiaprev.com.br') {
-      return 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=250&q=80';
-    }
-    if (email === 'jairoqueiroz@bahiaprev.com.br') {
-      return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80';
-    }
-    if (email === 'lucasrodrigues@bahiaprev.com.br') {
-      return 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80';
-    }
-    return undefined;
-  };
-
-  // Resolve correct role for team members
-  const getRoleForMember = (email: string, name: string, role?: string) => {
-    const normEmail = (email || '').toLowerCase();
-    const normName = (name || '').toLowerCase();
-    if (normEmail.includes('jairo') || normName.includes('jairo')) return 'Diretor';
-    if (normEmail === 'marketing@bahiaprev.com.br') return 'Administrador';
-    if (normEmail.includes('lucasrodrigues')) return 'Analista de Marketing';
-    if (role && role !== 'Colaborador') return role;
-    return role || 'Colaborador';
-  };
 
   useEffect(() => {
     const usersRef = collection(db, 'users');
     const unsubscribe = onSnapshot(usersRef, (snapshot) => {
-      const fetched: MemberProfile[] = snapshot.docs.map(docSnap => {
+      const mergedMap: Record<string, MemberProfile> = {
+        'lucas': {
+          uid: 'm-lucas',
+          name: 'Lucas Rodrigues',
+          email: 'lucasrodrigues@bahiaprev.com.br',
+          role: profile?.role || 'Administrador',
+          avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
+        },
+        'jairo': {
+          uid: 'm-jairo',
+          name: 'Jairo Queiroz',
+          email: 'jairoqueiroz@bahiaprev.com.br',
+          role: 'Diretor/Presidente',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+        }
+      };
+
+      snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const email = data.email || '';
-        const name = data.name || '';
-        const resolvedRole = getRoleForMember(email, name, data.role);
-        return {
-          uid: docSnap.id,
-          name: name,
-          email: email,
-          role: resolvedRole,
-          avatarUrl: data.avatarUrl || getAvatarForMember(email, name),
-          createdAt: data.createdAt
-        };
+        const email = (data.email || '').toLowerCase();
+        const name = (data.name || '').toLowerCase();
+
+        const docIsOnline = data.isOnline === true || (
+          data.lastSeen && (new Date().getTime() - new Date(data.lastSeen).getTime() < 120000)
+        );
+
+        if (email.includes('lucas') || name.includes('lucas') || email === 'marketing@bahiaprev.com.br') {
+          const isUserDoc = user && docSnap.id === user.uid;
+          let role = data.role || mergedMap['lucas'].role;
+          if (mergedMap['lucas'].role === 'Administrador' && role === 'Analista de Marketing') {
+            role = 'Administrador';
+          }
+
+          mergedMap['lucas'] = {
+            uid: isUserDoc ? user.uid : (mergedMap['lucas'].uid || docSnap.id),
+            name: data.name || mergedMap['lucas'].name,
+            email: 'lucasrodrigues@bahiaprev.com.br',
+            role: role,
+            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || mergedMap['lucas'].avatarUrl),
+            createdAt: data.createdAt,
+            isOnline: isUserDoc ? true : Boolean(docIsOnline),
+            lastSeen: data.lastSeen
+          };
+        } else if (email.includes('jairo') || name.includes('jairo')) {
+          const isUserDoc = user && docSnap.id === user.uid;
+          mergedMap['jairo'] = {
+            uid: isUserDoc ? user.uid : (mergedMap['jairo'].uid || docSnap.id),
+            name: data.name || mergedMap['jairo'].name,
+            email: 'jairoqueiroz@bahiaprev.com.br',
+            role: data.role || mergedMap['jairo'].role,
+            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || mergedMap['jairo'].avatarUrl),
+            createdAt: data.createdAt,
+            isOnline: isUserDoc ? true : Boolean(docIsOnline),
+            lastSeen: data.lastSeen
+          };
+        }
       });
 
-      if (fetched.length > 0) {
-        // Merge duplicate accounts for the same person (matching name or email)
-        const mergedList: MemberProfile[] = [];
-
-        fetched.forEach(item => {
-          const normName = (item.name || '').trim().toLowerCase();
-          const normEmail = (item.email || '').trim().toLowerCase();
-
-          const existingIndex = mergedList.findIndex(p => {
-            const pName = (p.name || '').trim().toLowerCase();
-            const pEmail = (p.email || '').trim().toLowerCase();
-
-            const sameName = normName && pName && (normName === pName || normName.includes(pName) || pName.includes(normName));
-            const sameEmail = normEmail && pEmail && normEmail === pEmail;
-            
-            // Explicit check for Jairo & Lucas variations
-            const bothJairo = (normName.includes('jairo') || normEmail.includes('jairo')) && 
-                              (pName.includes('jairo') || pEmail.includes('jairo'));
-            const bothLucas = (normName.includes('lucas') || normEmail.includes('lucas')) && 
-                              (pName.includes('lucas') || pEmail.includes('lucas'));
-
-            return sameName || sameEmail || bothJairo || bothLucas;
-          });
-
-          if (existingIndex === -1) {
-            mergedList.push({ ...item });
-          } else {
-            const existing = mergedList[existingIndex];
-            
-            // Determine if item or existing is the currently logged in user UID
-            const isItemCurrentUser = user && item.uid === user.uid;
-            const targetUid = isItemCurrentUser ? item.uid : existing.uid;
-
-            // Prefer custom data:image avatars over stock images
-            const chosenAvatar = (item.avatarUrl && item.avatarUrl.startsWith('data:')) 
-              ? item.avatarUrl 
-              : (existing.avatarUrl?.startsWith('data:') ? existing.avatarUrl : (item.avatarUrl || existing.avatarUrl));
-
-            // Prefer specific roles over 'Colaborador'
-            const chosenRole = getRoleForMember(
-              item.email || existing.email,
-              item.name || existing.name,
-              (item.role && item.role !== 'Colaborador') ? item.role : existing.role
-            );
-
-            mergedList[existingIndex] = {
-              uid: targetUid,
-              name: (item.name && item.name.length >= (existing.name?.length || 0)) ? item.name : existing.name,
-              email: item.email || existing.email,
-              role: chosenRole,
-              avatarUrl: chosenAvatar,
-              createdAt: item.createdAt || existing.createdAt
-            };
-          }
-        });
-
-        setMembers(mergedList);
-      } else {
-        setMembers(DEMO_MEMBERS);
+      // Always force active logged-in profile data onto the respective card
+      if (profile) {
+        const pEmail = (profile.email || '').toLowerCase();
+        const pName = (profile.name || '').toLowerCase();
+        if (pEmail.includes('lucas') || pName.includes('lucas') || pEmail === 'marketing@bahiaprev.com.br') {
+          if (profile.role) mergedMap['lucas'].role = profile.role;
+          if (profile.avatarUrl) mergedMap['lucas'].avatarUrl = profile.avatarUrl;
+          if (profile.name) mergedMap['lucas'].name = profile.name;
+        } else if (pEmail.includes('jairo') || pName.includes('jairo')) {
+          if (profile.role) mergedMap['jairo'].role = profile.role;
+          if (profile.avatarUrl) mergedMap['jairo'].avatarUrl = profile.avatarUrl;
+          if (profile.name) mergedMap['jairo'].name = profile.name;
+        }
       }
+
+      setMembers(Object.values(mergedMap));
       setLoading(false);
     }, (err) => {
       console.error("Error fetching members:", err);
@@ -197,7 +189,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, profile]);
 
   const filteredMembers = members.filter(m => 
     m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -219,7 +211,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
             Equipe Bahia Prev
           </h2>
           <p className="text-slate-600 text-sm mt-1">
-            Conheça os colaboradores, diretores e administradores ativos no PrevHub.
+            Conheça a equipe do Plano Bahia Prev.
           </p>
         </div>
 
@@ -259,6 +251,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredMembers.map((member) => {
             const isCurrentUser = user?.email === member.email || user?.uid === member.uid;
+            const isOnline = isCurrentUser || Boolean(member.isOnline);
 
             return (
               <motion.div
@@ -284,7 +277,11 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
                       {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
                     </div>
                   )}
-                  <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white" title="Ativo" />
+                  {isOnline ? (
+                    <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-emerald-500/20" title="Online no sistema" />
+                  ) : (
+                    <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-slate-300 border-2 border-white" title="Offline" />
+                  )}
                 </div>
 
                 {/* Name & Role (Cargo) */}
@@ -391,9 +388,21 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
 
               {/* Suggestions / Quick selection */}
               <div className="pt-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Sugestões rápidas:</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Cargos da Empresa:</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {['Diretor', 'Gerente', 'Coordenador', 'Analista de Marketing', 'Consultor', 'Colaborador'].map((preset) => (
+                  {[
+                    'Diretor/Presidente',
+                    'Gerente Geral',
+                    'Gerente Funerário',
+                    'Agente Funerário',
+                    'Atendente',
+                    'Vendedor',
+                    'Analista de Marketing',
+                    'Designer Gráfico',
+                    'Financeiro',
+                    'CPD',
+                    'Administrador'
+                  ].map((preset) => (
                     <button
                       key={preset}
                       type="button"

@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header, TabType } from './components/Header';
 import { HomePortal } from './components/HomePortal';
 import { FeedSection } from './components/FeedSection';
 import { AboutCompanySection } from './components/AboutCompanySection';
-import { AnnouncementsSection } from './components/AnnouncementsSection';
 import { PopsSection } from './components/PopsSection';
 import { PartnerSection } from './components/PartnerSection';
 import { MembersSection } from './components/MembersSection';
@@ -27,6 +26,10 @@ function MainAppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeTab]);
 
   const handleScrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -177,7 +180,6 @@ function MainAppContent() {
               />
             )}
             {activeTab === 'feed' && <FeedSection />}
-            {activeTab === 'announcements' && <AnnouncementsSection />}
             {activeTab === 'members' && <MembersSection onOpenProfileModal={() => setIsProfileModalOpen(true)} />}
             {activeTab === 'tasks' && <TasksSection />}
             {activeTab === 'pops' && <PopsSection />}

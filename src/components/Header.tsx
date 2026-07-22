@@ -1,147 +1,166 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, MessageSquare, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo } from 'lucide-react';
+import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
+export type TabType = 'home' | 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+
 interface HeaderProps {
-  activeTab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
-  onTabChange: (tab: 'feed' | 'announcements' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks') => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
 }
 
+const TAB_NAMES: Record<TabType, { name: string; icon: React.ElementType; color: string }> = {
+  home: { name: 'Página Inicial', icon: Home, color: 'text-blue-400' },
+  feed: { name: 'Feed Interativo', icon: Radio, color: 'text-red-400' },
+  announcements: { name: 'Comunicados Oficiais', icon: Megaphone, color: 'text-amber-400' },
+  tasks: { name: 'Minhas Tarefas', icon: ListTodo, color: 'text-emerald-400' },
+  marketing: { name: 'Área de Marketing', icon: Handshake, color: 'text-purple-400' },
+  pops: { name: 'Procedimentos POP', icon: BookOpen, color: 'text-cyan-400' },
+  members: { name: 'Nossa Equipe', icon: Users, color: 'text-rose-400' },
+  about: { name: 'Sobre Nós', icon: Sparkles, color: 'text-yellow-400' },
+};
+
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
+  // When activeTab is 'home', the HomePortal component is rendered in the main body.
+  if (activeTab === 'home') {
+    return null; // HomePortal handles the hero header for Home
+  }
+
+  const currentTabInfo = TAB_NAMES[activeTab] || TAB_NAMES.feed;
+  const Icon = currentTabInfo.icon;
+
   return (
-    <header className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 py-10 sm:py-14 text-white border-b border-slate-800 shadow-xl">
-      {/* Subtle background grid & glowing blurred shapes */}
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30" />
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+    <header className="relative overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900 py-4 sm:py-6 px-3 sm:px-6 lg:px-8 text-white border-b border-slate-800 shadow-xl">
+      {/* Subtle background grid */}
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3rem_3rem] opacity-20" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
-        {/* Animated Bahia Prev Logo */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="mb-4"
-        >
-          <BahiaPrevLogo className="h-20 sm:h-24 drop-shadow-2xl hover:scale-105 transition-transform duration-300 cursor-pointer" />
-        </motion.div>
+      <div className="mx-auto max-w-7xl flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
+        
+        {/* Left: Voltar à Página Inicial + Breadcrumb & Logo */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full md:w-auto">
+          {/* Voltar Botão */}
+          <button
+            onClick={() => onTabChange('home')}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 border border-blue-400/30 group w-full sm:w-auto"
+            title="Voltar para a Página Inicial (Menu com Módulos em Quadrados)"
+          >
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <span>← Voltar para Página Inicial</span>
+          </button>
 
-        {/* PrevHub Official Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md px-4 py-1.5 text-xs font-bold text-white border border-white/15 shadow-lg mb-4"
-        >
-          <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="tracking-widest uppercase text-[11px] text-red-400 font-extrabold">PrevHub</span>
-          <span className="text-white/30">•</span>
-          <span className="text-slate-200 font-medium">Espaço Oficial de Comunicação Interna Bahia Prev</span>
-        </motion.div>
+          <div className="h-6 w-px bg-slate-800 hidden sm:block" />
 
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="font-sans text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white max-w-3xl mx-auto leading-tight"
-        >
-          PrevHub • Comunicação Interna Bahia Prev
-        </motion.h1>
+          {/* Logo & Current Page Breadcrumb */}
+          <div className="flex items-center gap-3">
+            <div onClick={() => onTabChange('home')} className="cursor-pointer shrink-0">
+              <BahiaPrevLogo className="h-8 sm:h-10 w-auto hover:opacity-90 transition-opacity" />
+            </div>
+            
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+                <span 
+                  onClick={() => onTabChange('home')}
+                  className="hover:text-blue-300 cursor-pointer transition-colors flex items-center gap-1 shrink-0"
+                >
+                  <Home className="h-3 w-3" />
+                  Início
+                </span>
+                <span>/</span>
+                <span className="text-slate-200 font-semibold truncate">{currentTabInfo.name}</span>
+              </div>
+              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight flex items-center gap-2 truncate">
+                <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${currentTabInfo.color} shrink-0`} />
+                <span className="truncate">{currentTabInfo.name}</span>
+              </h1>
+            </div>
+          </div>
+        </div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-3.5 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal"
-        >
-          Aprenda sobre a empresa, conheça todos os parceiros, suas funções e acompanhe todos os nossos comunicados.
-        </motion.p>
-
-        {/* Navigation Tabs Bar */}
-        <div className="mt-8 p-1.5 bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-700/80 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shadow-xl">
+        {/* Right: Quick Page Navigation Switcher */}
+        <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0">
           <button
             onClick={() => onTabChange('feed')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'feed'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Radio className="h-4 w-4 text-red-400" />
+            <Radio className="h-3.5 w-3.5 text-red-400" />
             <span>Feed</span>
           </button>
 
           <button
             onClick={() => onTabChange('announcements')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'announcements'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Megaphone className="h-4 w-4 text-amber-400" />
+            <Megaphone className="h-3.5 w-3.5 text-amber-400" />
             <span>Comunicados</span>
           </button>
 
           <button
-            onClick={() => onTabChange('marketing')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'marketing'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-            }`}
-          >
-            <Handshake className="h-4 w-4 text-emerald-400" />
-            <span>Área de Marketing</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('about')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'about'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-            }`}
-          >
-            <Sparkles className="h-4 w-4 text-amber-300" />
-            <span>Sobre Nós</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('members')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'members'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-            }`}
-          >
-            <Users className="h-4 w-4 text-purple-400" />
-            <span>Equipe</span>
-          </button>
-
-          <button
             onClick={() => onTabChange('tasks')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'tasks'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <ListTodo className="h-4 w-4 text-emerald-400" />
-            <span>Minhas Tarefas</span>
+            <ListTodo className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Tarefas</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('marketing')}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'marketing'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Handshake className="h-3.5 w-3.5 text-purple-400" />
+            <span>Marketing</span>
           </button>
 
           <button
             onClick={() => onTabChange('pops')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'pops'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <BookOpen className="h-4 w-4 text-cyan-400" />
-            <span>Acessar POP</span>
+            <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
+            <span>POP</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('members')}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'members'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Users className="h-3.5 w-3.5 text-rose-400" />
+            <span>Equipe</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('about')}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'about'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
+            <span>Sobre</span>
           </button>
         </div>
 
@@ -149,6 +168,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
     </header>
   );
 };
+
 
 
 

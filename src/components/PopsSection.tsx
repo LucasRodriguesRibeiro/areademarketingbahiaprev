@@ -478,7 +478,7 @@ export const PopsSection: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200/80 relative space-y-6"
+              className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border border-slate-200/80 relative space-y-6 max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
               <div className="flex items-start justify-between gap-4">

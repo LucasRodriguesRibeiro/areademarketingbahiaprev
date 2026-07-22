@@ -6,3 +6,20 @@
   --color-brand-blue: #13224F;
   --color-brand-red: #E31C24;
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Ensure smooth touch scrolling on iOS/mobile */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+

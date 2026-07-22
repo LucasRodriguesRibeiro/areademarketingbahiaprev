@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { X, Upload, Camera, Check, Image as ImageIcon, Sparkles, User, AlertCircle } from 'lucide-react';
+import { X, Upload, Camera, Check, User, AlertCircle, Briefcase } from 'lucide-react';
 import { useAuth } from './AuthContext';
 
 interface UserProfileModalProps {
@@ -8,18 +8,23 @@ interface UserProfileModalProps {
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
-  const { profile, updateAvatarUrl } = useAuth();
+  const { profile, updateUserProfile } = useAuth();
+  const [nameInput, setNameInput] = useState<string>(profile?.name || '');
+  const [roleInput, setRoleInput] = useState<string>(profile?.role || 'Colaborador');
   const [previewUrl, setPreviewUrl] = useState<string>(profile?.avatarUrl || '');
-  const [customUrlInput, setCustomUrlInput] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Check if current user has permission to edit role (strictly administrator marketing@bahiaprev.com.br)
+  const canEditRole = profile?.email === 'marketing@bahiaprev.com.br';
+
   // Compress & convert file to data URL
   const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Por favor, selecione um arquivo de imagem válido (.jpg, .png, .webp).');
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      setErrorMsg('Por favor, envie um arquivo de imagem nos formatos JPEG ou PNG (.jpg, .jpeg, .png).');
       return;
     }
 
@@ -94,15 +99,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
   };
 
   const handleSave = async () => {
-    if (!previewUrl) return;
+    if (!nameInput.trim()) {
+      setErrorMsg('O nome não pode ficar em branco.');
+      return;
+    }
     setSaving(true);
     setErrorMsg(null);
     try {
-      await updateAvatarUrl(previewUrl);
+      await updateUserProfile({
+        name: nameInput.trim(),
+        role: canEditRole ? roleInput.trim() : (profile?.role || 'Colaborador'),
+        avatarUrl: previewUrl || undefined
+      });
       onClose();
     } catch (err) {
-      console.error('Erro ao atualizar foto de perfil:', err);
-      setErrorMsg('Não foi possível salvar a imagem. Tente novamente.');
+      console.error('Erro ao atualizar perfil:', err);
+      setErrorMsg('Não foi possível salvar as alterações. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -114,20 +126,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200/80 relative overflow-hidden space-y-6"
+        className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-8 shadow-2xl border border-slate-200/80 relative overflow-hidden space-y-6 max-h-[90vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold mb-2">
-              <Camera className="h-3.5 w-3.5 text-blue-600" />
-              <span>FOTO DE PERFIL</span>
+              <User className="h-3.5 w-3.5 text-blue-600" />
+              <span>MEU PERFIL</span>
             </div>
             <h3 className="text-xl font-extrabold text-slate-900">
-              Atualizar Sua Foto
+              Editar Nome e Foto
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              {profile?.name} • {profile?.role}
+              {profile?.email} • {profile?.role}
             </p>
           </div>
 
@@ -147,6 +159,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           </div>
         )}
 
+        {/* Name Input Field */}
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            Seu Nome de Usuário:
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Digite seu nome completo"
+              className="w-full p-3 pl-10 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            <User className="h-4 w-4 text-slate-400 absolute left-3 top-3.5" />
+          </div>
+        </div>
+
+        {/* Role (Cargo) Input Field */}
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            <span>Cargo / Função:</span>
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={roleInput}
+              onChange={(e) => setRoleInput(e.target.value)}
+              disabled={!canEditRole}
+              placeholder="Ex: Diretor, Analista de Marketing, Coordenador"
+              className="w-full p-3 pl-10 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:text-slate-500"
+            />
+            <Briefcase className="h-4 w-4 text-slate-400 absolute left-3 top-3.5" />
+          </div>
+        </div>
+
         {/* Current / New Avatar Preview */}
         <div className="flex flex-col items-center justify-center space-y-3 py-2">
           <div className="relative group">
@@ -158,7 +205,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
               />
             ) : (
               <div className="h-28 w-28 rounded-full bg-slate-900 text-white font-extrabold text-3xl flex items-center justify-center border-4 border-slate-300 shadow-lg">
-                {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                {(nameInput || profile?.name || 'U').charAt(0).toUpperCase()}
               </div>
             )}
 
@@ -171,8 +218,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
             </button>
           </div>
 
-          <p className="text-[11px] text-slate-500 font-medium">
-            Sua foto será exibida no Feed, Comunicados e na área de Equipe
+          <p className="text-[11px] text-slate-500 font-medium text-center">
+            Envie um arquivo PNG ou JPEG para atualizar sua foto de perfil
           </p>
         </div>
 
@@ -192,7 +239,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -204,36 +251,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
               Clique para selecionar ou arraste sua foto aqui
             </span>
             <span className="text-[11px] text-slate-400">
-              Suporta PNG, JPG ou WEBP (máx. 5MB)
+              Formatação permitida: JPEG ou PNG (máx. 5MB)
             </span>
-          </div>
-        </div>
-
-        {/* Option to paste image URL */}
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            Ou informe a URL da Imagem:
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="url"
-              value={customUrlInput}
-              onChange={(e) => setCustomUrlInput(e.target.value)}
-              placeholder="https://exemplo.com/minha-foto.jpg"
-              className="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (customUrlInput.trim()) {
-                  setPreviewUrl(customUrlInput.trim());
-                  setCustomUrlInput('');
-                }
-              }}
-              className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-            >
-              Aplicar
-            </button>
           </div>
         </div>
 
@@ -250,7 +269,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !previewUrl}
+            disabled={saving || !nameInput.trim()}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             {saving ? (
@@ -258,7 +277,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
             ) : (
               <>
                 <Check className="h-4 w-4" />
-                <span>Salvar Foto de Perfil</span>
+                <span>Salvar Alterações</span>
               </>
             )}
           </button>

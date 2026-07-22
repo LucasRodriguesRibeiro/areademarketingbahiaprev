@@ -27,6 +27,7 @@ interface AuthContextType {
   signUp: (name: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
   updateAvatarUrl: (url: string) => Promise<void>;
+  updateUserProfile: (data: { name?: string; role?: string; avatarUrl?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,6 +91,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     ensureInitialUsers();
 
+    const getCorrectRole = (email?: string, name?: string, currentRole?: string) => {
+      const e = (email || '').toLowerCase();
+      const n = (name || '').toLowerCase();
+      if (e.includes('jairo') || n.includes('jairo')) return 'Diretor';
+      if (e === 'marketing@bahiaprev.com.br') return 'Administrador';
+      if (e.includes('lucasrodrigues')) return 'Analista de Marketing';
+      if (currentRole && currentRole !== 'Colaborador') return currentRole;
+      return currentRole || 'Colaborador';
+    };
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
@@ -97,16 +108,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
-            setProfile(userDocSnap.data() as UserProfile);
+            const data = userDocSnap.data() as UserProfile;
+            const correctRole = getCorrectRole(data.email || firebaseUser.email || '', data.name || firebaseUser.displayName || '', data.role);
+            if (data.role !== correctRole) {
+              data.role = correctRole;
+              await setDoc(userDocRef, { role: correctRole }, { merge: true });
+            }
+            setProfile(data);
           } else {
             // Fallback profile if Firestore doc doesn't exist yet
-            setProfile({
+            const resolvedName = firebaseUser.displayName || (firebaseUser.email?.includes('jairo') ? 'Jairo Queiroz' : firebaseUser.email?.split('@')[0] || 'Usuário');
+            const resolvedRole = getCorrectRole(firebaseUser.email || '', resolvedName);
+            const initialProfile: UserProfile = {
               uid: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+              name: resolvedName,
               email: firebaseUser.email || '',
-              role: 'Colaborador',
+              role: resolvedRole,
               createdAt: new Date().toISOString()
-            });
+            };
+            await setDoc(userDocRef, initialProfile, { merge: true });
+            setProfile(initialProfile);
           }
         } catch (error) {
           console.error("Error loading user profile:", error);
@@ -160,6 +181,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(prev => prev ? { ...prev, avatarUrl: url } : null);
   };
 
+  const updateUserProfile = async (data: { name?: string; role?: string; avatarUrl?: string }) => {
+    if (!user) return;
+    const userDocRef = doc(db, 'users', user.uid);
+    await setDoc(userDocRef, data, { merge: true });
+    setProfile(prev => prev ? { ...prev, ...data } : null);
+  };
+
   const logout = async () => {
     setLoading(true);
     try {
@@ -172,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, login, signUp, logout, updateAvatarUrl }}>
+    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

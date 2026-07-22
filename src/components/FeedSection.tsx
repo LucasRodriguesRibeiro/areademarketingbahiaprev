@@ -72,7 +72,27 @@ export const FeedSection: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [usersMap, setUsersMap] = useState<Record<string, { name?: string; avatarUrl?: string; role?: string }>>({});
   const knownPostIdsRef = useRef<Set<string> | null>(null);
+
+  // Subscribe to real-time users collection for live profile updates
+  useEffect(() => {
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const map: Record<string, { name?: string; avatarUrl?: string; role?: string }> = {};
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        map[docSnap.id] = {
+          name: data.name,
+          avatarUrl: data.avatarUrl,
+          role: data.role
+        };
+      });
+      setUsersMap(map);
+    }, (err) => {
+      console.warn('Error fetching users map:', err);
+    });
+    return () => unsubUsers();
+  }, []);
 
   // Permission check: Administrador and Diretor (Jairo Queiroz) can publish posts & announcements
   const canPublish = profile?.role === 'Administrador' || profile?.role === 'Diretor' || profile?.email === 'marketing@bahiaprev.com.br' || profile?.email === 'jairoqueiroz@bahiaprev.com.br';
@@ -440,6 +460,11 @@ export const FeedSection: React.FC = () => {
               {filteredPosts.map((post) => {
                 const isLikedByMe = user ? post.likedBy?.includes(user.uid) : false;
                 const canDelete = user && (user.uid === post.authorUid || user.email === 'marketing@bahiaprev.com.br');
+                
+                const userProfile = usersMap[post.authorUid];
+                const displayAuthorName = userProfile?.name || post.authorName || 'Colaborador';
+                const displayAuthorRole = userProfile?.role || post.authorRole || 'Bahia Prev';
+                const displayAuthorAvatar = userProfile?.avatarUrl;
 
                 return (
                   <motion.div
@@ -456,12 +481,20 @@ export const FeedSection: React.FC = () => {
                     {/* Header line */}
                     <div className="flex items-start justify-between gap-3 mb-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-sm shrink-0">
-                          {post.authorName ? post.authorName.charAt(0).toUpperCase() : 'U'}
-                        </div>
+                        {displayAuthorAvatar ? (
+                          <img 
+                            src={displayAuthorAvatar} 
+                            alt={displayAuthorName}
+                            className="h-10 w-10 rounded-full object-cover border-2 border-slate-200 shrink-0 shadow-sm"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-sm">
+                            {displayAuthorName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 text-sm">{post.authorName}</span>
+                            <span className="font-bold text-slate-900 text-sm">{displayAuthorName}</span>
                             {post.isAnnouncement && (
                               <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
                                 <Pin className="h-2.5 w-2.5" /> Oficial
@@ -469,7 +502,7 @@ export const FeedSection: React.FC = () => {
                             )}
                           </div>
                           <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                            <span>{post.authorRole}</span>
+                            <span>{displayAuthorRole}</span>
                             <span>•</span>
                             <span className="text-slate-400">
                               {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Recente'}
@@ -555,15 +588,29 @@ export const FeedSection: React.FC = () => {
                             {(!commentsMap[post.id] || commentsMap[post.id].length === 0) ? (
                               <p className="text-xs text-slate-400 italic py-1">Nenhum comentário ainda. Seja o primeiro a comentar!</p>
                             ) : (
-                              commentsMap[post.id].map((c) => (
-                                <div key={c.id} className="bg-slate-50 rounded-xl p-3 text-xs border border-slate-200/60">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="font-bold text-slate-900">{c.authorName}</span>
-                                    <span className="text-[10px] text-slate-400">{c.authorRole}</span>
+                              commentsMap[post.id].map((c) => {
+                                const cUser = usersMap[c.authorUid];
+                                const cName = cUser?.name || c.authorName || 'Colaborador';
+                                const cAvatar = cUser?.avatarUrl;
+                                return (
+                                  <div key={c.id} className="bg-slate-50 rounded-xl p-3 text-xs border border-slate-200/60 flex items-start gap-2.5">
+                                    {cAvatar ? (
+                                      <img src={cAvatar} alt={cName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5 border border-slate-200" />
+                                    ) : (
+                                      <div className="h-7 w-7 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+                                        {cName.charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between mb-0.5">
+                                        <span className="font-bold text-slate-900">{cName}</span>
+                                        <span className="text-[10px] text-slate-400">{cUser?.role || c.authorRole}</span>
+                                      </div>
+                                      <p className="text-slate-700 leading-relaxed">{c.content}</p>
+                                    </div>
                                   </div>
-                                  <p className="text-slate-700">{c.content}</p>
-                                </div>
-                              ))
+                                );
+                              })
                             )}
                           </div>
 

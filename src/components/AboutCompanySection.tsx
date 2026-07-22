@@ -88,8 +88,8 @@ export const AboutCompanySection: React.FC = () => {
             <div className="flex items-start gap-3">
               <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-slate-900 block">Suporte ao Colaborador no PrevHub</strong>
-                O PrevHub permite que todos os membros da nossa equipe acompanhem informativos, consultem materiais de apoio e alinhem demandas de marketing e atendimento em tempo real.
+                <strong className="text-slate-900 block">Suporte ao Colaborador no Bahia Prev Hub</strong>
+                O Bahia Prev Hub permite que todos os membros da nossa equipe acompanhem informativos, consultem materiais de apoio e alinhem demandas de marketing e atendimento em tempo real.
               </div>
             </div>
 

@@ -258,7 +258,7 @@ export const TasksSection: React.FC = () => {
         userId: userId,
         userEmail: userEmail,
         createdByName: `${userName} (${userRole})`,
-        title: 'Atualizar dados de perfil e foto no PrevHub',
+        title: 'Atualizar dados de perfil e foto no Bahia Prev Hub',
         description: 'Manter foto recente e telefone de contato atualizados no mural de membros.',
         category: 'Perfil',
         priority: 'baixa',

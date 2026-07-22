@@ -609,7 +609,7 @@ export const FeedSection: React.FC = () => {
                     ) : (
                       <>
                         <Send className="h-3.5 w-3.5" />
-                        <span>Publicar no PrevHub</span>
+                        <span>Publicar no Bahia Prev Hub</span>
                       </>
                     )}
                   </button>
@@ -624,7 +624,7 @@ export const FeedSection: React.FC = () => {
           {loading ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/60">
               <div className="h-8 w-8 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs text-slate-500 font-medium">Carregando feed do PrevHub...</p>
+              <p className="text-xs text-slate-500 font-medium">Carregando feed do Bahia Prev Hub...</p>
             </div>
           ) : filteredPosts.length === 0 ? (
             <div className="bg-white rounded-2xl p-10 text-center border border-slate-200/60">
@@ -895,7 +895,7 @@ export const FeedSection: React.FC = () => {
             <p className="text-xs font-semibold text-blue-600 mb-3">{profile?.role}</p>
             <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span>Sua conta está ativa no PrevHub</span>
+              <span>Sua conta está ativa no Bahia Prev Hub</span>
             </div>
           </div>
 

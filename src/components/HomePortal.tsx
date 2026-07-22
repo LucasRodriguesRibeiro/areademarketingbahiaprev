@@ -141,7 +141,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
             className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 rounded-full bg-white/10 backdrop-blur-md px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white border border-white/15 shadow-lg mb-3 sm:mb-4 max-w-full"
           >
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="tracking-wider uppercase text-[10px] sm:text-[11px] text-blue-300 font-extrabold">Portal do Sistema PrevHub</span>
+            <span className="tracking-wider uppercase text-[10px] sm:text-[11px] text-blue-300 font-extrabold">Portal do Sistema Bahia Prev Hub</span>
             <span className="text-white/30 hidden xs:inline">•</span>
             <span className="text-slate-200 font-medium text-[10px] sm:text-xs">Página Inicial</span>
           </motion.div>

@@ -39,7 +39,7 @@ function MainAppContent() {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white">
         <div className="h-10 w-10 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium text-slate-300 tracking-wide">Carregando PrevHub...</p>
+        <p className="text-sm font-medium text-slate-300 tracking-wide">Carregando Bahia Prev Hub...</p>
       </div>
     );
   }
@@ -86,7 +86,7 @@ function MainAppContent() {
                   </span>
                 </div>
                 <span className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 truncate hidden xs:inline">
-                  Bahia Prev • PrevHub Conectado
+                  Bahia Prev Hub Conectado
                 </span>
               </div>
             </div>
@@ -150,7 +150,7 @@ function MainAppContent() {
             <button 
               onClick={logout}
               className="text-slate-300 hover:text-red-400 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 font-semibold text-xs"
-              title="Encerrar sessão no PrevHub"
+              title="Encerrar sessão no Bahia Prev Hub"
             >
               <LogOut className="h-3.5 w-3.5 text-red-400" />
               <span>Sair</span>

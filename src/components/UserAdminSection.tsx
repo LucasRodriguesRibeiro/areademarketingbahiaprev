@@ -19,7 +19,8 @@ import {
   AlertCircle,
   RefreshCw,
   Check,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -88,29 +89,122 @@ export const UserAdminSection: React.FC = () => {
   const [editCanPostFeed, setEditCanPostFeed] = useState(false);
   const [editCanCreateTasks, setEditCanCreateTasks] = useState(false);
 
-  // Subscribe to all users in Firestore
+  // Delete User Modal & State
+  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Subscribe to all users in Firestore & auto-cleanup duplicates
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const loaded: ManagedUser[] = [];
+      const allDocs: { id: string; data: any; uEmail: string; uName: string; hasPhoto: boolean; isCurrentAuth: boolean }[] = [];
+
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        const uEmail = (data.email || '').toLowerCase();
-        const uName = data.name || '';
+        const uEmail = (data.email || '').toLowerCase().trim();
+        const uName = (data.name || '').toLowerCase().trim();
+        const avatarUrl = (data.avatarUrl || '').trim();
+        const hasPhoto = avatarUrl.startsWith('http') || avatarUrl.startsWith('data:');
+        const isCurrentAuth = Boolean(user && docSnap.id === user.uid);
 
-        // Derive permissions if undefined in DB
+        allDocs.push({
+          id: docSnap.id,
+          data,
+          uEmail,
+          uName,
+          hasPhoto,
+          isCurrentAuth
+        });
+      });
+
+      // Find all Lucas / marketing admin docs
+      const lucasDocs = allDocs.filter(d => 
+        d.uEmail.includes('lucas') || 
+        d.uName.includes('lucas') || 
+        d.uEmail === 'marketing@bahiaprev.com.br' ||
+        (d.data.role === 'Administrador' && (d.uName.includes('marketing') || d.uEmail.includes('marketing')))
+      );
+
+      let primaryLucasId: string | null = null;
+      if (lucasDocs.length > 0) {
+        // Priority 1: Doc WITH photo (avatarUrl)
+        // Priority 2: Current auth user doc
+        // Priority 3: First doc
+        const photoDoc = lucasDocs.find(d => d.hasPhoto);
+        const authDoc = lucasDocs.find(d => d.isCurrentAuth);
+
+        primaryLucasId = photoDoc?.id || authDoc?.id || lucasDocs[0].id;
+
+        // Clean up duplicate/stale Lucas docs without photos from Firestore
+        lucasDocs.forEach((d) => {
+          if (d.id !== primaryLucasId) {
+            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
+          }
+        });
+      }
+
+      // Find all Jairo docs
+      const jairoDocs = allDocs.filter(d => d.uEmail.includes('jairo') || d.uName.includes('jairo'));
+      let primaryJairoId: string | null = null;
+      if (jairoDocs.length > 0) {
+        const photoDoc = jairoDocs.find(d => d.hasPhoto);
+        const authDoc = jairoDocs.find(d => d.isCurrentAuth);
+        primaryJairoId = photoDoc?.id || authDoc?.id || jairoDocs[0].id;
+        jairoDocs.forEach(d => {
+          if (d.id !== primaryJairoId) {
+            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
+          }
+        });
+      }
+
+      // Find all Cauan docs
+      const cauanDocs = allDocs.filter(d => d.uEmail.includes('cauan') || d.uName.includes('cauan'));
+      let primaryCauanId: string | null = null;
+      if (cauanDocs.length > 0) {
+        const photoDoc = cauanDocs.find(d => d.hasPhoto);
+        const authDoc = cauanDocs.find(d => d.isCurrentAuth);
+        primaryCauanId = photoDoc?.id || authDoc?.id || cauanDocs[0].id;
+        cauanDocs.forEach(d => {
+          if (d.id !== primaryCauanId) {
+            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
+          }
+        });
+      }
+
+      const loaded: ManagedUser[] = [];
+      allDocs.forEach((item) => {
+        const { id, data, uEmail, uName } = item;
+        const isLucas = uEmail.includes('lucas') || uName.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || (data.role === 'Administrador' && (uName.includes('marketing') || uEmail.includes('marketing')));
+        const isJairo = uEmail.includes('jairo') || uName.includes('jairo');
+        const isCauan = uEmail.includes('cauan') || uName.includes('cauan');
+
+        // Skip non-primary duplicates
+        if (isLucas && id !== primaryLucasId) return;
+        if (isJairo && id !== primaryJairoId) return;
+        if (isCauan && id !== primaryCauanId) return;
+
         const defaultCanPost = data.canPostFeed !== undefined 
           ? Boolean(data.canPostFeed) 
-          : (!uEmail.includes('cauan') && !uName.toLowerCase().includes('cauan'));
+          : (!isCauan);
 
         const defaultCanTasks = data.canCreateTasks !== undefined 
           ? Boolean(data.canCreateTasks) 
-          : (!uEmail.includes('cauan') && !uName.toLowerCase().includes('cauan'));
+          : (!isCauan);
+
+        let finalName = data.name || uEmail.split('@')[0] || 'Usuário';
+        let finalEmail = data.email || '';
+        let finalRole = data.role || 'Colaborador';
+
+        if (isLucas) {
+          finalName = 'Lucas Rodrigues';
+          finalEmail = 'lucasrodrigues@bahiaprev.com.br';
+          finalRole = 'Administrador';
+        }
 
         loaded.push({
-          uid: docSnap.id,
-          name: data.name || uEmail.split('@')[0] || 'Usuário',
-          email: data.email || '',
-          role: data.role || 'Colaborador',
+          uid: id,
+          name: finalName,
+          email: finalEmail,
+          role: finalRole,
           avatarUrl: data.avatarUrl,
           canPostFeed: defaultCanPost,
           canCreateTasks: defaultCanTasks,
@@ -131,7 +225,7 @@ export const UserAdminSection: React.FC = () => {
     });
 
     return () => unsub();
-  }, []);
+  }, [user]);
 
   // Helper to register new user without logging out active admin
   const handleRegisterUser = async (e: React.FormEvent) => {
@@ -256,6 +350,32 @@ export const UserAdminSection: React.FC = () => {
       setEditingUser(null);
     } catch (err) {
       console.error('Error saving user edit:', err);
+    }
+  };
+
+  // Confirm Delete User
+  const handleConfirmDeleteUser = async () => {
+    if (!deletingUser) return;
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'users', deletingUser.uid));
+
+      setStatusMessage({
+        type: 'success',
+        text: `Usuário ${deletingUser.name} (${deletingUser.email}) foi excluído do sistema com sucesso.`
+      });
+      setDeletingUser(null);
+      if (editingUser?.uid === deletingUser.uid) {
+        setEditingUser(null);
+      }
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      setStatusMessage({
+        type: 'error',
+        text: `Erro ao excluir usuário: ${err.message || 'Tente novamente.'}`
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -633,6 +753,17 @@ export const UserAdminSection: React.FC = () => {
                           <Edit3 className="h-4 w-4" />
                         </button>
 
+                        {/* Delete User Button - available for all accounts except active logged in account */}
+                        {(user ? u.uid !== user.uid : !isLucasUser) && (
+                          <button
+                            onClick={() => setDeletingUser(u)}
+                            className="p-1.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                            title="Excluir Usuário do Sistema"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+
                       </div>
 
                     </div>
@@ -717,21 +848,96 @@ export const UserAdminSection: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                {(user ? editingUser.uid !== user.uid : (!editingUser.email.includes('lucas') && editingUser.email !== 'marketing@bahiaprev.com.br')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletingUser(editingUser);
+                      setEditingUser(null);
+                    }}
+                    className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold rounded-xl border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                    <span>Excluir Usuário</span>
+                  </button>
+                )}
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    onClick={() => setEditingUser(null)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveEditUser}
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors cursor-pointer"
+                  >
+                    Salvar Alterações
+                  </button>
+                </div>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirm Delete User Modal */}
+      <AnimatePresence>
+        {deletingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 border border-slate-200"
+            >
+              <div className="flex items-center gap-3 text-rose-600 border-b border-slate-100 pb-3">
+                <div className="p-2.5 bg-rose-100 rounded-2xl">
+                  <Trash2 className="h-6 w-6 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Excluir Usuário do Sistema</h3>
+                  <p className="text-xs text-rose-600 font-bold">Ação de Administrador • Lucas Rodrigues</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+                <p>
+                  Tem certeza de que deseja excluir o usuário <strong className="text-slate-900">{deletingUser.name}</strong> ({deletingUser.email})?
+                </p>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 font-medium text-[11px]">
+                  ⚠️ Esta ação removerá o perfil do colaborador e suas permissões do banco de dados do sistema.
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
-                  onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  onClick={() => setDeletingUser(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={handleSaveEditUser}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors"
+                  onClick={handleConfirmDeleteUser}
+                  disabled={isDeleting}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  Salvar Alterações
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      <span>Sim, Excluir Usuário</span>
+                    </>
+                  )}
                 </button>
               </div>
-
             </motion.div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { Users, Mail, CheckCircle2, Search, Briefcase, Camera, Edit3, Shield, Check, X } from 'lucide-react';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { Users, Mail, CheckCircle2, Search, Briefcase, Camera, Edit3, Shield, Check, X, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from './AuthContext';
 
@@ -83,6 +83,28 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       console.error('Erro ao salvar cargo:', err);
     } finally {
       setSavingRole(false);
+    }
+  };
+
+  const handleDeleteMember = async (member: MemberProfile) => {
+    if (!member) return;
+    const isLucas = member.email?.toLowerCase().includes('lucas') || member.email === 'marketing@bahiaprev.com.br';
+    if (isLucas) {
+      alert("Não é possível excluir a conta do Administrador Principal.");
+      return;
+    }
+    if (!window.confirm(`Tem certeza de que deseja excluir permanentemente o colaborador ${member.name} (${member.email}) do sistema?`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'users', member.uid));
+      setToastMsg(`Usuário ${member.name} foi excluído do sistema com sucesso.`);
+      setTimeout(() => setToastMsg(null), 4000);
+      setEditingMember(null);
+    } catch (err) {
+      console.error("Erro ao excluir usuário:", err);
+      alert("Erro ao excluir colaborador do banco de dados.");
     }
   };
 
@@ -465,32 +487,44 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setEditingMember(null)}
-                className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveMemberRole}
-                disabled={savingRole || !newRoleInput.trim()}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {savingRole ? (
-                  <>
-                    <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Salvando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    <span>Salvar Cargo</span>
-                  </>
-                )}
-              </button>
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              {canManageRoles && !editingMember.email?.toLowerCase().includes('lucas') && editingMember.email !== 'marketing@bahiaprev.com.br' && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMember(editingMember)}
+                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                  <span>Excluir Colaborador</span>
+                </button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setEditingMember(null)}
+                  className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveMemberRole}
+                  disabled={savingRole || !newRoleInput.trim()}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingRole ? (
+                    <>
+                      <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>Salvar Cargo</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

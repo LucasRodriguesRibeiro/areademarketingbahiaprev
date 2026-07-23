@@ -253,9 +253,9 @@ export const TasksSection: React.FC = () => {
     return () => unsubUsers();
   }, []);
 
-  // Helper to check if a task should be visible to the current user
+  // Helper to check if a task should be visible to the current user (Strict confidentiality rule)
   const isTargetedToUser = useCallback((task: Task) => {
-    if (isAdmin) return true; // Admins / Directors can view and manage all tasks
+    // Tasks are strictly confidential: visible ONLY to the creator/leader and the assigned user (or if assigned to all)
 
     const myEmail = (userEmail || '').toLowerCase().trim();
     const myName = (userName || '').toLowerCase().trim();
@@ -266,6 +266,7 @@ export const TasksSection: React.FC = () => {
     const assignedName = (task.assignedToName || '').toLowerCase().trim();
     const creatorEmail = (task.userEmail || '').toLowerCase().trim();
     const creatorUid = task.userId;
+    const createdByName = (task.createdByName || '').toLowerCase().trim();
     const completedByEmail = (task.completedByEmail || '').toLowerCase().trim();
     const completedByName = (task.completedByName || '').toLowerCase().trim();
 
@@ -275,12 +276,33 @@ export const TasksSection: React.FC = () => {
     }
 
     // 2. Task created by this user
-    if ((myUid && creatorUid === myUid) || (myEmail && creatorEmail && (creatorEmail === myEmail || creatorEmail.includes(myEmail) || myEmail.includes(creatorEmail)))) {
+    if ((myUid && creatorUid && creatorUid === myUid) || 
+        (myEmail && creatorEmail && (creatorEmail === myEmail || creatorEmail.includes(myEmail) || myEmail.includes(creatorEmail)))) {
+      return true;
+    }
+
+    if (myName && createdByName && (createdByName.includes(myName) || myName.includes(createdByName))) {
+      return true;
+    }
+
+    if (myFirstName && myFirstName.length >= 2 && createdByName && (createdByName.includes(myFirstName) || myFirstName.includes(createdByName))) {
+      return true;
+    }
+
+    // Special check for Lucas / Marketing email aliases
+    const isMyLucas = myEmail.includes('lucas') || myName.includes('lucas') || myEmail === 'marketing@bahiaprev.com.br';
+    const isCreatorLucas = creatorEmail.includes('lucas') || createdByName.includes('lucas') || creatorEmail === 'marketing@bahiaprev.com.br';
+    if (isMyLucas && isCreatorLucas) {
       return true;
     }
 
     // 3. Task assigned directly to this user by email
     if (myEmail && assignedEmail && (assignedEmail === myEmail || assignedEmail.includes(myEmail) || myEmail.includes(assignedEmail))) {
+      return true;
+    }
+
+    const isAssignedToLucas = assignedEmail.includes('lucas') || assignedName.includes('lucas') || assignedEmail === 'marketing@bahiaprev.com.br';
+    if (isMyLucas && isAssignedToLucas) {
       return true;
     }
 
@@ -307,7 +329,7 @@ export const TasksSection: React.FC = () => {
     }
 
     return false;
-  }, [isAdmin, userEmail, userName, userId]);
+  }, [userEmail, userName, userId]);
 
   // Default initial tasks (returns empty array to keep system completely clean when cleared)
   const getDefaultTasks = useCallback((): Task[] => {

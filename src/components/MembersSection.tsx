@@ -114,22 +114,19 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       uid: 'm-lucas',
       name: 'Lucas Rodrigues',
       email: 'lucasrodrigues@bahiaprev.com.br',
-      role: 'Administrador',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
+      role: 'Administrador'
     },
     {
       uid: 'm-jairo',
       name: 'Jairo Queiroz',
       email: 'jairoqueiroz@bahiaprev.com.br',
-      role: 'Diretor',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+      role: 'Diretor'
     },
     {
       uid: 'm-cauan',
       name: 'Cauan',
       email: 'cauan@bahiaprev.com.br',
-      role: 'Designer Gráfico',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
+      role: 'Designer Gráfico'
     }
   ];
 
@@ -142,21 +139,21 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           name: 'Lucas Rodrigues',
           email: 'lucasrodrigues@bahiaprev.com.br',
           role: profile?.email === 'lucasrodrigues@bahiaprev.com.br' ? (profile?.role || 'Administrador') : 'Administrador',
-          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
+          avatarUrl: undefined
         },
         'jairo': {
           uid: 'm-jairo',
           name: 'Jairo Queiroz',
           email: 'jairoqueiroz@bahiaprev.com.br',
           role: 'Diretor/Presidente',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+          avatarUrl: undefined
         },
         'cauan': {
           uid: 'm-cauan',
           name: 'Cauan',
           email: 'cauan@bahiaprev.com.br',
           role: profile?.email === 'cauan@bahiaprev.com.br' ? (profile?.role || 'Designer Gráfico') : 'Designer Gráfico',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
+          avatarUrl: undefined
         }
       };
 
@@ -220,7 +217,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
             name: data.name || email.split('@')[0],
             email: data.email || '',
             role: data.role || 'Colaborador',
-            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'),
+            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || undefined),
             createdAt: data.createdAt,
             isOnline: isUserDoc ? true : Boolean(docIsOnline),
             lastSeen: data.lastSeen

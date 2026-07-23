@@ -263,10 +263,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
                 </div>
 
                 {/* Bottom Action Bar inside Card */}
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
-                  <span className="text-[11px] font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">
-                    Abrir Página
-                  </span>
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
                   <div className="flex items-center gap-1 text-blue-600 opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
                     <span className="text-[11px] font-extrabold">Acessar</span>
                     <ArrowRight className="h-4 w-4" />

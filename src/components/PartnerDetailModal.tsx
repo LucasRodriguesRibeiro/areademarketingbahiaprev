@@ -41,9 +41,12 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ partner,
   if (!partner) return null;
 
   const handleCopyPhone = () => {
-    navigator.clipboard.writeText(partner.telephone);
+    const convenioNumber = `#${partner.id.toUpperCase().replace(/_/g, '')}`;
+    const textToCopy = `Empresa: ${partner.name}\nLocalização: ${partner.city}\nNúmero para Contato: ${partner.telephone}\nNúmero do Convênio: ${convenioNumber}\nBenefício: ${partner.discount}`;
+
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const colorsList = [
@@ -218,44 +221,56 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ partner,
                 </p>
               </div>
 
-              {/* Card de Telefone/Contato de Fácil Cópia */}
+              {/* Card de Telefone/Contato e Dados do Convênio de Fácil Cópia */}
               <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2 text-slate-700 font-semibold text-sm">
                     <Phone className="h-4 w-4 text-slate-500" />
-                    <span>Número para Contato / Copiar</span>
+                    <span>Dados do Convênio / Copiar</span>
                   </div>
                 </div>
 
-                {/* Main Action Number Button */}
+                {/* Main Action Number & Details Button */}
                 <button
                   onClick={handleCopyPhone}
-                  className={`w-full p-3 sm:p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2.5 transition-all cursor-pointer group ${
+                  className={`w-full p-3 sm:p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 transition-all cursor-pointer group text-left ${
                     copied 
                       ? 'bg-blue-600 border-blue-600 text-white shadow-xs' 
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
                   }`}
                 >
-                  <span className="font-mono text-base sm:text-lg font-bold tracking-wide">
-                    {partner.telephone}
-                  </span>
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-base sm:text-lg font-bold tracking-wide">
+                        {partner.telephone}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        copied ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        Convênio #{partner.id.toUpperCase().replace(/_/g, '')}
+                      </span>
+                    </div>
+                    <p className={`text-xs truncate ${copied ? 'text-blue-100' : 'text-slate-500'}`}>
+                      {partner.name} • {partner.city}
+                    </p>
+                  </div>
                   
-                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase shrink-0 self-end sm:self-center bg-slate-100/80 group-hover:bg-slate-200/80 px-3 py-1.5 rounded-lg transition-colors">
                     {copied ? (
                       <>
-                        <Check className="h-4 w-4" />
-                        <span>Copiado!</span>
+                        <Check className="h-4 w-4 text-white" />
+                        <span className="text-white">Copiado!</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                        <span className="text-slate-500">Copiar</span>
+                        <Copy className="h-4 w-4 text-slate-500 group-hover:text-slate-700 transition-colors" />
+                        <span className="text-slate-700">Copiar Dados</span>
                       </>
                     )}
                   </div>
                 </button>
                 <p className="text-[10px] sm:text-[11px] text-slate-400 mt-2.5 text-center">
-                  Clique acima para copiar o número instantaneamente para a área de transferência.
+                  Clique acima para copiar instantaneamente o nome, localização, telefone e número do convênio.
                 </p>
 
                 {/* Beautiful Instagram access button requested by user */}

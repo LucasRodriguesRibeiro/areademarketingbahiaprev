@@ -101,6 +101,13 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       email: 'jairoqueiroz@bahiaprev.com.br',
       role: 'Diretor',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+    },
+    {
+      uid: 'm-cauan',
+      name: 'Cauan',
+      email: 'cauan@bahiaprev.com.br',
+      role: 'Designer Gráfico',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
     }
   ];
 
@@ -112,8 +119,8 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           uid: 'm-lucas',
           name: 'Lucas Rodrigues',
           email: 'lucasrodrigues@bahiaprev.com.br',
-          role: profile?.role || 'Administrador',
-          avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
+          role: profile?.email === 'lucasrodrigues@bahiaprev.com.br' ? (profile?.role || 'Administrador') : 'Administrador',
+          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80'
         },
         'jairo': {
           uid: 'm-jairo',
@@ -121,6 +128,13 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           email: 'jairoqueiroz@bahiaprev.com.br',
           role: 'Diretor/Presidente',
           avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+        },
+        'cauan': {
+          uid: 'm-cauan',
+          name: 'Cauan',
+          email: 'cauan@bahiaprev.com.br',
+          role: profile?.email === 'cauan@bahiaprev.com.br' ? (profile?.role || 'Designer Gráfico') : 'Designer Gráfico',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'
         }
       };
 
@@ -162,6 +176,33 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
             isOnline: isUserDoc ? true : Boolean(docIsOnline),
             lastSeen: data.lastSeen
           };
+        } else if (email.includes('cauan') || name.includes('cauan')) {
+          const isUserDoc = user && docSnap.id === user.uid;
+          const cauanResolvedName = (data.name && data.name.toLowerCase() !== 'cauan' && data.name.toLowerCase() !== 'colaborador' && !data.name.includes('@')) ? data.name : 'Cauan';
+          const cauanResolvedRole = (data.role && data.role !== 'Colaborador') ? data.role : 'Designer Gráfico';
+
+          mergedMap['cauan'] = {
+            uid: isUserDoc ? user.uid : (mergedMap['cauan'].uid || docSnap.id),
+            name: cauanResolvedName,
+            email: 'cauan@bahiaprev.com.br',
+            role: cauanResolvedRole,
+            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || mergedMap['cauan'].avatarUrl),
+            createdAt: data.createdAt,
+            isOnline: isUserDoc ? true : Boolean(docIsOnline),
+            lastSeen: data.lastSeen
+          };
+        } else {
+          const isUserDoc = user && docSnap.id === user.uid;
+          mergedMap[docSnap.id] = {
+            uid: isUserDoc ? user.uid : docSnap.id,
+            name: data.name || email.split('@')[0],
+            email: data.email || '',
+            role: data.role || 'Colaborador',
+            avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'),
+            createdAt: data.createdAt,
+            isOnline: isUserDoc ? true : Boolean(docIsOnline),
+            lastSeen: data.lastSeen
+          };
         }
       });
 
@@ -177,6 +218,10 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           if (profile.role) mergedMap['jairo'].role = profile.role;
           if (profile.avatarUrl) mergedMap['jairo'].avatarUrl = profile.avatarUrl;
           if (profile.name) mergedMap['jairo'].name = profile.name;
+        } else if (pEmail.includes('cauan') || pName.includes('cauan')) {
+          if (profile.role) mergedMap['cauan'].role = profile.role;
+          if (profile.avatarUrl) mergedMap['cauan'].avatarUrl = profile.avatarUrl;
+          if (profile.name) mergedMap['cauan'].name = profile.name;
         }
       }
 

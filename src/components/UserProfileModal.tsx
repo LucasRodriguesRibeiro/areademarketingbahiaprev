@@ -1,7 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X, Upload, Camera, Check, User, AlertCircle, Briefcase } from 'lucide-react';
+import { X, Upload, Camera, Check, User, AlertCircle, Briefcase, CheckCircle2, ListTodo, Paperclip, Calendar, FileText } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+
+interface UserCompletedTask {
+  id: string;
+  title: string;
+  description?: string;
+  completedAt?: string;
+  completionNote?: string;
+  completionAttachmentName?: string;
+  completionAttachmentUrl?: string;
+  createdByName?: string;
+}
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -15,6 +28,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [completedTasks, setCompletedTasks] = useState<UserCompletedTask[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -23,6 +38,51 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
       setRoleInput(profile.role || 'Colaborador');
       setPreviewUrl(profile.avatarUrl || '');
     }
+  }, [profile]);
+
+  // Load user completed tasks
+  useEffect(() => {
+    const pEmail = (profile?.email || '').toLowerCase().trim();
+    const pName = (profile?.name || '').toLowerCase().trim();
+    const pFirstName = pName.split(' ')[0] || '';
+
+    const unsub = onSnapshot(collection(db, 'user_tasks'), (snapshot) => {
+      const finished: UserCompletedTask[] = [];
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.status !== 'concluida') return;
+
+        const assignedEmail = (data.assignedToEmail || '').toLowerCase().trim();
+        const assignedName = (data.assignedToName || '').toLowerCase().trim();
+        const completedEmail = (data.completedByEmail || '').toLowerCase().trim();
+        const completedName = (data.completedByName || '').toLowerCase().trim();
+        const creatorEmail = (data.userEmail || '').toLowerCase().trim();
+
+        const matches = 
+          (pEmail && (assignedEmail === pEmail || completedEmail === pEmail || creatorEmail === pEmail || assignedEmail.includes(pEmail) || completedEmail.includes(pEmail))) ||
+          (pName && (assignedName.includes(pName) || completedName.includes(pName) || pName.includes(assignedName) || pName.includes(completedName))) ||
+          (pFirstName && pFirstName.length >= 2 && (assignedName.includes(pFirstName) || completedName.includes(pFirstName)));
+
+        if (matches) {
+          finished.push({
+            id: docSnap.id,
+            title: data.title || 'Tarefa Concluída',
+            description: data.description,
+            completedAt: data.completedAt || data.dueDate,
+            completionNote: data.completionNote,
+            completionAttachmentName: data.completionAttachmentName,
+            completionAttachmentUrl: data.completionAttachmentUrl,
+            createdByName: data.createdByName
+          });
+        }
+      });
+
+      setCompletedTasks(finished);
+      setLoadingTasks(false);
+    });
+
+    return () => unsub();
   }, [profile]);
 
   // Check if current user has permission to edit role
@@ -295,6 +355,74 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
               Formatação permitida: JPEG ou PNG (máx. 5MB)
             </span>
           </div>
+        </div>
+
+        {/* Minhas Tarefas Concluídas */}
+        <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-600 text-white rounded-lg">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                Minhas Tarefas Concluídas ({completedTasks.length})
+              </h4>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+              Histórico
+            </span>
+          </div>
+
+          {loadingTasks ? (
+            <p className="text-[11px] text-slate-500 py-2 text-center">Carregando tarefas...</p>
+          ) : completedTasks.length === 0 ? (
+            <p className="text-[11px] text-slate-500 py-2 text-center">
+              Nenhuma tarefa concluída registrada até o momento.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {completedTasks.map((t) => (
+                <div key={t.id} className="bg-white p-3 rounded-xl border border-emerald-100 shadow-2xs space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-extrabold text-slate-900 line-clamp-1">{t.title}</p>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1">
+                      <Check className="h-3 w-3 text-emerald-600" />
+                      Pronta
+                    </span>
+                  </div>
+
+                  {t.description && (
+                    <p className="text-[11px] text-slate-600 line-clamp-2">{t.description}</p>
+                  )}
+
+                  {t.completionNote && (
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/60 text-[10px] text-slate-700">
+                      <strong>Entregável:</strong> {t.completionNote}
+                    </div>
+                  )}
+
+                  {t.completionAttachmentUrl && (
+                    <a
+                      href={t.completionAttachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline pt-1"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      <span>{t.completionAttachmentName || 'Anexo de Entrega'}</span>
+                    </a>
+                  )}
+
+                  {t.completedAt && (
+                    <p className="text-[9px] text-slate-400 pt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Concluída em: {new Date(t.completedAt).toLocaleDateString('pt-BR')} às {new Date(t.completedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

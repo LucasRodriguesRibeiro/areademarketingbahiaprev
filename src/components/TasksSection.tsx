@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { playNotificationSound } from '../utils/sound';
 import { 
   CheckCircle2, 
@@ -31,7 +31,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 export interface Task {
   id: string;
@@ -81,6 +81,12 @@ const DEFAULT_MEMBERS: MemberOption[] = [
     name: 'Jairo Queiroz',
     email: 'jairoqueiroz@bahiaprev.com.br',
     role: 'Diretor'
+  },
+  {
+    uid: 'm-cauan',
+    name: 'Cauan',
+    email: 'cauan@bahiaprev.com.br',
+    role: 'Designer Gráfico'
   }
 ];
 
@@ -95,12 +101,16 @@ export const TasksSection: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'abertas' | 'atrasadas' | 'concluida'>('abertas');
   const [priorityFilter, setPriorityFilter] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUserFilterForCompleted, setSelectedUserFilterForCompleted] = useState<string>('todos');
+  const [selectedUserFilterForCompleted, setSelectedUserFilterForCompleted] = useState<string>('minhas');
 
   // Modal for viewing task details and submitting completion delivery
   const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null);
   const [completionAttachmentFile, setCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
   const [completionNoteText, setCompletionNoteText] = useState<string>('');
+
+  // Modal and state for purging/clearing all tasks
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
+  const [isClearingTasks, setIsClearingTasks] = useState(false);
 
   // Modal for new task
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -161,12 +171,17 @@ export const TasksSection: React.FC = () => {
   const userId = user?.uid || 'guest';
   const userName = profile?.name || userEmail.split('@')[0];
 
-  const isAdmin = 
-    userRole.toLowerCase().includes('admin') || 
-    userRole.toLowerCase().includes('diretor') || 
-    userEmail === 'marketing@bahiaprev.com.br' ||
-    userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
-    userEmail === 'jairoqueiroz@bahiaprev.com.br';
+  const isCauan = userEmail.toLowerCase().includes('cauan') || userName.toLowerCase().includes('cauan');
+
+  const isAdmin = profile?.canCreateTasks !== undefined
+    ? Boolean(profile.canCreateTasks)
+    : (!isCauan && (
+        userRole.toLowerCase().includes('admin') || 
+        userRole.toLowerCase().includes('diretor') || 
+        userEmail === 'marketing@bahiaprev.com.br' ||
+        userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
+        userEmail === 'jairoqueiroz@bahiaprev.com.br'
+      ));
 
   // Fetch registered team members from Firestore
   useEffect(() => {
@@ -184,6 +199,12 @@ export const TasksSection: React.FC = () => {
           name: 'Jairo Queiroz',
           email: 'jairoqueiroz@bahiaprev.com.br',
           role: 'Diretor'
+        },
+        'cauan': {
+          uid: 'm-cauan',
+          name: 'Cauan',
+          email: 'cauan@bahiaprev.com.br',
+          role: 'Designer Gráfico'
         }
       };
 
@@ -206,6 +227,20 @@ export const TasksSection: React.FC = () => {
             email: 'jairoqueiroz@bahiaprev.com.br',
             role: 'Diretor'
           };
+        } else if (email.includes('cauan') || name.includes('cauan')) {
+          map['cauan'] = {
+            uid: docSnap.id,
+            name: (data.name && data.name.toLowerCase() !== 'cauan' && data.name.toLowerCase() !== 'colaborador' && !data.name.includes('@')) ? data.name : 'Cauan',
+            email: 'cauan@bahiaprev.com.br',
+            role: (data.role && data.role !== 'Colaborador') ? data.role : 'Designer Gráfico'
+          };
+        } else {
+          map[docSnap.id] = {
+            uid: docSnap.id,
+            name: data.name || email.split('@')[0],
+            email: data.email,
+            role: data.role || 'Colaborador'
+          };
         }
       });
 
@@ -218,58 +253,66 @@ export const TasksSection: React.FC = () => {
     return () => unsubUsers();
   }, []);
 
-  // Default initial tasks
-  const getDefaultTasks = (): Task[] => {
-    return [
-      {
-        id: 'def-1',
-        userId: 'admin-1',
-        userEmail: 'jairoqueiroz@bahiaprev.com.br',
-        createdByName: 'Jairo Queiroz (Diretor)',
-        title: 'Revisar arte promocional do novo convênio de saúde',
-        description: 'Instrução do Diretor para o setor de Marketing: Ajustar as cores do banner e verificar se o logotipo do parceiro está correto.',
-        category: 'Marketing',
-        priority: 'alta',
-        status: 'em_andamento',
-        dueDate: new Date().toISOString().split('T')[0],
-        createdByAdmin: true,
-        assignedToType: 'specific_user',
-        assignedToName: 'Lucas Rodrigues',
-        assignedToEmail: 'lucasrodrigues@bahiaprev.com.br'
-      },
-      {
-        id: 'def-2',
-        userId: 'admin-2',
-        userEmail: 'marketing@bahiaprev.com.br',
-        createdByName: 'Lucas (Administrador)',
-        title: 'Leitura obrigatória da Central de POPs Institucionais',
-        description: 'Instrução para a equipe: Consultar o POP-INST-001 sobre o padrão de atendimento e ética do Bahia Prev.',
-        category: 'Institucional',
-        priority: 'media',
-        status: 'pendente',
-        dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-        createdByAdmin: true,
-        assignedToType: 'all',
-        assignedToName: 'Todos os Colaboradores',
-        assignedToEmail: 'todos@bahiaprev.com.br'
-      },
-      {
-        id: 'def-3',
-        userId: userId,
-        userEmail: userEmail,
-        createdByName: `${userName} (${userRole})`,
-        title: 'Atualizar dados de perfil e foto no Bahia Prev Hub',
-        description: 'Manter foto recente e telefone de contato atualizados no mural de membros.',
-        category: 'Perfil',
-        priority: 'baixa',
-        status: 'concluida',
-        dueDate: new Date().toISOString().split('T')[0],
-        assignedToType: 'me',
-        assignedToName: userName,
-        assignedToEmail: userEmail
-      }
-    ];
-  };
+  // Helper to check if a task should be visible to the current user
+  const isTargetedToUser = useCallback((task: Task) => {
+    if (isAdmin) return true; // Admins / Directors can view and manage all tasks
+
+    const myEmail = (userEmail || '').toLowerCase().trim();
+    const myName = (userName || '').toLowerCase().trim();
+    const myUid = userId;
+    const myFirstName = myName.split(' ')[0] || '';
+
+    const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
+    const assignedName = (task.assignedToName || '').toLowerCase().trim();
+    const creatorEmail = (task.userEmail || '').toLowerCase().trim();
+    const creatorUid = task.userId;
+    const completedByEmail = (task.completedByEmail || '').toLowerCase().trim();
+    const completedByName = (task.completedByName || '').toLowerCase().trim();
+
+    // 1. Task assigned to all
+    if (task.assignedToType === 'all' || assignedEmail === 'todos@bahiaprev.com.br' || assignedName.includes('todos')) {
+      return true;
+    }
+
+    // 2. Task created by this user
+    if ((myUid && creatorUid === myUid) || (myEmail && creatorEmail && (creatorEmail === myEmail || creatorEmail.includes(myEmail) || myEmail.includes(creatorEmail)))) {
+      return true;
+    }
+
+    // 3. Task assigned directly to this user by email
+    if (myEmail && assignedEmail && (assignedEmail === myEmail || assignedEmail.includes(myEmail) || myEmail.includes(assignedEmail))) {
+      return true;
+    }
+
+    // 4. Task assigned directly to this user by name
+    if (myName && assignedName && (assignedName.includes(myName) || myName.includes(assignedName))) {
+      return true;
+    }
+
+    if (myFirstName && myFirstName.length >= 2 && assignedName && (assignedName.includes(myFirstName) || myFirstName.includes(assignedName))) {
+      return true;
+    }
+
+    // 5. Task completed by this user
+    if (myEmail && completedByEmail && (completedByEmail === myEmail || completedByEmail.includes(myEmail) || myEmail.includes(completedByEmail))) {
+      return true;
+    }
+
+    if (myName && completedByName && (completedByName.includes(myName) || myName.includes(completedByName))) {
+      return true;
+    }
+
+    if (myFirstName && myFirstName.length >= 2 && completedByName && (completedByName.includes(myFirstName) || myFirstName.includes(completedByName))) {
+      return true;
+    }
+
+    return false;
+  }, [isAdmin, userEmail, userName, userId]);
+
+  // Default initial tasks (returns empty array to keep system completely clean when cleared)
+  const getDefaultTasks = useCallback((): Task[] => {
+    return [];
+  }, []);
 
   // Sync tasks from Firestore
   useEffect(() => {
@@ -290,43 +333,36 @@ export const TasksSection: React.FC = () => {
             const assignedEmail = data.assignedToEmail || '';
             const assignedName = data.assignedToName || '';
 
-            // Filter logic: show task if it's sent to 'all', or directed to this user, or created by this user, or if current user is admin
-            const isTargetedToUser = 
-              assignedType === 'all' || 
-              assignedEmail.toLowerCase() === userEmail.toLowerCase() ||
-              assignedName.toLowerCase().includes(userName.toLowerCase()) ||
-              taskCreatorEmail.toLowerCase() === userEmail.toLowerCase() ||
-              data.userId === userId ||
-              isAdmin;
+            const taskCandidate: Task = {
+              id: docSnap.id,
+              userId: data.userId || '',
+              userEmail: taskCreatorEmail,
+              createdByName: data.createdByName || 'Colaborador',
+              title: data.title || '',
+              description: data.description || '',
+              category: data.category || 'Geral',
+              priority: data.priority || 'media',
+              status: data.status || 'pendente',
+              dueDate: data.dueDate || '',
+              createdByAdmin: data.createdByAdmin || false,
+              assignedToType: assignedType,
+              assignedToName: assignedName || (assignedType === 'all' ? 'Todos os Colaboradores' : userName),
+              assignedToEmail: assignedEmail || userEmail,
+              attachmentName: data.attachmentName || undefined,
+              attachmentUrl: data.attachmentUrl || undefined,
+              attachmentType: data.attachmentType || undefined,
+              completionAttachmentName: data.completionAttachmentName || undefined,
+              completionAttachmentUrl: data.completionAttachmentUrl || undefined,
+              completionAttachmentType: data.completionAttachmentType || undefined,
+              completionNote: data.completionNote || undefined,
+              completedAt: data.completedAt || undefined,
+              completedByEmail: data.completedByEmail || undefined,
+              completedByName: data.completedByName || undefined,
+              createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+            };
 
-            if (isTargetedToUser) {
-              loaded.push({
-                id: docSnap.id,
-                userId: data.userId || '',
-                userEmail: taskCreatorEmail,
-                createdByName: data.createdByName || 'Colaborador',
-                title: data.title || '',
-                description: data.description || '',
-                category: data.category || 'Geral',
-                priority: data.priority || 'media',
-                status: data.status || 'pendente',
-                dueDate: data.dueDate || '',
-                createdByAdmin: data.createdByAdmin || false,
-                assignedToType: assignedType,
-                assignedToName: assignedName || (assignedType === 'all' ? 'Todos os Colaboradores' : userName),
-                assignedToEmail: assignedEmail || userEmail,
-                attachmentName: data.attachmentName || undefined,
-                attachmentUrl: data.attachmentUrl || undefined,
-                attachmentType: data.attachmentType || undefined,
-                completionAttachmentName: data.completionAttachmentName || undefined,
-                completionAttachmentUrl: data.completionAttachmentUrl || undefined,
-                completionAttachmentType: data.completionAttachmentType || undefined,
-                completionNote: data.completionNote || undefined,
-                completedAt: data.completedAt || undefined,
-                completedByEmail: data.completedByEmail || undefined,
-                completedByName: data.completedByName || undefined,
-                createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
-              });
+            if (isTargetedToUser(taskCandidate)) {
+              loaded.push(taskCandidate);
             }
           });
 
@@ -353,7 +389,8 @@ export const TasksSection: React.FC = () => {
           const saved = localStorage.getItem(`tasks_v2_${userId}`);
           if (saved) {
             try {
-              setTasks(JSON.parse(saved));
+              const parsed: Task[] = JSON.parse(saved);
+              setTasks(parsed.filter(isTargetedToUser));
             } catch (e) {
               setTasks(getDefaultTasks());
             }
@@ -370,7 +407,7 @@ export const TasksSection: React.FC = () => {
     }
 
     return () => unsubscribe();
-  }, [userId, userEmail, userName, userRole, isAdmin]);
+  }, [userId, userEmail, userName, userRole, isAdmin, isTargetedToUser, getDefaultTasks]);
 
   // Local storage backup persistence
   const saveTasksLocally = (updatedTasks: Task[]) => {
@@ -543,6 +580,34 @@ export const TasksSection: React.FC = () => {
     }
   };
 
+  // Purge/Clear All Tasks from Firestore and local storage to leave system 100% clean
+  const handleClearAllTasks = async () => {
+    setIsClearingTasks(true);
+    try {
+      // 1. Delete all Firestore user_tasks documents
+      const snapshot = await getDocs(collection(db, 'user_tasks'));
+      const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(doc(db, 'user_tasks', docSnap.id)));
+      await Promise.all(deletePromises);
+
+      // 2. Clear local storage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('tasks_')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      // 3. Clear local state
+      setTasks([]);
+      setSelectedTaskForView(null);
+    } catch (err) {
+      console.error('Erro ao excluir histórico de tarefas:', err);
+      alert('Ocorreu um erro ao tentar limpar as tarefas do banco de dados.');
+    } finally {
+      setIsClearingTasks(false);
+      setShowClearConfirmModal(false);
+    }
+  };
+
   // Overdue calculation helper
   const todayStr = new Date().toISOString().split('T')[0];
   const isTaskOverdue = (task: Task) => {
@@ -551,15 +616,88 @@ export const TasksSection: React.FC = () => {
     return task.dueDate < todayStr;
   };
 
-  // Calculations
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === 'concluida').length;
-  const overdueTasksCount = tasks.filter((t) => isTaskOverdue(t)).length;
-  const openTasksCount = tasks.filter((t) => t.status !== 'concluida' && !isTaskOverdue(t)).length;
+  // Filter tasks to only those the current user is authorized to view
+  const visibleTasks = tasks.filter(isTargetedToUser);
 
-  // Completed Tasks User List Grouping
+  // Calculations
+  const totalTasks = visibleTasks.length;
+  const completedTasks = visibleTasks.filter((t) => t.status === 'concluida').length;
+  const overdueTasksCount = visibleTasks.filter((t) => isTaskOverdue(t)).length;
+  const openTasksCount = visibleTasks.filter((t) => t.status !== 'concluida' && !isTaskOverdue(t)).length;
+
+  const myEmail = (userEmail || '').toLowerCase().trim();
+  const myName = (userName || '').toLowerCase().trim();
+  const myFirstName = myName.split(' ')[0] || '';
+
+  const isTaskBelongsToMe = (task: Task) => {
+    const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
+    const assignedName = (task.assignedToName || '').toLowerCase().trim();
+    const completedEmail = (task.completedByEmail || '').toLowerCase().trim();
+    const completedName = (task.completedByName || '').toLowerCase().trim();
+
+    // If explicitly assigned to another specific user (collaborator), it does NOT belong to me
+    if (task.assignedToType === 'specific_user') {
+      const isAssignedToOtherEmail = assignedEmail && myEmail && assignedEmail !== myEmail;
+      const isAssignedToOtherName = assignedName && myName && !assignedName.includes(myName) && !myName.includes(assignedName);
+      if (isAssignedToOtherEmail || isAssignedToOtherName) {
+        return false;
+      }
+    }
+
+    // If completed by another user (collaborator), it does NOT belong to my completed tasks
+    if (completedEmail && myEmail && completedEmail !== myEmail) {
+      return false;
+    }
+    if (completedName && myName && !completedName.includes(myName) && !myName.includes(completedName)) {
+      if (!myFirstName || !completedName.includes(myFirstName)) {
+        return false;
+      }
+    }
+
+    // Check if task is assigned to me or completed by me
+    if (task.assignedToType === 'me') {
+      return true;
+    }
+
+    if (myEmail && (assignedEmail === myEmail || completedEmail === myEmail)) {
+      return true;
+    }
+
+    if (myName && (assignedName.includes(myName) || completedName.includes(myName))) {
+      return true;
+    }
+
+    if (myFirstName && myFirstName.length >= 2 && (assignedName.includes(myFirstName) || completedName.includes(myFirstName))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const isTaskFromOtherAdminToMe = (task: Task) => {
+    if (!isTaskBelongsToMe(task)) return false;
+
+    const creatorEmail = (task.userEmail || '').toLowerCase().trim();
+    const creatorName = (task.createdByName || '').toLowerCase().trim();
+
+    const isCreatorOther = (creatorEmail && myEmail && creatorEmail !== myEmail) ||
+      (creatorName && myName && !creatorName.includes(myName) && !myName.includes(creatorName));
+
+    return (task.createdByAdmin === true || isCreatorOther) && isCreatorOther;
+  };
+
+  const isTaskOfCollaborator = (task: Task) => {
+    return !isTaskBelongsToMe(task);
+  };
+
+  const completedTasksListAll = visibleTasks.filter((t) => t.status === 'concluida');
+  const myCompletedTasksCount = completedTasksListAll.filter((t) => isTaskBelongsToMe(t)).length;
+  const fromOtherAdminsCompletedCount = completedTasksListAll.filter((t) => isTaskFromOtherAdminToMe(t)).length;
+  const colaboradoresCompletedCount = completedTasksListAll.filter((t) => isTaskOfCollaborator(t)).length;
+
+  // Completed Tasks User List Grouping (Collaborators only)
   const completedUsersMap: Record<string, { name: string; email: string; count: number }> = {};
-  tasks.filter(t => t.status === 'concluida').forEach(t => {
+  visibleTasks.filter(t => t.status === 'concluida').forEach(t => {
     const name = t.completedByName || t.assignedToName || 'Colaborador';
     const email = t.completedByEmail || t.assignedToEmail || name;
     const key = email.toLowerCase();
@@ -569,9 +707,15 @@ export const TasksSection: React.FC = () => {
     completedUsersMap[key].count += 1;
   });
   const completedUsersList = Object.values(completedUsersMap);
+  const collaboratorUsersList = completedUsersList.filter(usr => {
+    const isMe = (usr.email && usr.email.toLowerCase() === myEmail) || 
+                 (usr.name && myName && usr.name.toLowerCase().includes(myName)) ||
+                 (usr.name && myFirstName && usr.name.toLowerCase().includes(myFirstName));
+    return !isMe;
+  });
 
   // Filtered Tasks
-  const filteredTasks = tasks.filter((task) => {
+  const filteredTasks = visibleTasks.filter((task) => {
     const overdue = isTaskOverdue(task);
 
     const matchesStatus = 
@@ -590,11 +734,21 @@ export const TasksSection: React.FC = () => {
 
     const matchesUserCompletedFilter = 
       statusFilter !== 'concluida' ||
-      selectedUserFilterForCompleted === 'todos' ||
-      task.assignedToEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
-      task.completedByEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
-      task.assignedToName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase()) ||
-      task.completedByName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase());
+      (selectedUserFilterForCompleted === 'minhas'
+        ? isTaskBelongsToMe(task)
+        : selectedUserFilterForCompleted === 'outros_admins'
+        ? isTaskFromOtherAdminToMe(task)
+        : selectedUserFilterForCompleted === 'colaboradores'
+        ? isTaskOfCollaborator(task)
+        : selectedUserFilterForCompleted === 'todos'
+        ? true
+        : (
+            task.assignedToEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
+            task.completedByEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
+            task.assignedToName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase()) ||
+            task.completedByName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase())
+          )
+      );
 
     return matchesStatus && matchesPriority && matchesSearch && matchesUserCompletedFilter;
   });
@@ -749,47 +903,94 @@ export const TasksSection: React.FC = () => {
         )}
       </div>
 
-      {/* Sub-bar for Completed Tasks: Filter by User List */}
+      {/* Sub-bar for Completed Tasks: Organized Filters */}
       {statusFilter === 'concluida' && (
-        <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-2.5 shadow-2xs">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-xs font-black text-emerald-900 uppercase tracking-wider">
-              <Users className="h-4 w-4 text-emerald-600" />
-              <span>Lista de Usuários com Tarefas Concluídas</span>
+        <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+          <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-emerald-200/60">
+            <div className="flex items-center gap-2 text-xs font-black text-emerald-950 uppercase tracking-wider">
+              <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+              <span>Filtros Organizados de Tarefas Concluídas</span>
             </div>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-              {completedTasks} tarefa(s) finalizada(s)
+            <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-3 py-1 rounded-full shadow-2xs">
+              {selectedUserFilterForCompleted === 'minhas' 
+                ? `${myCompletedTasksCount} tarefa(s) sua(s) concluída(s)`
+                : selectedUserFilterForCompleted === 'colaboradores'
+                ? `${colaboradoresCompletedCount} tarefa(s) de colaboradores concluída(s)`
+                : `${completedTasks} tarefa(s) concluída(s) no total`}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {/* Categorized Filter Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* 1. Minhas Tarefas Concluídas */}
             <button
-              onClick={() => setSelectedUserFilterForCompleted('todos')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedUserFilterForCompleted === 'todos'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-100/50'
+              onClick={() => setSelectedUserFilterForCompleted('minhas')}
+              className={`p-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
+                selectedUserFilterForCompleted === 'minhas'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                  : 'bg-white text-slate-800 border-emerald-200/80 hover:bg-emerald-100/60'
               }`}
             >
-              <Users className="h-3.5 w-3.5" />
-              <span>Todos os Usuários ({completedTasks})</span>
+              <div className="flex items-center gap-2 truncate">
+                <UserCheck className={`h-4 w-4 shrink-0 ${selectedUserFilterForCompleted === 'minhas' ? 'text-white' : 'text-emerald-600'}`} />
+                <span className="truncate">Minhas Tarefas</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
+                selectedUserFilterForCompleted === 'minhas' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {myCompletedTasksCount}
+              </span>
             </button>
 
-            {completedUsersList.map((usr) => (
-              <button
-                key={usr.email || usr.name}
-                onClick={() => setSelectedUserFilterForCompleted(usr.email || usr.name)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                  selectedUserFilterForCompleted.toLowerCase() === (usr.email || usr.name).toLowerCase()
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-100/50'
-                }`}
-              >
-                <UserCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                <span>{usr.name} ({usr.count})</span>
-              </button>
-            ))}
+            {/* 2. Tarefas dos Colaboradores */}
+            <button
+              onClick={() => setSelectedUserFilterForCompleted('colaboradores')}
+              className={`p-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
+                selectedUserFilterForCompleted !== 'minhas'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                  : 'bg-white text-slate-800 border-emerald-200/80 hover:bg-emerald-100/60'
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Users className={`h-4 w-4 shrink-0 ${selectedUserFilterForCompleted !== 'minhas' ? 'text-white' : 'text-emerald-600'}`} />
+                <span className="truncate">Dos Colaboradores</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
+                selectedUserFilterForCompleted !== 'minhas' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {colaboradoresCompletedCount}
+              </span>
+            </button>
           </div>
+
+          {/* Sub-pills for Specific Collaborators - Only shown when in Collaborators or All view, NOT in 'Minhas Tarefas' */}
+          {selectedUserFilterForCompleted !== 'minhas' && collaboratorUsersList.length > 0 && (
+            <div className="pt-2 border-t border-emerald-200/50 space-y-1.5">
+              <span className="text-[11px] font-bold text-emerald-900 block">
+                Filtrar por Colaborador Específico:
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {collaboratorUsersList.map((usr) => {
+                  const isSelected = selectedUserFilterForCompleted.toLowerCase() === (usr.email || usr.name).toLowerCase();
+
+                  return (
+                    <button
+                      key={usr.email || usr.name}
+                      onClick={() => setSelectedUserFilterForCompleted(isSelected ? 'colaboradores' : (usr.email || usr.name))}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 border ${
+                        isSelected
+                          ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-100/60'
+                      }`}
+                    >
+                      <User className="h-3 w-3 text-emerald-600 shrink-0" />
+                      <span>{usr.name} ({usr.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1440,6 +1641,80 @@ export const TasksSection: React.FC = () => {
                   className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal to Clear/Purge All Tasks */}
+      <AnimatePresence>
+        {showClearConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-rose-600">
+                  <div className="h-10 w-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center">
+                    <Trash2 className="h-5 w-5 text-rose-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Limpar Módulo de Tarefas</h3>
+                    <p className="text-xs text-slate-500 font-medium">Ação de Limpeza de Históricos</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowClearConfirmModal(false)}
+                  className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-4 text-xs text-rose-900 space-y-2">
+                <p className="font-bold text-rose-950 flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                  <span>Atenção: Limpeza Completa de Banco e Históricos</span>
+                </p>
+                <p className="leading-relaxed">
+                  Esta ação excluirá permanentemente <strong>TODAS as tarefas cadastradas e todo o histórico de entregas e conclusões</strong> do banco de dados Firestore e do armazenamento local.
+                </p>
+                <p className="font-semibold text-rose-800">
+                  O sistema de tarefas ficará 100% limpo e zerado para os seus novos testes.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirmModal(false)}
+                  disabled={isClearingTasks}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllTasks}
+                  disabled={isClearingTasks}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-extrabold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isClearingTasks ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Limpando Banco...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      <span>Confirmar e Excluir Tudo</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

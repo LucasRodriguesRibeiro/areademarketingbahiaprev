@@ -11,12 +11,13 @@ import {
   ArrowRight,
   Shield,
   Layers,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks' | 'admin';
 
 interface HomePortalProps {
   onSelectTab: (tab: TabType) => void;
@@ -112,8 +113,31 @@ const MODULES: ModuleCard[] = [
 ];
 
 export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfileModal }) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [hoveredModule, setHoveredModule] = useState<ModuleCard | null>(null);
+
+  const isLucas = Boolean(
+    profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+    profile?.email === 'marketing@bahiaprev.com.br' ||
+    profile?.name?.toLowerCase().includes('lucas') ||
+    user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+    user?.email === 'marketing@bahiaprev.com.br'
+  );
+
+  const adminModule: ModuleCard = {
+    id: 'admin',
+    title: 'Gestão de Usuários',
+    badge: 'Acesso Exclusivo Lucas',
+    description: 'Cadastre novos colaboradores, configure cargos e defina permissões de publicação no Feed e criação de tarefas.',
+    hoverDestination: 'Painel do Administrador Lucas Rodrigues',
+    icon: ShieldCheck,
+    iconBg: 'from-indigo-600 to-purple-600 text-white',
+    borderColor: 'border-indigo-500/40 hover:border-indigo-500',
+    hoverGlow: 'hover:shadow-indigo-500/20',
+    accentColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
+  };
+
+  const activeModules = isLucas ? [...MODULES, adminModule] : MODULES;
 
   return (
     <div className="w-full">
@@ -199,13 +223,13 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
             </p>
           </div>
           <span className="hidden sm:inline-block text-xs font-bold text-slate-600 bg-slate-200/80 px-3 py-1.5 rounded-lg border border-slate-300/80">
-            {MODULES.length} Páginas Disponíveis
+            {activeModules.length} Páginas Disponíveis
           </span>
         </div>
 
         {/* Square Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {MODULES.map((mod, index) => {
+          {activeModules.map((mod, index) => {
             const Icon = mod.icon;
             return (
               <motion.div

@@ -26,6 +26,10 @@ service cloud.firestore {
       allow read, create, update, delete: if request.auth != null;
     }
 
+    match /user_tasks/{taskId} {
+      allow read, create, update, delete: if true;
+    }
+
     // POPs
     match /pops/{popId} {
       allow read, create, update, delete: if request.auth != null;

@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers } from 'lucide-react';
+import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers, ShieldCheck } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
+import { useAuth } from './AuthContext';
 
-export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks' | 'admin';
 
 interface HeaderProps {
   activeTab: TabType;
@@ -18,9 +19,19 @@ const TAB_NAMES: Record<TabType, { name: string; icon: React.ElementType; color:
   pops: { name: 'Procedimentos POP', icon: BookOpen, color: 'text-cyan-400' },
   members: { name: 'Nossa Equipe', icon: Users, color: 'text-rose-400' },
   about: { name: 'Sobre Nós', icon: Sparkles, color: 'text-yellow-400' },
+  admin: { name: 'Gestão de Usuários', icon: ShieldCheck, color: 'text-indigo-400' },
 };
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
+  const { profile, user } = useAuth();
+  const isLucas = Boolean(
+    profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+    profile?.email === 'marketing@bahiaprev.com.br' ||
+    profile?.name?.toLowerCase().includes('lucas') ||
+    user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+    user?.email === 'marketing@bahiaprev.com.br'
+  );
+
   // When activeTab is 'home', the HomePortal component is rendered in the main body.
   if (activeTab === 'home') {
     return null; // HomePortal handles the hero header for Home
@@ -149,6 +160,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
             <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
             <span>Sobre</span>
           </button>
+
+          {isLucas && (
+            <button
+              onClick={() => onTabChange('admin')}
+              className={`px-3 py-1.5 rounded-xl font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap border ${
+                activeTab === 'admin'
+                  ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                  : 'text-indigo-300 bg-indigo-950/60 border-indigo-500/40 hover:text-white hover:bg-indigo-900'
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Gestão Usuários</span>
+            </button>
+          )}
         </div>
 
       </div>

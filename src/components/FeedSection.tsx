@@ -104,14 +104,19 @@ export const FeedSection: React.FC = () => {
     return () => unsubUsers();
   }, []);
 
-  // Permission check: Administrador, Diretor, Analista de Marketing, and Designer Gráfico can publish
-  const canPublish = profile?.role === 'Administrador' || 
-    profile?.role === 'Diretor' || 
-    profile?.role === 'Analista de Marketing' || 
-    profile?.role === 'Designer Gráfico' || 
-    profile?.email === 'marketing@bahiaprev.com.br' || 
-    profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
-    profile?.email === 'jairoqueiroz@bahiaprev.com.br';
+  const isCauan = profile?.email?.toLowerCase().includes('cauan') || profile?.name?.toLowerCase().includes('cauan');
+
+  // Permission check: explicit canPostFeed property if defined in user profile, otherwise role-based fallback
+  const canPublish = profile?.canPostFeed !== undefined
+    ? Boolean(profile.canPostFeed)
+    : (!isCauan && (
+        profile?.role === 'Administrador' || 
+        profile?.role === 'Diretor' || 
+        profile?.role === 'Analista de Marketing' || 
+        profile?.email === 'marketing@bahiaprev.com.br' || 
+        profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
+        profile?.email === 'jairoqueiroz@bahiaprev.com.br'
+      ));
 
   // New post form state
   const [newContent, setNewContent] = useState('');

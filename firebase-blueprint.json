@@ -58,6 +58,21 @@
         "title": { "type": "string", "description": "POP title" },
         "category": { "type": "string", "description": "Department category" }
       }
+    },
+    "funeraria_os": {
+      "description": "Service Orders for Funeral Management (Gestão Funerária)",
+      "fields": {
+        "osNumber": { "type": "string", "description": "Sequential OS number, e.g. OS-000001" },
+        "seqNumber": { "type": "number", "description": "Numeric sequence number for ordering" },
+        "status": { "type": "string", "description": "Status: Em Andamento or Serviço Encerrado" },
+        "responsavelName": { "type": "string", "description": "Name of responsible funeral agent" },
+        "responsavelEmail": { "type": "string", "description": "Email of responsible funeral agent" },
+        "responsavelUid": { "type": "string", "description": "UID of responsible agent" },
+        "dateFormatted": { "type": "string", "description": "Formatted creation date e.g. 27/07/2026" },
+        "timeFormatted": { "type": "string", "description": "Formatted creation time e.g. 14:20" },
+        "createdAtISO": { "type": "string", "description": "Creation timestamp in ISO string" },
+        "checklist": { "type": "array", "description": "List of 16 operational checklist items with status" }
+      }
     }
   }
 }

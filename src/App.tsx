@@ -12,6 +12,7 @@ import { PopsSection } from './components/PopsSection';
 import { PartnerSection } from './components/PartnerSection';
 import { MembersSection } from './components/MembersSection';
 import { TasksSection } from './components/TasksSection';
+import { FunerariaSection } from './components/FunerariaSection';
 import { UserAdminSection } from './components/UserAdminSection';
 import { PartnerDetailModal } from './components/PartnerDetailModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -185,6 +186,7 @@ function MainAppContent() {
             {activeTab === 'tasks' && <TasksSection />}
             {activeTab === 'pops' && <PopsSection />}
             {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
+            {activeTab === 'funeraria' && <FunerariaSection />}
             {activeTab === 'about' && <AboutCompanySection />}
             {activeTab === 'admin' && <UserAdminSection />}
           </motion.div>

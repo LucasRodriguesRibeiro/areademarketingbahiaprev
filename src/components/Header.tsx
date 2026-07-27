@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers, ShieldCheck } from 'lucide-react';
+import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers, ShieldCheck, Cross } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 import { useAuth } from './AuthContext';
 
-export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks' | 'admin';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin';
 
 interface HeaderProps {
   activeTab: TabType;
@@ -16,6 +16,7 @@ const TAB_NAMES: Record<TabType, { name: string; icon: React.ElementType; color:
   feed: { name: 'Feed & Comunicados', icon: Radio, color: 'text-red-400' },
   tasks: { name: 'Minhas Tarefas', icon: ListTodo, color: 'text-emerald-400' },
   marketing: { name: 'Área de Marketing', icon: Handshake, color: 'text-purple-400' },
+  funeraria: { name: 'Gestão Funerária', icon: Cross, color: 'text-purple-400' },
   pops: { name: 'Procedimentos POP', icon: BookOpen, color: 'text-cyan-400' },
   members: { name: 'Nossa Equipe', icon: Users, color: 'text-rose-400' },
   about: { name: 'Sobre Nós', icon: Sparkles, color: 'text-yellow-400' },
@@ -123,6 +124,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           >
             <Handshake className="h-3.5 w-3.5 text-purple-400" />
             <span>Marketing</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('funeraria')}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'funeraria'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Cross className="h-3.5 w-3.5 text-purple-400" />
+            <span>Gestão Funerária</span>
           </button>
 
           <button

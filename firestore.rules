@@ -30,6 +30,11 @@ service cloud.firestore {
       allow read, create, update, delete: if true;
     }
 
+    // Gestão Funerária - Ordens de Serviço
+    match /funeraria_os/{osId} {
+      allow read, create, update, delete: if true;
+    }
+
     // POPs
     match /pops/{popId} {
       allow read, create, update, delete: if request.auth != null;

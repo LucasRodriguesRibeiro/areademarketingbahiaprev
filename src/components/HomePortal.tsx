@@ -12,12 +12,13 @@ import {
   Shield,
   Layers,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Cross
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'about' | 'members' | 'tasks' | 'admin';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin';
 
 interface HomePortalProps {
   onSelectTab: (tab: TabType) => void;
@@ -61,6 +62,18 @@ const MODULES: ModuleCard[] = [
     borderColor: 'border-emerald-500/30 hover:border-emerald-500',
     hoverGlow: 'hover:shadow-emerald-500/20',
     accentColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+  },
+  {
+    id: 'funeraria',
+    title: '⚰️ Gestão Funerária',
+    badge: 'Operações & Atendimentos',
+    description: 'Gerencie ordens de serviço, acompanhe atendimentos, registre etapas operacionais e monitore as ocorrências funerárias.',
+    hoverDestination: 'Área de Acompanhamento Operacional dos Agentes Funerários',
+    icon: Cross,
+    iconBg: 'from-purple-600 to-slate-800 text-white',
+    borderColor: 'border-purple-500/30 hover:border-purple-500',
+    hoverGlow: 'hover:shadow-purple-500/20',
+    accentColor: 'text-purple-400 bg-purple-500/10 border-purple-500/30'
   },
   {
     id: 'marketing',

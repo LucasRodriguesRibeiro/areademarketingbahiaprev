@@ -42,11 +42,16 @@ interface ManagedUser {
 }
 
 const PRESET_ROLES = [
-  'Analista de Marketing',
-  'Designer Gráfico',
+  'CPD',
+  'Gerente Funerário',
+  'Gerente Geral',
   'Atendimento / Recepção',
-  'Consultor Comercial',
-  'Gerente Operacional',
+  'Vendedor(a)',
+  'Agente Funerário',
+  'Designer Gráfico',
+  'Analista de Marketing',
+  'Financeiro',
+  'Cobrador',
   'Diretor / Presidente',
   'Administrador',
   'Colaborador'
@@ -819,8 +824,25 @@ export const UserAdminSection: React.FC = () => {
                     type="text"
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
+                    placeholder="Ex: CPD, Gerente Geral, Financeiro..."
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 mb-2"
                   />
+                  <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pr-1">
+                    {PRESET_ROLES.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setEditRole(r)}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                          editRole === r
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 space-y-2">

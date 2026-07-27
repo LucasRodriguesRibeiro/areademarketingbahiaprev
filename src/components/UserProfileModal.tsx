@@ -266,16 +266,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
             <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Cargos da Empresa:</p>
             <div className="flex flex-wrap gap-1.5">
               {[
-                'Diretor/Presidente',
-                'Gerente Geral',
-                'Gerente Funerário',
-                'Agente Funerário',
-                'Atendente',
-                'Vendedor',
-                'Analista de Marketing',
-                'Designer Gráfico',
-                'Financeiro',
                 'CPD',
+                'Gerente Funerário',
+                'Gerente Geral',
+                'Atendimento / Recepção',
+                'Vendedor(a)',
+                'Agente Funerário',
+                'Designer Gráfico',
+                'Analista de Marketing',
+                'Financeiro',
+                'Cobrador',
+                'Diretor / Presidente',
                 'Administrador'
               ].map((role) => (
                 <button

@@ -701,8 +701,57 @@ export const TasksSection: React.FC = () => {
     }
   };
 
-  // Open Task for Editing
+  const isLucasUser = useCallback((email?: string, name?: string) => {
+    const e = (email || '').toLowerCase().trim();
+    const n = (name || '').toLowerCase().trim();
+    return e.includes('lucas') || n.includes('lucas') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
+  }, []);
+
+  // Helper to verify if the current user is the assigner/creator of the task
+  const isTaskAssignedByMe = useCallback((task: Task | null) => {
+    if (!task) return false;
+
+    const myEmailClean = (userEmail || '').toLowerCase().trim();
+    const myNameClean = (userName || '').toLowerCase().trim();
+    const myFirstNameClean = myNameClean.split(' ')[0] || '';
+    const myUid = userId;
+
+    const creatorEmail = (task.userEmail || '').toLowerCase().trim();
+    const creatorUid = task.userId;
+    const createdByName = (task.createdByName || '').toLowerCase().trim();
+
+    if (myUid && creatorUid && myUid === creatorUid) {
+      return true;
+    }
+
+    if (myEmailClean && creatorEmail && (creatorEmail === myEmailClean || creatorEmail.includes(myEmailClean) || myEmailClean.includes(creatorEmail))) {
+      return true;
+    }
+
+    if (myNameClean && myNameClean.length > 2 && createdByName && (createdByName.includes(myNameClean) || myNameClean.includes(createdByName))) {
+      return true;
+    }
+
+    if (myFirstNameClean && myFirstNameClean.length >= 3 && createdByName && createdByName.includes(myFirstNameClean)) {
+      return true;
+    }
+
+    const isMeLucas = isLucasUser(myEmailClean, myNameClean);
+    const isCreatorLucas = isLucasUser(creatorEmail, createdByName);
+    if (isMeLucas && isCreatorLucas) {
+      return true;
+    }
+
+    return false;
+  }, [userId, userEmail, userName, isLucasUser]);
+
+  // Open Task for Editing (only allowed for task creator/assigner)
   const openEditTask = (task: Task) => {
+    if (!isTaskAssignedByMe(task)) {
+      alert('Apenas o usuário que atribuiu esta tarefa tem permissão para editá-la.');
+      return;
+    }
+
     setSelectedTaskForView(task);
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
@@ -749,6 +798,12 @@ export const TasksSection: React.FC = () => {
   const handleSaveTaskEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTaskForView || !editTitle.trim()) return;
+
+    if (!isTaskAssignedByMe(selectedTaskForView)) {
+      alert('Apenas o usuário que atribuiu esta tarefa tem permissão para editá-la.');
+      setIsEditingTask(false);
+      return;
+    }
 
     setIsSavingEdit(true);
 
@@ -887,12 +942,6 @@ export const TasksSection: React.FC = () => {
   const myEmail = (userEmail || '').toLowerCase().trim();
   const myName = (userName || '').toLowerCase().trim();
   const myFirstName = myName.split(' ')[0] || '';
-
-  const isLucasUser = useCallback((email?: string, name?: string) => {
-    const e = (email || '').toLowerCase().trim();
-    const n = (name || '').toLowerCase().trim();
-    return e.includes('lucas') || n.includes('lucas') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
-  }, []);
 
   const isTaskBelongsToMe = (task: Task) => {
     const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
@@ -1526,14 +1575,16 @@ export const TasksSection: React.FC = () => {
 
                 {/* Action Controls */}
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <button
-                    onClick={() => openEditTask(task)}
-                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                    title="Editar tarefa e alterar destinatário"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    <span>Editar</span>
-                  </button>
+                  {isTaskAssignedByMe(task) && (
+                    <button
+                      onClick={() => openEditTask(task)}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      title="Editar tarefa e alterar destinatário"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span>Editar</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setSelectedTaskForView(task);
@@ -2399,15 +2450,17 @@ export const TasksSection: React.FC = () => {
                       </h3>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => openEditTask(selectedTaskForView)}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                        title="Editar título, destinatário, prazo ou instruções"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        <span>Editar Tarefa</span>
-                      </button>
+                      {isTaskAssignedByMe(selectedTaskForView) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditTask(selectedTaskForView)}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                          title="Editar título, destinatário, prazo ou instruções"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          <span>Editar Tarefa</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setSelectedTaskForView(null);
@@ -2633,14 +2686,16 @@ export const TasksSection: React.FC = () => {
                   {/* Bottom Actions */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditTask(selectedTaskForView)}
-                        className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span>Editar Tarefa</span>
-                      </button>
+                      {isTaskAssignedByMe(selectedTaskForView) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditTask(selectedTaskForView)}
+                          className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span>Editar Tarefa</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"

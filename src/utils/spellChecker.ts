@@ -1,153 +1,109 @@
 // Utilitário de Corretor Ortográfico e Autocorreção em Português do Brasil (PT-BR)
 
-// Dicionário expandido de palavras e correções comuns em Português do Brasil
-const PT_BR_DICTIONARY: Record<string, string> = {
-  // Acentuação e grafia comum de tarefas, relatórios e comunicações
-  'nao': 'não',
-  'voce': 'você',
-  'voces': 'vocês',
-  'tambem': 'também',
-  'sao': 'são',
-  'ja': 'já',
-  'ate': 'até',
-  'esta': 'está',
-  'estao': 'estão',
-  'estava': 'estava',
-  'so': 'só',
-  'posivel': 'possível',
-  'possivel': 'possível',
-  'impossivel': 'impossível',
-  'tarefa': 'tarefa',
-  'tarefas': 'tarefas',
-  'revisao': 'revisão',
-  'revisoes': 'revisões',
-  'relatorio': 'relatório',
-  'relatorios': 'relatórios',
-  'observacao': 'observação',
-  'observacoes': 'observações',
-  'informacao': 'informação',
-  'informacoes': 'informações',
-  'duvida': 'dúvida',
-  'duvidas': 'dúvidas',
-  'atencao': 'atenção',
-  'execucao': 'execução',
-  'execucoes': 'execuções',
-  'conclusao': 'conclusão',
-  'conclusoes': 'conclusões',
-  'solicitacao': 'solicitação',
-  'solicitacoes': 'solicitações',
-  'administracao': 'administração',
-  'departamento': 'departamento',
-  'inicio': 'início',
-  'proximo': 'próximo',
-  'proxima': 'próxima',
-  'proximos': 'próximos',
-  'proximas': 'próximas',
-  'numero': 'número',
-  'numeros': 'números',
-  'pagina': 'página',
-  'paginas': 'páginas',
-  'unico': 'único',
-  'unica': 'única',
-  'analise': 'análise',
-  'analises': 'análises',
-  'servico': 'serviço',
-  'servicos': 'serviços',
-  'endereco': 'endereço',
-  'enderecos': 'endereços',
-  'declaracao': 'declaração',
-  'declaracoes': 'declarações',
-  'funeraria': 'funerária',
-  'funerarias': 'funerárias',
-  'velorio': 'velório',
-  'velorios': 'velórios',
-  'obituario': 'obituário',
-  'obituarios': 'obituários',
-  'obito': 'óbito',
-  'obitos': 'óbitos',
-  'certidao': 'certidão',
-  'certidaos': 'certidões',
-  'certidoes': 'certidões',
-  'cemiterio': 'cemitério',
-  'cemiterios': 'cemitérios',
-  'atendimento': 'atendimento',
-  'urgente': 'urgente',
-  'prioridade': 'prioridade',
-  'concluido': 'concluído',
-  'concluida': 'concluída',
-  'concluidos': 'concluídos',
-  'concluidas': 'concluídas',
-  'pendente': 'pendente',
-  'andamento': 'andamento',
-  'descricao': 'descrição',
-  'descricoes': 'descrições',
-  'orientacao': 'orientação',
-  'orientacoes': 'orientações',
-  'confirmacao': 'confirmação',
-  'confirmacoes': 'confirmações',
-  'validacao': 'validação',
-  'validacoes': 'validações',
-  'autorizacao': 'autorização',
-  'autorizacoes': 'autorizações',
-  'documento': 'documento',
-  'documentos': 'documentos',
-  'anexo': 'anexo',
-  'anexos': 'anexos',
-  'formulario': 'formulário',
-  'formularios': 'formulários',
-  'sabado': 'sábado',
-  'domingo': 'domingo',
-  'militar': 'militar',
-  'politica': 'política',
-  'duvida?': 'dúvida?',
-  'agora': 'agora',
-  'hoje': 'hoje',
-  'amanha': 'amanhã',
-  'critico': 'crítico',
-  'critica': 'crítica',
-  'rapido': 'rápido',
-  'rapida': 'rápida',
-  'facil': 'fácil',
-  'dificil': 'difícil',
-  'pratico': 'prático',
-  'pratica': 'prática',
-  'automatico': 'automático',
-  'automatica': 'automática',
-  'tecnico': 'técnico',
-  'tecnica': 'técnica',
-  'fisico': 'físico',
-  'fisica': 'física',
-  'juridico': 'jurídico',
-  'juridica': 'jurídica',
-  'medico': 'médico',
-  'medica': 'médica',
-  'saude': 'saúde',
-  'obrigado': 'obrigado',
-  'obrigada': 'obrigada',
-  'porfavor': 'por favor',
-  'vc': 'você',
-  'vcs': 'vocês',
+// Lista mestre de palavras da norma culta em Português com acentuação e cedilha corretas
+const ACCENTED_PT_BR_WORDS = [
+  'não', 'você', 'vocês', 'também', 'são', 'já', 'até', 'está', 'estão', 'só',
+  'possível', 'impossível', 'revisão', 'revisões', 'relatório', 'relatórios',
+  'observação', 'observações', 'informação', 'informações', 'dúvida', 'dúvidas',
+  'atenção', 'execução', 'execuções', 'conclusão', 'conclusões', 'solicitação',
+  'solicitações', 'administração', 'departamento', 'início', 'próximo', 'próxima',
+  'próximos', 'próximas', 'número', 'números', 'página', 'páginas', 'único', 'única',
+  'análise', 'análises', 'serviço', 'serviços', 'endereço', 'endereços', 'declaração',
+  'declarações', 'funerária', 'funerárias', 'velório', 'velórios', 'obituário',
+  'obituários', 'óbito', 'óbitos', 'certidão', 'certidões', 'cemitério', 'cemitérios',
+  'concluído', 'concluída', 'concluídos', 'concluídas', 'descrição', 'descrições',
+  'orientação', 'orientações', 'confirmação', 'confirmações', 'validação',
+  'validações', 'autorização', 'autorizações', 'formulário', 'formulários', 'sábado',
+  'política', 'amanhã', 'porque', 'direção', 'ação', 'ações', 'produção', 'organização',
+  'notificação', 'notificações', 'aprovação', 'alteração', 'alterações', 'correção',
+  'correções', 'negociação', 'contratação', 'cotação', 'cotações', 'cobrança',
+  'cobranças', 'ligação', 'ligações', 'reunião', 'reuniões', 'urgência', 'pendência',
+  'pendências', 'orçamento', 'orçamentos', 'pagamento', 'solução', 'soluções',
+  'avaliação', 'avaliações', 'verificação', 'verificações', 'manutenção',
+  'manutenções', 'instalacão', 'instalação', 'instalações', 'operação', 'operações', 'função',
+  'funções', 'situação', 'situações', 'condição', 'condições', 'definição',
+  'definições', 'publicação', 'publicações', 'divulgação', 'benefício', 'benefícios',
+  'auxílio', 'auxílios', 'inscrição', 'inscrições', 'matrícula', 'matrículas',
+  'relação', 'relações', 'associação', 'associações', 'proteção', 'emissão',
+  'emissões', 'transferência', 'transferências', 'cremação', 'cremações', 'carência',
+  'carências', 'adesão', 'adesões', 'rescisão', 'rescisões', 'quitação', 'comissão',
+  'comissões', 'gerência', 'gestão', 'liderança', 'estratégia', 'estratégias',
+  'impressão', 'impressões', 'mídia', 'mídias', 'promoção', 'promoções', 'patrocínio',
+  'patrocínios', 'configuração', 'configurações', 'atualização', 'atualizações',
+  'usuário', 'usuários', 'permissão', 'permissões', 'segurança', 'técnico', 'técnica',
+  'rápido', 'rápida', 'fácil', 'difícil', 'útil', 'público', 'pública', 'médico',
+  'médica', 'jurídico', 'jurídica', 'período', 'prático', 'prática', 'crítico',
+  'crítica', 'válido', 'válida', 'saída', 'saídas', 'atribuição', 'atribuições',
+  'colaborador', 'colaboradores', 'histórico', 'históricos', 'geral', 'gerais'
+];
+
+/**
+ * Remove acentos e caracteres especiais para comparação insensível a acentuação
+ */
+export function removeAccents(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/c/g, 'c')
+    .toLowerCase();
+}
+
+// Mapa rápido gerado automaticamente a partir das palavras corretas
+const DYNAMIC_WORD_MAP: Record<string, string> = {
+  // Abreviações comuns
   'tb': 'também',
   'tbm': 'também',
   'pq': 'porque',
-  'pq?': 'por quê?',
   'pra': 'para',
   'pro': 'para o',
   'pras': 'para as',
   'pros': 'para os',
+  'pagto': 'pagamento',
+  'pgto': 'pagamento',
+  'posivel': 'possível',
+  'imposivel': 'impossível',
 };
+
+// Preenche o mapa dinâmico vinculando palavras sem acento -> com acento
+ACCENTED_PT_BR_WORDS.forEach((correctWord) => {
+  const unaccented = removeAccents(correctWord);
+  if (unaccented !== correctWord && !DYNAMIC_WORD_MAP[unaccented]) {
+    DYNAMIC_WORD_MAP[unaccented] = correctWord;
+  }
+});
 
 /**
  * Normaliza mantendo maiúsculas/minúsculas da palavra original
  */
-function preserveCasing(original: string, corrected: string): string {
+export function preserveCasing(original: string, corrected: string): string {
   if (original === original.toUpperCase()) {
     return corrected.toUpperCase();
   }
-  if (original[0] === original[0].toUpperCase()) {
+  if (original.length > 0 && original[0] === original[0].toUpperCase()) {
     return corrected.charAt(0).toUpperCase() + corrected.slice(1).toLowerCase();
   }
   return corrected.toLowerCase();
+}
+
+/**
+ * Busca a palavra corrigida correspondente
+ */
+export function findCorrectionForWord(word: string): string | null {
+  if (!word) return null;
+  const clean = word.toLowerCase();
+
+  // 1. Verificação direta no mapa
+  if (DYNAMIC_WORD_MAP[clean] && DYNAMIC_WORD_MAP[clean] !== clean) {
+    return preserveCasing(word, DYNAMIC_WORD_MAP[clean]);
+  }
+
+  // 2. Verificação de remoção de acentos/cedilha
+  const unaccented = removeAccents(clean);
+  if (DYNAMIC_WORD_MAP[unaccented] && DYNAMIC_WORD_MAP[unaccented] !== clean) {
+    return preserveCasing(word, DYNAMIC_WORD_MAP[unaccented]);
+  }
+
+  return null;
 }
 
 /**
@@ -158,11 +114,8 @@ export function correctPtBrText(text: string): string {
 
   // 1. Substituir palavras sem acento ou com grafia abreviada pelo termo correto em PT-BR
   let corrected = text.replace(/\b[a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]+\b/g, (match) => {
-    const lower = match.toLowerCase();
-    if (PT_BR_DICTIONARY[lower]) {
-      return preserveCasing(match, PT_BR_DICTIONARY[lower]);
-    }
-    return match;
+    const correction = findCorrectionForWord(match);
+    return correction || match;
   });
 
   // 2. Corrigir pontuação (remover espaço antes de vírgula, ponto, interrogação, exclamação)
@@ -189,12 +142,15 @@ export function getPtBrSuggestions(text: string): Array<{ original: string; corr
 
   for (const word of words) {
     const lower = word.toLowerCase();
-    if (PT_BR_DICTIONARY[lower] && PT_BR_DICTIONARY[lower] !== lower && !seen.has(lower)) {
-      seen.add(lower);
-      suggestions.push({
-        original: word,
-        corrected: preserveCasing(word, PT_BR_DICTIONARY[lower]),
-      });
+    if (!seen.has(lower)) {
+      const correction = findCorrectionForWord(word);
+      if (correction && correction.toLowerCase() !== lower) {
+        seen.add(lower);
+        suggestions.push({
+          original: word,
+          corrected: correction,
+        });
+      }
     }
   }
 

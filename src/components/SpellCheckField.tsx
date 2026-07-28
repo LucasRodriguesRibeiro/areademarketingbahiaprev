@@ -31,7 +31,8 @@ export const SpellCheckInput: React.FC<SpellCheckInputProps> = ({
   };
 
   const handleApplySingleSuggestion = (original: string, corrected: string) => {
-    const regex = new RegExp(`\\b${original}\\b`, 'g');
+    const escaped = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
     const updated = value.replace(regex, corrected);
     onChangeValue(updated);
   };
@@ -48,10 +49,10 @@ export const SpellCheckInput: React.FC<SpellCheckInputProps> = ({
               type="button"
               onClick={handleAutoFix}
               className="text-[11px] font-extrabold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-              title="Corrigir erros ortográficos e acentuação em Português (PT-BR)"
+              title="Corrigir todos os erros ortográficos e acentuação em Português (PT-BR)"
             >
               <Wand2 className="h-3 w-3 text-amber-600" />
-              <span>Corrigir PT-BR</span>
+              <span>Corrigir Tudo (PT-BR)</span>
             </button>
           )}
         </div>
@@ -71,31 +72,44 @@ export const SpellCheckInput: React.FC<SpellCheckInputProps> = ({
         {...props}
       />
 
-      {/* Barra estilo Teclado de Celular com Sugestões de Correção Ortográfica */}
+      {/* Painel de Sugestões de Correção em Tempo Real */}
       {showCorrectorBar && suggestions.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[11px]">
-          <span className="text-slate-400 font-semibold flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-amber-500" />
-            <span>Sugestões:</span>
-          </span>
-          {suggestions.slice(0, 4).map(({ original, corrected }) => (
+        <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2 text-[11px] space-y-1.5 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between gap-1 text-amber-900 font-bold">
+            <span className="flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              <span>Sugestões de Correção (PT-BR):</span>
+            </span>
             <button
-              key={original}
               type="button"
-              onClick={() => handleApplySingleSuggestion(original, corrected)}
-              className="px-2 py-0.5 bg-amber-100/80 hover:bg-amber-200 text-amber-900 font-bold rounded-md border border-amber-300/80 transition-colors cursor-pointer flex items-center gap-1"
+              onClick={handleAutoFix}
+              className="text-[10px] font-black text-amber-800 hover:text-amber-950 underline cursor-pointer"
             >
-              <span className="line-through text-slate-500 font-normal">{original}</span>
-              <span className="text-amber-800">➔</span>
-              <span>{corrected}</span>
+              Corrigir Tudo ({suggestions.length})
             </button>
-          ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {suggestions.slice(0, 6).map(({ original, corrected }) => (
+              <button
+                key={original}
+                type="button"
+                onClick={() => handleApplySingleSuggestion(original, corrected)}
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-slate-800 font-semibold rounded-lg border border-amber-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 text-xs group"
+                title={`Clique para trocar "${original}" por "${corrected}"`}
+              >
+                <span className="line-through text-slate-400 font-normal group-hover:text-red-500">{original}</span>
+                <span className="text-amber-600 font-bold">➔</span>
+                <span className="text-amber-900 font-extrabold group-hover:scale-105 transition-transform">{corrected}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {justFixed && (
         <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-          <Check className="h-3 w-3" /> Texto corrigido em Português Brasil!
+          <Check className="h-3 w-3" /> Texto corrigido em Português!
         </p>
       )}
     </div>
@@ -130,7 +144,8 @@ export const SpellCheckTextarea: React.FC<SpellCheckTextareaProps> = ({
   };
 
   const handleApplySingleSuggestion = (original: string, corrected: string) => {
-    const regex = new RegExp(`\\b${original}\\b`, 'g');
+    const escaped = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
     const updated = value.replace(regex, corrected);
     onChangeValue(updated);
   };
@@ -169,31 +184,44 @@ export const SpellCheckTextarea: React.FC<SpellCheckTextareaProps> = ({
         {...props}
       />
 
-      {/* Barra de Correção e Sugestões do Teclado */}
+      {/* Painel de Sugestões de Correção em Tempo Real */}
       {showCorrectorBar && suggestions.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[11px]">
-          <span className="text-slate-500 font-semibold flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-amber-500" />
-            <span>Sugestões de Correção (PT-BR):</span>
-          </span>
-          {suggestions.slice(0, 5).map(({ original, corrected }) => (
+        <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2 text-[11px] space-y-1.5 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between gap-1 text-amber-900 font-bold">
+            <span className="flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              <span>Sugestões de Correção (PT-BR):</span>
+            </span>
             <button
-              key={original}
               type="button"
-              onClick={() => handleApplySingleSuggestion(original, corrected)}
-              className="px-2 py-0.5 bg-amber-100/90 hover:bg-amber-200 text-amber-900 font-bold rounded-md border border-amber-300 transition-colors cursor-pointer flex items-center gap-1"
+              onClick={handleAutoFix}
+              className="text-[10px] font-black text-amber-800 hover:text-amber-950 underline cursor-pointer"
             >
-              <span className="line-through text-slate-500 font-normal">{original}</span>
-              <span className="text-amber-800">➔</span>
-              <span>{corrected}</span>
+              Corrigir Tudo ({suggestions.length})
             </button>
-          ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {suggestions.slice(0, 6).map(({ original, corrected }) => (
+              <button
+                key={original}
+                type="button"
+                onClick={() => handleApplySingleSuggestion(original, corrected)}
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-slate-800 font-semibold rounded-lg border border-amber-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 text-xs group"
+                title={`Clique para trocar "${original}" por "${corrected}"`}
+              >
+                <span className="line-through text-slate-400 font-normal group-hover:text-red-500">{original}</span>
+                <span className="text-amber-600 font-bold">➔</span>
+                <span className="text-amber-900 font-extrabold group-hover:scale-105 transition-transform">{corrected}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {justFixed && (
         <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-          <Check className="h-3 w-3" /> Ortografia e pontuação corrigidas!
+          <Check className="h-3 w-3" /> Ortografia e acentuação corrigidas!
         </p>
       )}
     </div>

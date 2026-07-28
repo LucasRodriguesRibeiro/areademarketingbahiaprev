@@ -60,6 +60,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
+import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 
 const GOOGLE_MAPS_API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
@@ -2108,12 +2109,11 @@ export const FunerariaSection: React.FC = () => {
                     <span className="flex items-center gap-1 font-medium">📝 Observações</span>
                   </div>
 
-                  <textarea
+                  <SpellCheckTextarea
                     rows={4}
                     value={checkitemModal.observations}
-                    onChange={(e) => setCheckitemModal((prev) => prev ? { ...prev, observations: e.target.value } : null)}
+                    onChangeValue={(val) => setCheckitemModal((prev) => prev ? { ...prev, observations: val } : null)}
                     placeholder="Digite ocorrências durante o atendimento, pendências, observações relevantes..."
-                    className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-slate-800 placeholder-slate-400"
                   />
                 </div>
 

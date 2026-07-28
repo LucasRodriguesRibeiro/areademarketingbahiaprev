@@ -44,6 +44,7 @@ import {
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 
 export interface Post {
   id: string;
@@ -496,12 +497,11 @@ export const FeedSection: React.FC = () => {
               </div>
 
               <form onSubmit={handleCreatePost} className="space-y-3">
-                <textarea
+                <SpellCheckTextarea
                   value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
+                  onChangeValue={(val) => setNewContent(val)}
                   placeholder={`No que você está pensando, ${profile?.name?.split(' ')[0]}? Compartilhe com a equipe...`}
                   rows={3}
-                  className="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                 />
 
                 {/* Hidden File Input for documents and images */}
@@ -858,6 +858,10 @@ export const FeedSection: React.FC = () => {
                               onChange={(e) => setCommentInputMap(prev => ({ ...prev, [post.id]: e.target.value }))}
                               onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(post.id); }}
                               placeholder="Escreva um comentário..."
+                              spellCheck={true}
+                              lang="pt-BR"
+                              autoCorrect="on"
+                              autoCapitalize="sentences"
                               className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             />
                             <button

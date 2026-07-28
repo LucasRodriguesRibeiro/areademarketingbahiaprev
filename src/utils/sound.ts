@@ -16,14 +16,30 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
-export function playNotificationSound(type: 'task' | 'post' | 'announcement') {
+export function playNotificationSound(type: 'task' | 'post' | 'announcement' | 'task_complete') {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
 
     const now = ctx.currentTime;
 
-    if (type === 'task') {
+    if (type === 'task_complete') {
+      // Triumphant, cheerful ascending chime for completed tasks (C5 -> E5 -> G5 -> C6)
+      const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      frequencies.forEach((freq, idx) => {
+        const startTime = now + idx * 0.09;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.2, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.4);
+      });
+    } else if (type === 'task') {
       // Crisp dual-tone chime for Tasks (C5 -> G5)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();

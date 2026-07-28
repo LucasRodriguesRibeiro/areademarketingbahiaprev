@@ -113,6 +113,7 @@ export const TasksSection: React.FC = () => {
   const [collaborators, setCollaborators] = useState<MemberOption[]>(DEFAULT_MEMBERS);
   const [loading, setLoading] = useState(true);
   const knownTaskIdsRef = useRef<Set<string> | null>(null);
+  const knownTaskStatusesRef = useRef<Map<string, string> | null>(null);
   
   // Filters and search
   const [statusFilter, setStatusFilter] = useState<'abertas' | 'atrasadas' | 'concluida'>('abertas');
@@ -122,6 +123,17 @@ export const TasksSection: React.FC = () => {
   const [selectedCollaboratorUid, setSelectedCollaboratorUid] = useState<string | null>(null);
   const [taskScopeMode, setTaskScopeMode] = useState<'minhas' | 'colaborador' | 'todas'>('minhas');
   const [isMyTasksMinimized, setIsMyTasksMinimized] = useState<boolean>(false);
+  const [completionToast, setCompletionToast] = useState<{ title: string; subtitle: string } | null>(null);
+
+  const triggerCompletionToast = useCallback((taskTitle: string, recipientOrCompletedByName?: string) => {
+    setCompletionToast({
+      title: taskTitle,
+      subtitle: recipientOrCompletedByName ? `Concluída por/para ${recipientOrCompletedByName}` : 'Tarefa concluída com sucesso!'
+    });
+    setTimeout(() => {
+      setCompletionToast(null);
+    }, 4500);
+  }, []);
 
   // Modal for viewing task details and submitting completion delivery
   const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null);
@@ -468,15 +480,32 @@ export const TasksSection: React.FC = () => {
             }
           });
 
-          // Sound notification check for new tasks arriving in real time
+          // Sound notification check for new tasks or completed tasks arriving in real time
           if (knownTaskIdsRef.current === null) {
             knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+            knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
           } else {
             const hasNewTask = loaded.some((t) => !knownTaskIdsRef.current!.has(t.id));
-            if (hasNewTask) {
+            const hasNewlyCompletedTask = loaded.some((t) => {
+              const prevStatus = knownTaskStatusesRef.current?.get(t.id);
+              return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
+            });
+
+            if (hasNewlyCompletedTask) {
+              playNotificationSound('task_complete');
+              const newlyCompleted = loaded.find((t) => {
+                const prevStatus = knownTaskStatusesRef.current?.get(t.id);
+                return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
+              });
+              if (newlyCompleted) {
+                triggerCompletionToast(newlyCompleted.title, newlyCompleted.completedByName || newlyCompleted.assignedToName);
+              }
+            } else if (hasNewTask) {
               playNotificationSound('task');
             }
+
             knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+            knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
           }
 
           if (loaded.length === 0) {
@@ -613,6 +642,8 @@ export const TasksSection: React.FC = () => {
       updatePayload.completedAt = new Date().toISOString();
       updatePayload.completedByEmail = userEmail;
       updatePayload.completedByName = userName;
+      playNotificationSound('task_complete');
+      triggerCompletionToast(task.title, userName);
     }
 
     const updated = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload } : t);
@@ -639,6 +670,8 @@ export const TasksSection: React.FC = () => {
       completedByEmail: userEmail,
       completedByName: userName,
     };
+    playNotificationSound('task_complete');
+    triggerCompletionToast(task.title, userName);
 
     if (completionAttachmentFile) {
       updatePayload.completionAttachmentName = completionAttachmentFile.name;
@@ -754,6 +787,8 @@ export const TasksSection: React.FC = () => {
       updatePayload.completedAt = new Date().toISOString();
       updatePayload.completedByEmail = userEmail;
       updatePayload.completedByName = userName;
+      playNotificationSound('task_complete');
+      triggerCompletionToast(editTitle, userName);
     }
 
     if (editAttachmentFile === 'remove') {
@@ -2736,6 +2771,35 @@ export const TasksSection: React.FC = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Completion Toast Notification */}
+      <AnimatePresence>
+        {completionToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-emerald-500/30 flex items-center gap-3.5 max-w-sm pointer-events-auto"
+          >
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 text-emerald-400">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🎉 Tarefa Concluída!</span>
+              </p>
+              <p className="text-xs font-bold text-slate-100 truncate mt-0.5">{completionToast.title}</p>
+              <p className="text-[11px] text-slate-400 font-medium truncate">{completionToast.subtitle}</p>
+            </div>
+            <button
+              onClick={() => setCompletionToast(null)}
+              className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 

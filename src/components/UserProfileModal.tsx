@@ -26,6 +26,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
   const [roleInput, setRoleInput] = useState<string>(profile?.role || 'Colaborador');
   const [previewUrl, setPreviewUrl] = useState<string>(profile?.avatarUrl || '');
   const [saving, setSaving] = useState(false);
+  const [compressingImage, setCompressingImage] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [completedTasks, setCompletedTasks] = useState<UserCompletedTask[]>([]);
@@ -90,26 +91,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
 
   // Compress & convert file to data URL
   const handleFile = (file: File) => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-    if (!validTypes.includes(file.type.toLowerCase())) {
-      setErrorMsg('Por favor, envie um arquivo de imagem nos formatos JPEG ou PNG (.jpg, .jpeg, .png).');
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+      setErrorMsg('Por favor, envie um arquivo de imagem (JPG, PNG ou WEBP).');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg('A imagem deve ter no máximo 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('A imagem deve ter no máximo 10MB.');
       return;
     }
 
     setErrorMsg(null);
+    setCompressingImage(true);
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Resize canvas if needed to optimize Firestore storage size
+        // Resize canvas to optimize Firestore storage size (max 280x280 px)
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
+        const MAX_WIDTH = 280;
+        const MAX_HEIGHT = 280;
         let width = img.width;
         let height = img.height;
 
@@ -125,18 +128,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           }
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
           setPreviewUrl(dataUrl);
         } else {
           setPreviewUrl(e.target?.result as string);
         }
+        setCompressingImage(false);
+      };
+      img.onerror = () => {
+        setErrorMsg('Erro ao carregar a imagem. Tente outra imagem.');
+        setCompressingImage(false);
       };
       img.src = e.target?.result as string;
+    };
+    reader.onerror = () => {
+      setErrorMsg('Erro ao ler arquivo.');
+      setCompressingImage(false);
     };
     reader.readAsDataURL(file);
   };
@@ -171,18 +183,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
       setErrorMsg('O nome não pode ficar em branco.');
       return;
     }
+    if (compressingImage) {
+      setErrorMsg('Aguarde o processamento da imagem terminar...');
+      return;
+    }
     setSaving(true);
     setErrorMsg(null);
     try {
-      await updateUserProfile({
+      const payload: { name: string; role: string; avatarUrl?: string } = {
         name: nameInput.trim(),
-        role: canEditRole ? roleInput.trim() : (profile?.role || 'Colaborador'),
-        avatarUrl: previewUrl || undefined
-      });
+        role: canEditRole ? roleInput.trim() : (profile?.role || 'Colaborador')
+      };
+      if (previewUrl) {
+        payload.avatarUrl = previewUrl;
+      }
+
+      await updateUserProfile(payload);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao atualizar perfil:', err);
-      setErrorMsg('Não foi possível salvar as alterações. Tente novamente.');
+      setErrorMsg(err?.message || 'Não foi possível salvar as alterações. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -443,7 +463,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             {saving ? (
-              <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <>
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Salvando...</span>
+              </>
             ) : (
               <>
                 <Check className="h-4 w-4" />

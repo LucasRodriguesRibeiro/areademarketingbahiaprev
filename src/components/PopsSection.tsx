@@ -18,6 +18,7 @@ import {
   Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
 import { 
@@ -480,60 +481,52 @@ export const PopsSection: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Título do Procedimento *</label>
-                  <input
-                    type="text"
+                  <SpellCheckInput
+                    label="Título do Procedimento *"
                     required
                     value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
+                    onChangeValue={(val) => setNewTitle(val)}
                     placeholder="Ex: Atendimento ao Cliente e Validação de Convênios"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Cargo / Público-Alvo</label>
-                    <input
-                      type="text"
+                    <SpellCheckInput
+                      label="Cargo / Público-Alvo"
                       value={newTargetRole}
-                      onChange={(e) => setNewTargetRole(e.target.value)}
+                      onChangeValue={(val) => setNewTargetRole(val)}
                       placeholder="Ex: Analista de Marketing, Todos..."
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Versão</label>
-                    <input
-                      type="text"
+                    <SpellCheckInput
+                      label="Versão"
                       value={newVersion}
-                      onChange={(e) => setNewVersion(e.target.value)}
+                      onChangeValue={(val) => setNewVersion(val)}
                       placeholder="Ex: 2026.1"
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Descrição Curta *</label>
-                  <textarea
+                  <SpellCheckTextarea
+                    label="Descrição Curta *"
                     rows={3}
                     required
                     value={newDescription}
-                    onChange={(e) => setNewDescription(e.target.value)}
+                    onChangeValue={(val) => setNewDescription(val)}
                     placeholder="Resumo do objetivo do procedimento operacional..."
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Passo a Passo (uma etapa por linha)</label>
-                  <textarea
+                  <SpellCheckTextarea
+                    label="Passo a Passo (uma etapa por linha)"
                     rows={4}
                     value={newStepsText}
-                    onChange={(e) => setNewStepsText(e.target.value)}
+                    onChangeValue={(val) => setNewStepsText(val)}
                     placeholder="Passo 1: Receber o cliente...&#10;Passo 2: Verificar cadastro no sistema...&#10;Passo 3: Concluir atendimento..."
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                   />
                 </div>
 

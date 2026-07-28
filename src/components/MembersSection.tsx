@@ -114,7 +114,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       uid: 'm-lucas',
       name: 'Lucas Rodrigues',
       email: 'lucasrodrigues@bahiaprev.com.br',
-      role: 'Administrador'
+      role: 'Analista de Marketing'
     },
     {
       uid: 'm-jairo',
@@ -138,7 +138,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           uid: 'm-lucas',
           name: 'Lucas Rodrigues',
           email: 'lucasrodrigues@bahiaprev.com.br',
-          role: profile?.email === 'lucasrodrigues@bahiaprev.com.br' ? (profile?.role || 'Administrador') : 'Administrador',
+          role: 'Analista de Marketing',
           avatarUrl: undefined
         },
         'jairo': {
@@ -166,17 +166,18 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           data.lastSeen && (new Date().getTime() - new Date(data.lastSeen).getTime() < 120000)
         );
 
-        if (email.includes('lucas') || name.includes('lucas') || email === 'marketing@bahiaprev.com.br') {
+        if (email.includes('lucas') || name.includes('lucas') || name.includes('analista') || email === 'marketing@bahiaprev.com.br') {
           const isUserDoc = user && docSnap.id === user.uid;
-          let role = data.role || mergedMap['lucas'].role;
-          if (mergedMap['lucas'].role === 'Administrador' && role === 'Analista de Marketing') {
-            role = 'Administrador';
+          let role = data.role === 'Administrador' ? 'Analista de Marketing • Administrador' : (data.role || 'Analista de Marketing');
+          let displayName = data.name || mergedMap['lucas'].name;
+          if (displayName === 'Analista de Marketing' || displayName === 'Lucas' || displayName === 'marketing') {
+            displayName = 'Lucas Rodrigues';
           }
 
           mergedMap['lucas'] = {
             uid: isUserDoc ? user.uid : (mergedMap['lucas'].uid || docSnap.id),
-            name: data.name || mergedMap['lucas'].name,
-            email: 'lucasrodrigues@bahiaprev.com.br',
+            name: displayName,
+            email: data.email || 'marketing@bahiaprev.com.br',
             role: role,
             avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (data.avatarUrl || mergedMap['lucas'].avatarUrl),
             createdAt: data.createdAt,

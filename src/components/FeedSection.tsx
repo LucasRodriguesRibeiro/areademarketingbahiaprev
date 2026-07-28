@@ -851,25 +851,20 @@ export const FeedSection: React.FC = () => {
                           </div>
 
                           {/* Add comment input */}
-                          <div className="flex items-center gap-2 pt-2">
-                            <input
-                              type="text"
+                          <div className="flex items-center gap-2 pt-2 flex-1">
+                            <SpellCheckInput
                               value={commentInputMap[post.id] || ''}
-                              onChange={(e) => setCommentInputMap(prev => ({ ...prev, [post.id]: e.target.value }))}
+                              onChangeValue={(val) => setCommentInputMap(prev => ({ ...prev, [post.id]: val }))}
                               onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(post.id); }}
                               placeholder="Escreva um comentário..."
-                              spellCheck={true}
-                              lang="pt-BR"
-                              autoCorrect="on"
-                              autoCapitalize="sentences"
-                              className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              className="flex-1"
                             />
                             <button
                               onClick={() => handleAddComment(post.id)}
                               disabled={submittingComment || !commentInputMap[post.id]?.trim()}
-                              className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 cursor-pointer"
+                              className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 cursor-pointer shrink-0"
                             >
-                              <Send className="h-3.5 w-3.5" />
+                              <Send className="h-4 w-4" />
                             </button>
                           </div>
                         </motion.div>

@@ -129,18 +129,21 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
   const { profile, user } = useAuth();
   const [hoveredModule, setHoveredModule] = useState<ModuleCard | null>(null);
 
-  const isLucas = Boolean(
+  const isAdmin = Boolean(
+    profile?.role === 'Administrador' ||
     profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
     profile?.email === 'marketing@bahiaprev.com.br' ||
     profile?.name?.toLowerCase().includes('lucas') ||
+    profile?.name?.toLowerCase().includes('analista') ||
     user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    user?.email === 'marketing@bahiaprev.com.br'
+    user?.email === 'marketing@bahiaprev.com.br' ||
+    user?.email === 'institutojairoqueiroz@gmail.com'
   );
 
   const adminModule: ModuleCard = {
     id: 'admin',
     title: 'Gestão de Usuários',
-    badge: 'Acesso Exclusivo Lucas',
+    badge: 'Acesso Exclusivo Lucas Rodrigues (Analista de Marketing)',
     description: 'Cadastre novos colaboradores, configure cargos e defina permissões de publicação no Feed e criação de tarefas.',
     hoverDestination: 'Painel do Administrador Lucas Rodrigues',
     icon: ShieldCheck,
@@ -150,7 +153,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
     accentColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
   };
 
-  const activeModules = isLucas ? [...MODULES, adminModule] : MODULES;
+  const activeModules = isAdmin ? [...MODULES, adminModule] : MODULES;
 
   return (
     <div className="w-full">

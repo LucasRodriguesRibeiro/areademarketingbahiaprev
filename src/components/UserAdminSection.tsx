@@ -39,6 +39,7 @@ interface ManagedUser {
   canCreateTasks?: boolean;
   createdAt?: string;
   isOnline?: boolean;
+  lastSeen?: string;
 }
 
 const PRESET_ROLES = [
@@ -60,13 +61,16 @@ const PRESET_ROLES = [
 export const UserAdminSection: React.FC = () => {
   const { profile, user } = useAuth();
 
-  // Verification: Only Lucas Rodrigues has access
+  // Verification: Admin access for Analista de Marketing / Administrator
   const isLucas = Boolean(
+    profile?.role === 'Administrador' ||
     profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
     profile?.email === 'marketing@bahiaprev.com.br' ||
     profile?.name?.toLowerCase().includes('lucas') ||
+    profile?.name?.toLowerCase().includes('analista') ||
     user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    user?.email === 'marketing@bahiaprev.com.br'
+    user?.email === 'marketing@bahiaprev.com.br' ||
+    user?.email === 'institutojairoqueiroz@gmail.com'
   );
 
   // Users list from Firestore
@@ -121,89 +125,21 @@ export const UserAdminSection: React.FC = () => {
         });
       });
 
-      // Find all Lucas / marketing admin docs
-      const lucasDocs = allDocs.filter(d => 
-        d.uEmail.includes('lucas') || 
-        d.uName.includes('lucas') || 
-        d.uEmail === 'marketing@bahiaprev.com.br' ||
-        (d.data.role === 'Administrador' && (d.uName.includes('marketing') || d.uEmail.includes('marketing')))
-      );
-
-      let primaryLucasId: string | null = null;
-      if (lucasDocs.length > 0) {
-        // Priority 1: Doc WITH photo (avatarUrl)
-        // Priority 2: Current auth user doc
-        // Priority 3: First doc
-        const photoDoc = lucasDocs.find(d => d.hasPhoto);
-        const authDoc = lucasDocs.find(d => d.isCurrentAuth);
-
-        primaryLucasId = photoDoc?.id || authDoc?.id || lucasDocs[0].id;
-
-        // Clean up duplicate/stale Lucas docs without photos from Firestore
-        lucasDocs.forEach((d) => {
-          if (d.id !== primaryLucasId) {
-            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
-          }
-        });
-      }
-
-      // Find all Jairo docs
-      const jairoDocs = allDocs.filter(d => d.uEmail.includes('jairo') || d.uName.includes('jairo'));
-      let primaryJairoId: string | null = null;
-      if (jairoDocs.length > 0) {
-        const photoDoc = jairoDocs.find(d => d.hasPhoto);
-        const authDoc = jairoDocs.find(d => d.isCurrentAuth);
-        primaryJairoId = photoDoc?.id || authDoc?.id || jairoDocs[0].id;
-        jairoDocs.forEach(d => {
-          if (d.id !== primaryJairoId) {
-            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
-          }
-        });
-      }
-
-      // Find all Cauan docs
-      const cauanDocs = allDocs.filter(d => d.uEmail.includes('cauan') || d.uName.includes('cauan'));
-      let primaryCauanId: string | null = null;
-      if (cauanDocs.length > 0) {
-        const photoDoc = cauanDocs.find(d => d.hasPhoto);
-        const authDoc = cauanDocs.find(d => d.isCurrentAuth);
-        primaryCauanId = photoDoc?.id || authDoc?.id || cauanDocs[0].id;
-        cauanDocs.forEach(d => {
-          if (d.id !== primaryCauanId) {
-            deleteDoc(doc(db, 'users', d.id)).catch(() => {});
-          }
-        });
-      }
-
       const loaded: ManagedUser[] = [];
       allDocs.forEach((item) => {
-        const { id, data, uEmail, uName } = item;
-        const isLucas = uEmail.includes('lucas') || uName.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || (data.role === 'Administrador' && (uName.includes('marketing') || uEmail.includes('marketing')));
-        const isJairo = uEmail.includes('jairo') || uName.includes('jairo');
-        const isCauan = uEmail.includes('cauan') || uName.includes('cauan');
-
-        // Skip non-primary duplicates
-        if (isLucas && id !== primaryLucasId) return;
-        if (isJairo && id !== primaryJairoId) return;
-        if (isCauan && id !== primaryCauanId) return;
+        const { id, data, uEmail } = item;
 
         const defaultCanPost = data.canPostFeed !== undefined 
           ? Boolean(data.canPostFeed) 
-          : (!isCauan);
+          : true;
 
         const defaultCanTasks = data.canCreateTasks !== undefined 
           ? Boolean(data.canCreateTasks) 
-          : (!isCauan);
+          : true;
 
-        let finalName = data.name || uEmail.split('@')[0] || 'Usuário';
-        let finalEmail = data.email || '';
-        let finalRole = data.role || 'Colaborador';
-
-        if (isLucas) {
-          finalName = 'Lucas Rodrigues';
-          finalEmail = 'lucasrodrigues@bahiaprev.com.br';
-          finalRole = 'Administrador';
-        }
+        const finalName = data.name || (uEmail ? uEmail.split('@')[0] : 'Usuário');
+        const finalEmail = data.email || '';
+        const finalRole = data.role || 'Colaborador';
 
         loaded.push({
           uid: id,
@@ -213,8 +149,9 @@ export const UserAdminSection: React.FC = () => {
           avatarUrl: data.avatarUrl,
           canPostFeed: defaultCanPost,
           canCreateTasks: defaultCanTasks,
-          createdAt: data.createdAt,
-          isOnline: data.isOnline
+          isOnline: data.isOnline,
+          lastSeen: data.lastSeen,
+          createdAt: data.createdAt
         });
       });
 
@@ -343,18 +280,27 @@ export const UserAdminSection: React.FC = () => {
   };
 
   // Save Edit User
+  const [savingEdit, setSavingEdit] = useState(false);
   const handleSaveEditUser = async () => {
     if (!editingUser) return;
+    setSavingEdit(true);
     try {
-      await updateDoc(doc(db, 'users', editingUser.uid), {
+      const userRef = doc(db, 'users', editingUser.uid);
+      const updateData = {
         name: editName.trim(),
         role: editRole.trim(),
         canPostFeed: editCanPostFeed,
         canCreateTasks: editCanCreateTasks
-      });
+      };
+      
+      const savePromise = setDoc(userRef, updateData, { merge: true });
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 6000));
+      await Promise.race([savePromise, timeoutPromise]);
       setEditingUser(null);
     } catch (err) {
       console.error('Error saving user edit:', err);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -398,11 +344,20 @@ export const UserAdminSection: React.FC = () => {
         <h2 className="text-2xl font-black text-white mb-2">Painel de Acesso Exclusivo</h2>
         <p className="text-slate-300 text-sm max-w-md mx-auto leading-relaxed">
           Esta aba é restrita e configurada exclusivamente para a conta de administrador do 
-          <strong className="text-blue-400 font-bold"> Lucas Rodrigues</strong>.
+          <strong className="text-blue-400 font-bold"> {profile?.name || 'Analista de Marketing'}</strong>.
         </p>
       </div>
     );
   }
+
+  const currentAdminName = profile?.name || 'Lucas Rodrigues';
+  const currentAdminInitials = currentAdminName
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'AM';
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-8">
@@ -415,7 +370,7 @@ export const UserAdminSection: React.FC = () => {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded-full text-indigo-300 text-xs font-bold">
               <ShieldCheck className="h-4 w-4 text-indigo-400" />
-              <span>Aba Exclusiva de Administração • Lucas Rodrigues</span>
+              <span>Aba Exclusiva de Administração • {currentAdminName}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
               <span>Cadastro de Usuários & Permissões</span>
@@ -426,11 +381,19 @@ export const UserAdminSection: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 p-3.5 rounded-2xl shrink-0">
-            <div className="h-10 w-10 rounded-full bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-md">
-              LR
-            </div>
+            {profile?.avatarUrl ? (
+              <img 
+                src={profile.avatarUrl} 
+                alt={currentAdminName} 
+                className="h-10 w-10 rounded-full object-cover border border-blue-400/50 shadow-md"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-md">
+                {currentAdminInitials}
+              </div>
+            )}
             <div>
-              <p className="text-xs font-bold text-white">Lucas Rodrigues</p>
+              <p className="text-xs font-bold text-white">{currentAdminName}</p>
               <p className="text-[10px] text-blue-400 font-semibold">Administrador do Sistema</p>
             </div>
           </div>
@@ -893,9 +856,17 @@ export const UserAdminSection: React.FC = () => {
                   </button>
                   <button
                     onClick={handleSaveEditUser}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors cursor-pointer"
+                    disabled={savingEdit || !editName.trim()}
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
-                    Salvar Alterações
+                    {savingEdit ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </>
+                    ) : (
+                      <span>Salvar Alterações</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -921,7 +892,7 @@ export const UserAdminSection: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-base">Excluir Usuário do Sistema</h3>
-                  <p className="text-xs text-rose-600 font-bold">Ação de Administrador • Lucas Rodrigues</p>
+                  <p className="text-xs text-rose-600 font-bold">Ação de Administrador • {currentAdminName}</p>
                 </div>
               </div>
 

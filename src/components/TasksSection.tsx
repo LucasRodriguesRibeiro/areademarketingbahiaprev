@@ -77,7 +77,7 @@ export interface MemberOption {
 const DEFAULT_MEMBERS: MemberOption[] = [
   {
     uid: 'm-lucas-mkt',
-    name: 'Lucas Rodrigues',
+    name: 'Analista de Marketing',
     email: 'lucasrodrigues@bahiaprev.com.br',
     role: 'Administrador'
   },
@@ -119,6 +119,7 @@ export const TasksSection: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'abertas' | 'atrasadas' | 'concluida'>('abertas');
   const [priorityFilter, setPriorityFilter] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'prazo_crescente' | 'prazo_decrescente' | 'prioridade'>('prazo_crescente');
   const [selectedUserFilterForCompleted, setSelectedUserFilterForCompleted] = useState<string>('minhas');
   const [selectedCollaboratorUid, setSelectedCollaboratorUid] = useState<string | null>(null);
   const [taskScopeMode, setTaskScopeMode] = useState<'minhas' | 'colaborador' | 'todas'>('minhas');
@@ -233,7 +234,7 @@ export const TasksSection: React.FC = () => {
       const map: Record<string, MemberOption> = {
         'lucas': {
           uid: 'm-lucas-mkt',
-          name: 'Lucas Rodrigues',
+          name: 'Analista de Marketing',
           email: 'lucasrodrigues@bahiaprev.com.br',
           role: 'Administrador'
         },
@@ -256,11 +257,15 @@ export const TasksSection: React.FC = () => {
         const email = (data.email || '').toLowerCase();
         const name = (data.name || '').toLowerCase();
 
-        if (email.includes('lucas') || name.includes('lucas') || email === 'marketing@bahiaprev.com.br') {
+        if (email.includes('lucas') || name.includes('lucas') || name.includes('analista') || email === 'marketing@bahiaprev.com.br') {
+          let resolvedName = data.name || 'Lucas Rodrigues';
+          if (resolvedName === 'Analista de Marketing' || resolvedName === 'Lucas' || resolvedName === 'marketing') {
+            resolvedName = 'Lucas Rodrigues';
+          }
           map['lucas'] = {
             uid: docSnap.id,
-            name: 'Lucas Rodrigues',
-            email: 'lucasrodrigues@bahiaprev.com.br',
+            name: resolvedName,
+            email: data.email || 'marketing@bahiaprev.com.br',
             role: 'Administrador'
           };
         } else if (email.includes('jairo') || name.includes('jairo')) {
@@ -704,7 +709,7 @@ export const TasksSection: React.FC = () => {
   const isLucasUser = useCallback((email?: string, name?: string) => {
     const e = (email || '').toLowerCase().trim();
     const n = (name || '').toLowerCase().trim();
-    return e.includes('lucas') || n.includes('lucas') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
+    return e.includes('lucas') || n.includes('lucas') || n.includes('analista') || e.includes('marketing') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
   }, []);
 
   // Helper to verify if the current user is the assigner/creator of the task
@@ -1258,28 +1263,83 @@ export const TasksSection: React.FC = () => {
     return matchesStatus && matchesPriority && matchesSearch && matchesScope && matchesUserCompletedFilter;
   });
 
+  // Sorted Tasks (Ordered by due date / deadline: shortest to longest)
+  const sortedTasks = useMemo(() => {
+    return [...filteredTasks].sort((a, b) => {
+      const aDate = a.dueDate ? a.dueDate.trim() : '';
+      const bDate = b.dueDate ? b.dueDate.trim() : '';
+
+      if (sortOrder === 'prazo_crescente') {
+        // Menor prazo primeiro (datas mais próximas / antigas no topo)
+        if (aDate && !bDate) return -1;
+        if (!aDate && bDate) return 1;
+        if (aDate && bDate) {
+          const cmp = aDate.localeCompare(bDate);
+          if (cmp !== 0) return cmp;
+        }
+      } else if (sortOrder === 'prazo_decrescente') {
+        // Maior prazo primeiro (datas mais distantes no topo)
+        if (aDate && !bDate) return -1;
+        if (!aDate && bDate) return 1;
+        if (aDate && bDate) {
+          const cmp = bDate.localeCompare(aDate);
+          if (cmp !== 0) return cmp;
+        }
+      } else if (sortOrder === 'prioridade') {
+        const pMap = { alta: 1, media: 2, baixa: 3 };
+        const pA = pMap[a.priority] || 2;
+        const pB = pMap[b.priority] || 2;
+        if (pA !== pB) return pA - pB;
+      }
+
+      // Desempate 1: Prioridade (alta > media > baixa)
+      const pMap = { alta: 1, media: 2, baixa: 3 };
+      const pA = pMap[a.priority] || 2;
+      const pB = pMap[b.priority] || 2;
+      if (pA !== pB) return pA - pB;
+
+      // Desempate 2: Data de criação (mais recentes primeiro)
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  }, [filteredTasks, sortOrder]);
+
   {/* Componente Auxiliar para Renderizar a Lista de Tarefas, Busca e Filtros */}
   const renderTaskListSection = () => (
     <div className="space-y-4 pt-3 border-t border-slate-200/60">
-      {/* Action Bar: Search, Filters & New Task Button */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+      {/* Action Bar: Search, Filters, Sort & New Task Button */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por título, colaborador responsável ou criador..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
+        </div>
+
+        {/* Sort Order Selector */}
+        <div className="flex items-center gap-1.5 shrink-0 bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
+          <Calendar className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="text-slate-500 hidden sm:inline">Prazo:</span>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as any)}
+            className="bg-transparent font-extrabold text-xs text-slate-800 focus:outline-none cursor-pointer pr-1"
+          >
+            <option value="prazo_crescente">Menor ao Maior Prazo (Urgentes Primeiro)</option>
+            <option value="prazo_decrescente">Maior ao Menor Prazo</option>
+            <option value="prioridade">Prioridade (Alta -&gt; Baixa)</option>
+          </select>
         </div>
 
         {/* Status Filters */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           <button
             onClick={() => setStatusFilter('abertas')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
               statusFilter === 'abertas'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -1291,7 +1351,7 @@ export const TasksSection: React.FC = () => {
 
           <button
             onClick={() => setStatusFilter('atrasadas')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
               statusFilter === 'atrasadas'
                 ? 'bg-red-600 text-white shadow-sm'
                 : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
@@ -1303,7 +1363,7 @@ export const TasksSection: React.FC = () => {
 
           <button
             onClick={() => setStatusFilter('concluida')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
               statusFilter === 'concluida'
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -1318,7 +1378,7 @@ export const TasksSection: React.FC = () => {
         {isAdmin && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
           >
             <Plus className="h-4 w-4" />
             <span>Criar / Atribuir Tarefa</span>
@@ -1419,8 +1479,8 @@ export const TasksSection: React.FC = () => {
 
       {/* Task Cards List */}
       <div className="space-y-3">
-        {filteredTasks.length > 0 ? (
-          filteredTasks.map((task) => {
+        {sortedTasks.length > 0 ? (
+          sortedTasks.map((task) => {
             const isAssignedToMe = task.assignedToEmail?.toLowerCase() === userEmail.toLowerCase() || task.assignedToName?.toLowerCase().includes(userName.toLowerCase());
             const overdue = isTaskOverdue(task);
 

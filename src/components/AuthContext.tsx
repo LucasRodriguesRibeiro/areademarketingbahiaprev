@@ -145,33 +145,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let updatedRole = data.role;
             let needsUpdate = false;
 
-            if (uEmail.includes('cauan')) {
-              if (!updatedName || updatedName.toLowerCase() === 'cauan' || updatedName.toLowerCase() === 'colaborador' || updatedName.includes('@')) {
-                updatedName = 'Cauan';
-                needsUpdate = true;
-              }
-              if (!updatedRole || updatedRole === 'Colaborador' || updatedRole.toLowerCase() === 'colaborador') {
-                updatedRole = 'Designer Gráfico';
-                needsUpdate = true;
-              }
-            } else if (uEmail.includes('jairo')) {
-              if (!updatedName || updatedName.toLowerCase() === 'jairo') {
-                updatedName = 'Jairo Queiroz';
-                needsUpdate = true;
-              }
-              if (!updatedRole || updatedRole === 'Colaborador') {
-                updatedRole = 'Diretor/Presidente';
-                needsUpdate = true;
-              }
-            } else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br') {
-              if (!updatedName || updatedName.toLowerCase() === 'lucas') {
-                updatedName = 'Lucas Rodrigues';
-                needsUpdate = true;
-              }
-              if (!updatedRole || updatedRole === 'Colaborador' || updatedRole === 'Analista de Marketing') {
-                updatedRole = 'Administrador';
-                needsUpdate = true;
-              }
+            // Only set initial fallback defaults if field is missing or empty
+            if (!updatedName) {
+              if (uEmail.includes('cauan')) updatedName = 'Cauan';
+              else if (uEmail.includes('jairo')) updatedName = 'Jairo Queiroz';
+              else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || uEmail.includes('marketing')) updatedName = 'Lucas Rodrigues';
+              else updatedName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
+              needsUpdate = true;
+            }
+
+            if (!updatedRole) {
+              if (uEmail.includes('cauan')) updatedRole = 'Designer Gráfico';
+              else if (uEmail.includes('jairo')) updatedRole = 'Diretor/Presidente';
+              else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || uEmail.includes('marketing')) updatedRole = 'Administrador';
+              else updatedRole = 'Colaborador';
+              needsUpdate = true;
             }
 
             const canPostFeedCalculated = data.canPostFeed !== undefined
@@ -185,9 +173,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const activeProfile: UserProfile = {
               ...data,
               uid: firebaseUser.uid,
-              name: updatedName || firebaseUser.displayName || 'Usuário',
+              name: updatedName,
               email: firebaseUser.email || data.email || '',
-              role: updatedRole || 'Colaborador',
+              role: updatedRole,
+              avatarUrl: data.avatarUrl || undefined,
               canPostFeed: canPostFeedCalculated,
               canCreateTasks: canCreateTasksCalculated
             };
@@ -202,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let resolvedName = firebaseUser.displayName || 'Usuário';
             if (uEmail.includes('cauan')) resolvedName = 'Cauan';
             else if (uEmail.includes('jairo')) resolvedName = 'Jairo Queiroz';
-            else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br') resolvedName = 'Lucas Rodrigues';
+            else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || uEmail.includes('marketing')) resolvedName = 'Lucas Rodrigues';
             else if (firebaseUser.email) resolvedName = firebaseUser.email.split('@')[0];
 
             const resolvedRole = getCorrectRole(uEmail, resolvedName);
@@ -275,16 +264,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateAvatarUrl = async (url: string) => {
     if (!user) return;
+    if (url && url.length > 800000) {
+      throw new Error("A imagem é muito grande para o banco de dados. Escolha uma imagem menor.");
+    }
     const userDocRef = doc(db, 'users', user.uid);
-    await setDoc(userDocRef, { avatarUrl: url }, { merge: true });
+    await setDoc(userDocRef, { avatarUrl: url, updatedAt: new Date().toISOString() }, { merge: true });
     setProfile(prev => prev ? { ...prev, avatarUrl: url } : null);
   };
 
   const updateUserProfile = async (data: { name?: string; role?: string; avatarUrl?: string }) => {
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
-    await setDoc(userDocRef, data, { merge: true });
-    setProfile(prev => prev ? { ...prev, ...data } : null);
+    const cleanData: Record<string, any> = {};
+    if (data.name !== undefined && data.name !== null && data.name.trim()) {
+      cleanData.name = data.name.trim();
+    }
+    if (data.role !== undefined && data.role !== null && data.role.trim()) {
+      cleanData.role = data.role.trim();
+    }
+    if (data.avatarUrl !== undefined && data.avatarUrl !== null) {
+      if (data.avatarUrl && data.avatarUrl.length > 800000) {
+        throw new Error("A imagem é muito grande para o banco de dados. Escolha uma imagem menor.");
+      }
+      cleanData.avatarUrl = data.avatarUrl;
+    }
+    cleanData.updatedAt = new Date().toISOString();
+
+    if (Object.keys(cleanData).length > 0) {
+      await setDoc(userDocRef, cleanData, { merge: true });
+      setProfile(prev => prev ? { ...prev, ...cleanData } : null);
+    }
   };
 
   const logout = async () => {

@@ -1,6 +1,6 @@
 {
-  "short_name": "BAHIAPREV HUB",
-  "name": "BAHIAPREV HUB",
+  "short_name": "Bahia Prev HUB",
+  "name": "Bahia Prev HUB",
   "icons": [
     {
       "src": "/logo_bahiaprevhub.png",
@@ -13,6 +13,11 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
     }
   ],
   "start_url": "/",
@@ -20,5 +25,5 @@
   "theme_color": "#020617",
   "display": "standalone",
   "orientation": "portrait",
-  "description": "Portal oficial de suporte, comunicação interna e ferramentas BAHIAPREV HUB."
+  "description": "Portal oficial de suporte, comunicação interna e ferramentas Bahia Prev HUB."
 }

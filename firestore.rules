@@ -34,6 +34,11 @@ service cloud.firestore {
       allow read, create, update, delete: if true;
     }
 
+    // Configurações do sistema (Branding / Favicon / Logos)
+    match /system_config/{configId} {
+      allow read, write: if true;
+    }
+
     // POPs
     match /pops/{popId} {
       allow read, create, update, delete: if request.auth != null;

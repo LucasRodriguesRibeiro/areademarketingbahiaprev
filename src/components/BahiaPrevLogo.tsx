@@ -6,7 +6,7 @@ interface LogoProps {
 }
 
 export const BahiaPrevLogo: React.FC<LogoProps> = ({ className = "h-12", variant = 'full' }) => {
-  const logoSrc = "/logo_bahia_prev.png";
+  const logoSrc = "/logobahiaprev.png";
 
   if (variant === 'simple') {
     return (
@@ -16,7 +16,7 @@ export const BahiaPrevLogo: React.FC<LogoProps> = ({ className = "h-12", variant
           alt="Bahia Prev HUB Logo" 
           className="h-10 w-auto shrink-0 object-contain drop-shadow-md"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/logo_bahia_prev.png';
+            (e.target as HTMLImageElement).src = '/logobahiaprev.png';
           }}
           referrerPolicy="no-referrer"
         />
@@ -38,7 +38,7 @@ export const BahiaPrevLogo: React.FC<LogoProps> = ({ className = "h-12", variant
       alt="Bahia Prev HUB Logo" 
       className={`object-contain ${className} drop-shadow-md`}
       onError={(e) => {
-        (e.target as HTMLImageElement).src = '/logo_bahia_prev.png';
+        (e.target as HTMLImageElement).src = '/logobahiaprev.png';
       }}
       referrerPolicy="no-referrer"
     />

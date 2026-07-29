@@ -27,8 +27,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from './lib/firebase';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -46,34 +44,6 @@ function MainAppContent() {
       setActiveTab('home');
     }
   }, [isFinanceiroOrCpd, activeTab]);
-
-  // Sync system branding and icon config to Firestore database
-  useEffect(() => {
-    const syncSystemConfigToFirestore = async () => {
-      try {
-        await setDoc(
-          doc(db, 'system_config', 'branding'),
-          {
-            faviconUrl: '/logoaplicativo.png',
-            faviconIcoUrl: '/favicon.ico',
-            appleTouchIconUrl: '/logoaplicativo.png',
-            logoHeaderUrl: '/logobahiaprev.png',
-            logoMainUrl: '/logobahiaprev.png',
-            logoFaviconUrl: '/logoaplicativo.png',
-            logoHubUrl: '/logoaplicativo.png',
-            logoAppUrl: '/logoaplicativo.png',
-            appName: 'Bahia Prev HUB',
-            description: 'Portal oficial de suporte, comunicação interna e materiais do Bahia Prev HUB.',
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      } catch (err) {
-        console.warn('Sync system_config warning:', err);
-      }
-    };
-    syncSystemConfigToFirestore();
-  }, []);
 
   useEffect(() => {
     try {

@@ -133,13 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
-        // Mark user as online in Firestore
+        // Mark user as online in Firestore when session begins
         setDoc(userDocRef, { isOnline: true, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
-
-        // Keep heartbeat updated
-        const heartbeatInterval = setInterval(() => {
-          setDoc(userDocRef, { isOnline: true, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
-        }, 45000);
 
         const handleUnload = () => {
           setDoc(userDocRef, { isOnline: false, lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
@@ -224,7 +219,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
-          clearInterval(heartbeatInterval);
           window.removeEventListener('beforeunload', handleUnload);
         };
       } else {

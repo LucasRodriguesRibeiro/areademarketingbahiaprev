@@ -13,16 +13,19 @@ import {
   Layers,
   ChevronRight,
   ShieldCheck,
-  Cross
+  Cross,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 
-export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin';
+export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin' | 'install';
 
 interface HomePortalProps {
   onSelectTab: (tab: TabType) => void;
   onOpenProfileModal: () => void;
+  onOpenInstallModal?: () => void;
 }
 
 interface ModuleCard {
@@ -122,10 +125,22 @@ const MODULES: ModuleCard[] = [
     borderColor: 'border-yellow-500/30 hover:border-yellow-500',
     hoverGlow: 'hover:shadow-yellow-500/20',
     accentColor: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
+  },
+  {
+    id: 'install',
+    title: '📱 Instalar no Celular',
+    badge: 'Tutoriais de Instalação',
+    description: 'Guia completo passo a passo de como instalar o aplicativo Bahia Prev no seu iPhone (iOS) e smartphone Android.',
+    hoverDestination: 'Página de Tutoriais para Instalação no iPhone e Android',
+    icon: Smartphone,
+    iconBg: 'from-emerald-600 to-teal-700 text-white',
+    borderColor: 'border-emerald-500/30 hover:border-emerald-500',
+    hoverGlow: 'hover:shadow-emerald-500/20',
+    accentColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
   }
 ];
 
-export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfileModal }) => {
+export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfileModal, onOpenInstallModal }) => {
   const { profile, user } = useAuth();
   const [hoveredModule, setHoveredModule] = useState<ModuleCard | null>(null);
 
@@ -206,22 +221,22 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
             Selecione abaixo o módulo do sistema que você deseja acessar. Cada opção abrirá uma página exclusiva e dedicada com todas as ferramentas e informações.
           </motion.p>
 
-          {/* Active Hover Destination Preview Callout Box */}
-          <div className="mt-6 h-12 flex items-center justify-center">
+          {/* Active Hover / Touch Destination Preview Callout Box */}
+          <div className="mt-4 sm:mt-6 min-h-[48px] flex items-center justify-center px-2">
             {hoveredModule ? (
               <motion.div
                 key={hoveredModule.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl bg-blue-600/20 border border-blue-400/40 text-blue-200 text-xs sm:text-sm font-semibold backdrop-blur-md shadow-lg"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-blue-600/20 border border-blue-400/40 text-blue-200 text-xs sm:text-sm font-semibold backdrop-blur-md shadow-lg max-w-full text-left sm:text-center"
               >
                 <ChevronRight className="h-4 w-4 text-blue-400 animate-pulse shrink-0" />
-                <span>Destino ao clicar: <strong className="text-white font-bold">{hoveredModule.hoverDestination}</strong></span>
+                <span className="truncate">Destino ao clicar: <strong className="text-white font-bold">{hoveredModule.hoverDestination}</strong></span>
               </motion.div>
             ) : (
-              <span className="text-xs text-slate-400/80 font-medium tracking-wide">
-                Passe o mouse sobre qualquer módulo para ver o direcionamento detalhado
+              <span className="text-[11px] sm:text-xs text-slate-400/80 font-medium tracking-wide">
+                Toque em qualquer módulo para abrir a página correspondente no seu celular
               </span>
             )}
           </div>
@@ -229,62 +244,69 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
       </section>
 
       {/* Main Grid of Square / Rectangular Module Cards */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="flex items-center justify-between mb-8 pb-3 border-b border-slate-200">
+      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-14">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 pb-3 border-b border-slate-200 gap-2">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Layers className="h-6 w-6 text-blue-600" />
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               <span>Módulos do Sistema</span>
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Clique em um dos quadrados abaixo para ir diretamente para a página correspondente
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
+              Toque em um módulo para abrir o painel correspondente
             </p>
           </div>
-          <span className="hidden sm:inline-block text-xs font-bold text-slate-600 bg-slate-200/80 px-3 py-1.5 rounded-lg border border-slate-300/80">
+          <span className="inline-block self-start sm:self-auto text-[11px] sm:text-xs font-bold text-slate-600 bg-slate-200/80 px-2.5 py-1 rounded-lg border border-slate-300/80">
             {activeModules.length} Páginas Disponíveis
           </span>
         </div>
 
         {/* Square Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {activeModules.map((mod, index) => {
             const Icon = mod.icon;
             return (
               <motion.div
                 key={mod.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
+                transition={{ duration: 0.25, delay: index * 0.04 }}
                 onMouseEnter={() => setHoveredModule(mod)}
                 onMouseLeave={() => setHoveredModule(null)}
-                onClick={() => onSelectTab(mod.id)}
-                className={`group relative bg-white rounded-2xl p-6 border ${mod.borderColor} shadow-sm hover:shadow-xl ${mod.hoverGlow} transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden min-h-[220px]`}
+                onClick={() => {
+                  try {
+                    window.scrollTo(0, 0);
+                  } catch {
+                    // safe fallback
+                  }
+                  onSelectTab(mod.id);
+                }}
+                className={`group relative bg-white rounded-2xl p-4 sm:p-6 border ${mod.borderColor} shadow-sm active:scale-95 sm:active:scale-100 hover:shadow-xl ${mod.hoverGlow} transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden min-h-[190px] sm:min-h-[220px] select-none touch-manipulation`}
               >
                 {/* Top Card Header */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`h-12 w-12 rounded-2xl bg-gradient-to-tr ${mod.iconBg} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="h-6 w-6" />
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr ${mod.iconBg} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 shrink-0`}>
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
-                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${mod.accentColor} uppercase tracking-wider`}>
+                    <span className={`text-[9px] sm:text-[10px] font-extrabold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border ${mod.accentColor} uppercase tracking-wider truncate max-w-[140px]`}>
                       {mod.badge}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-black text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight flex items-center justify-between">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight flex items-center justify-between">
                     <span>{mod.title}</span>
                   </h3>
 
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed font-normal">
+                  <p className="text-[11px] sm:text-xs text-slate-600 mt-1.5 sm:mt-2 leading-relaxed font-normal">
                     {mod.description}
                   </p>
                 </div>
 
                 {/* Bottom Action Bar inside Card */}
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
-                  <div className="flex items-center gap-1 text-blue-600 opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                    <span className="text-[11px] font-extrabold">Acessar</span>
-                    <ArrowRight className="h-4 w-4" />
+                <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-end text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+                  <div className="flex items-center gap-1 text-blue-600 opacity-90 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                    <span className="text-[10px] sm:text-[11px] font-extrabold">Acessar Módulo</span>
+                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </div>
                 </div>
 

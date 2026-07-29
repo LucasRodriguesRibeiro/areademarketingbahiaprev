@@ -1,0 +1,22 @@
+{
+  "short_name": "Bahia Prev",
+  "name": "Bahia Prev Hub - Portal Corporativo",
+  "icons": [
+    {
+      "src": "/logo_bahia_prev.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo_bahia_prev.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "Portal oficial de suporte, comunicação interna e ferramentas Bahia Prev Hub."
+}

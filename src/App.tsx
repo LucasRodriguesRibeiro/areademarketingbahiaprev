@@ -24,12 +24,16 @@ import { AuthForm } from './components/AuthForm';
 import { LogOut, Camera, Home } from 'lucide-react';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { InstallPwaModal } from './components/InstallPwaModal';
+import { InstallSection } from './components/InstallSection';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -173,10 +177,14 @@ function MainAppContent() {
       </div>
 
       {/* Main Header with Navigation Tabs */}
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
+      />
       
       {/* Tab Content Rendering */}
-      <main className="bg-slate-50 min-h-[600px] py-2">
+      <main className="bg-slate-50 min-h-[600px] py-2 pb-24 md:pb-8">
         <ErrorBoundary key={activeTab} onReset={() => setActiveTab('home')}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -184,12 +192,13 @@ function MainAppContent() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.2 }}
             >
               {activeTab === 'home' && (
                 <HomePortal 
                   onSelectTab={setActiveTab} 
-                  onOpenProfileModal={() => setIsProfileModalOpen(true)} 
+                  onOpenProfileModal={() => setIsProfileModalOpen(true)}
+                  onOpenInstallModal={() => setIsInstallModalOpen(true)}
                 />
               )}
               {activeTab === 'feed' && <FeedSection />}
@@ -199,11 +208,19 @@ function MainAppContent() {
               {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
               {activeTab === 'funeraria' && <FunerariaSection />}
               {activeTab === 'about' && <AboutCompanySection />}
+              {activeTab === 'install' && <InstallSection />}
               {activeTab === 'admin' && <UserAdminSection />}
             </motion.div>
           </AnimatePresence>
         </ErrorBoundary>
       </main>
+
+      {/* Persistent Mobile Bottom Navigation Bar */}
+      <MobileBottomNav 
+        activeTab={activeTab} 
+        onSelectTab={setActiveTab} 
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
+      />
 
       {/* Main Footer */}
       <Footer onScrollToTop={handleScrollToTop} />
@@ -222,6 +239,11 @@ function MainAppContent() {
           />
         )}
       </AnimatePresence>
+
+      <InstallPwaModal 
+        isOpen={isInstallModalOpen} 
+        onClose={() => setIsInstallModalOpen(false)} 
+      />
     </div>
   );
 }

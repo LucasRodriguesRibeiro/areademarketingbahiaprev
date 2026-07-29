@@ -1,4 +1,5 @@
 import React from 'react';
+import mainLogo from '../assets/images/logobahiaprev.png';
 
 interface LogoProps {
   className?: string;
@@ -6,7 +7,7 @@ interface LogoProps {
 }
 
 export const BahiaPrevLogo: React.FC<LogoProps> = ({ className = "h-12", variant = 'full' }) => {
-  const logoSrc = "/logobahiaprev.png";
+  const logoSrc = mainLogo || "/logobahiaprev.png";
 
   if (variant === 'simple') {
     return (
@@ -44,3 +45,4 @@ export const BahiaPrevLogo: React.FC<LogoProps> = ({ className = "h-12", variant
     />
   );
 };
+

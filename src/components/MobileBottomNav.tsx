@@ -29,15 +29,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { profile, user } = useAuth();
 
+  const userRole = (profile?.role || '').trim().toLowerCase();
+  const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+
   const isLucas = Boolean(
-    profile?.role === 'Administrador' ||
-    profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    profile?.email === 'marketing@bahiaprev.com.br' ||
-    profile?.name?.toLowerCase().includes('lucas') ||
-    profile?.name?.toLowerCase().includes('analista') ||
-    user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    user?.email === 'marketing@bahiaprev.com.br' ||
-    user?.email === 'institutojairoqueiroz@gmail.com'
+    !isFinanceiroOrCpd && (
+      profile?.role === 'Administrador' ||
+      profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+      profile?.email === 'marketing@bahiaprev.com.br' ||
+      profile?.name?.toLowerCase().includes('lucas') ||
+      profile?.name?.toLowerCase().includes('analista') ||
+      user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+      user?.email === 'marketing@bahiaprev.com.br' ||
+      user?.email === 'institutojairoqueiroz@gmail.com'
+    )
   );
 
   const handleTabClick = (tab: TabType) => {
@@ -50,15 +55,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
     }
   };
 
-  const navItems: { id: TabType; label: string; icon: React.ElementType; color: string }[] = [
-    { id: 'home', label: 'Início', icon: Home, color: 'text-blue-400' },
-    { id: 'feed', label: 'Feed', icon: Radio, color: 'text-red-400' },
-    { id: 'tasks', label: 'Tarefas', icon: ListTodo, color: 'text-emerald-400' },
-    { id: 'funeraria', label: 'Funerária', icon: Cross, color: 'text-purple-400' },
-    { id: 'pops', label: 'POP', icon: BookOpen, color: 'text-cyan-400' },
-  ];
+  const navItems: { id: TabType; label: string; icon: React.ElementType; color: string }[] = isFinanceiroOrCpd 
+    ? [
+        { id: 'home', label: 'Início', icon: Home, color: 'text-blue-400' },
+        { id: 'feed', label: 'Feed', icon: Radio, color: 'text-red-400' },
+        { id: 'tasks', label: 'Tarefas', icon: ListTodo, color: 'text-emerald-400' },
+        { id: 'marketing', label: 'Marketing', icon: Handshake, color: 'text-purple-400' },
+        { id: 'pops', label: 'POP', icon: BookOpen, color: 'text-cyan-400' },
+      ]
+    : [
+        { id: 'home', label: 'Início', icon: Home, color: 'text-blue-400' },
+        { id: 'feed', label: 'Feed', icon: Radio, color: 'text-red-400' },
+        { id: 'tasks', label: 'Tarefas', icon: ListTodo, color: 'text-emerald-400' },
+        { id: 'funeraria', label: 'Funerária', icon: Cross, color: 'text-purple-400' },
+        { id: 'pops', label: 'POP', icon: BookOpen, color: 'text-cyan-400' },
+      ];
 
-  const allModules: { id: TabType; label: string; desc: string; icon: React.ElementType; color: string; badge?: string }[] = [
+  const rawModules: { id: TabType; label: string; desc: string; icon: React.ElementType; color: string; badge?: string }[] = [
     { id: 'home', label: 'Página Inicial', desc: 'Menu com todos os módulos', icon: Home, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
     { id: 'feed', label: 'Feed & Comunicados', desc: 'Postagens e comunicados oficiais', icon: Radio, color: 'bg-red-500/20 text-red-400 border-red-500/30' },
     { id: 'tasks', label: 'Minhas Tarefas', desc: 'Gestão e acompanhamento de prazos', icon: ListTodo, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
@@ -71,7 +84,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
   ];
 
   if (isLucas) {
-    allModules.push({
+    rawModules.push({
       id: 'admin',
       label: 'Gestão de Usuários',
       desc: 'Cadastro de equipe e permissões',
@@ -80,6 +93,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
       badge: 'Exclusivo'
     });
   }
+
+  const allModules = isFinanceiroOrCpd 
+    ? rawModules.filter(m => m.id !== 'funeraria' && m.id !== 'admin')
+    : rawModules;
 
   return (
     <>

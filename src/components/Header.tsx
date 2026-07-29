@@ -27,12 +27,17 @@ const TAB_NAMES: Record<TabType, { name: string; icon: React.ElementType; color:
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenInstallModal }) => {
   const { profile, user } = useAuth();
+  const userRole = (profile?.role || '').trim().toLowerCase();
+  const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+
   const isLucas = Boolean(
-    profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    profile?.email === 'marketing@bahiaprev.com.br' ||
-    profile?.name?.toLowerCase().includes('lucas') ||
-    user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
-    user?.email === 'marketing@bahiaprev.com.br'
+    !isFinanceiroOrCpd && (
+      profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+      profile?.email === 'marketing@bahiaprev.com.br' ||
+      profile?.name?.toLowerCase().includes('lucas') ||
+      user?.email === 'lucasrodrigues@bahiaprev.com.br' ||
+      user?.email === 'marketing@bahiaprev.com.br'
+    )
   );
 
   // When activeTab is 'home', hide the header module bar completely as requested
@@ -137,17 +142,19 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
             <span>Marketing</span>
           </button>
 
-          <button
-            onClick={() => handleTabSelect('funeraria')}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'funeraria'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <Cross className="h-3.5 w-3.5 text-purple-400" />
-            <span>Gestão Funerária</span>
-          </button>
+          {!isFinanceiroOrCpd && (
+            <button
+              onClick={() => handleTabSelect('funeraria')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'funeraria'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Cross className="h-3.5 w-3.5 text-purple-400" />
+              <span>Gestão Funerária</span>
+            </button>
+          )}
 
           <button
             onClick={() => handleTabSelect('pops')}

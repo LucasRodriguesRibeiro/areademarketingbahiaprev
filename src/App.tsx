@@ -37,6 +37,16 @@ function MainAppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
+  const userRole = (profile?.role || '').trim().toLowerCase();
+  const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+
+  // Redirect Financeiro or CPD users away from restricted modules
+  useEffect(() => {
+    if (isFinanceiroOrCpd && (activeTab === 'funeraria' || activeTab === 'admin')) {
+      setActiveTab('home');
+    }
+  }, [isFinanceiroOrCpd, activeTab]);
+
   // Sync system branding and icon config to Firestore database
   useEffect(() => {
     const syncSystemConfigToFirestore = async () => {
@@ -226,10 +236,10 @@ function MainAppContent() {
               {activeTab === 'tasks' && <TasksSection />}
               {activeTab === 'pops' && <PopsSection />}
               {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
-              {activeTab === 'funeraria' && <FunerariaSection />}
+              {activeTab === 'funeraria' && !isFinanceiroOrCpd && <FunerariaSection />}
               {activeTab === 'about' && <AboutCompanySection />}
               {activeTab === 'install' && <InstallSection />}
-              {activeTab === 'admin' && <UserAdminSection />}
+              {activeTab === 'admin' && !isFinanceiroOrCpd && <UserAdminSection />}
             </motion.div>
           </AnimatePresence>
         </ErrorBoundary>

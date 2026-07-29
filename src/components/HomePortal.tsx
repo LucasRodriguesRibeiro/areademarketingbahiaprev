@@ -170,7 +170,13 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
     accentColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
   };
 
-  const activeModules = isAdmin ? [...MODULES, adminModule] : MODULES;
+  const userRole = (profile?.role || '').trim().toLowerCase();
+  const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+
+  let activeModules = isAdmin ? [...MODULES, adminModule] : MODULES;
+  if (isFinanceiroOrCpd) {
+    activeModules = activeModules.filter(m => m.id !== 'funeraria' && m.id !== 'admin');
+  }
 
   return (
     <div className="w-full">

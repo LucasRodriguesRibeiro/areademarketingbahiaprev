@@ -3,24 +3,38 @@
   "name": "Bahia Prev HUB",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icon-192.png?v=5",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-192.png?v=5",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png?v=5",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/icon-512.png?v=5",
       "type": "image/png",
-      "sizes": "180x180"
+      "sizes": "512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png?v=5",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
     }
   ],
   "start_url": "/",
+  "scope": "/",
   "background_color": "#020617",
   "theme_color": "#020617",
   "display": "standalone",

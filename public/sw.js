@@ -1,5 +1,5 @@
 // Service Worker for Bahia Prev Hub PWA
-const CACHE_NAME = 'bahia-prev-v2';
+const CACHE_NAME = 'bahia-prev-v10';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

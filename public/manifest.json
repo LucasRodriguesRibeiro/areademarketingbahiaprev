@@ -3,19 +3,19 @@
   "name": "Bahia Prev HUB",
   "icons": [
     {
-      "src": "/logoaplicativo.png",
+      "src": "/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/logoaplicativo.png",
+      "src": "/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "/logoaplicativo.png",
+      "src": "/apple-touch-icon.png",
       "type": "image/png",
       "sizes": "180x180"
     }

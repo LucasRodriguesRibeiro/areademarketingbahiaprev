@@ -44,13 +44,14 @@ function MainAppContent() {
         await setDoc(
           doc(db, 'system_config', 'branding'),
           {
-            faviconUrl: '/favicon.png',
+            faviconUrl: '/logoaplicativo.png',
             faviconIcoUrl: '/favicon.ico',
-            appleTouchIconUrl: '/apple-touch-icon.png',
+            appleTouchIconUrl: '/logoaplicativo.png',
             logoHeaderUrl: '/logobahiaprev.png',
             logoMainUrl: '/logobahiaprev.png',
-            logoFaviconUrl: '/logofavicon.png',
-            logoHubUrl: '/logo_bahiaprevhub.png',
+            logoFaviconUrl: '/logoaplicativo.png',
+            logoHubUrl: '/logoaplicativo.png',
+            logoAppUrl: '/logoaplicativo.png',
             appName: 'Bahia Prev HUB',
             description: 'Portal oficial de suporte, comunicação interna e materiais do Bahia Prev HUB.',
             updatedAt: new Date().toISOString(),

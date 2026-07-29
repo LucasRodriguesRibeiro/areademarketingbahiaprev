@@ -43,8 +43,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [providerNotEnabled, setProviderNotEnabled] = useState(false);
 
   useEffect(() => {
-    // Auto-create/ensure initial system users exist
+    // Auto-create/ensure initial system users exist (run once per browser)
     const ensureInitialUsers = async () => {
+      if (localStorage.getItem('bahiaprev_users_initialized_v2')) {
+        return;
+      }
+
       const defaultUsers = [
         {
           email: 'marketing@bahiaprev.com.br',
@@ -92,11 +96,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (error.code === 'auth/operation-not-allowed') {
             console.warn("E-mail/Password provider is not enabled in Firebase Console.");
             setProviderNotEnabled(true);
+          } else if (error.code === 'auth/too-many-requests') {
+            // Firebase rate limit hit due to repeated calls; mark as initialized to stop retrying
+            localStorage.setItem('bahiaprev_users_initialized_v2', 'true');
+            break;
           } else if (error.code !== 'auth/email-already-in-use') {
-            console.error(`Auto-creation of user ${u.email}:`, error);
+            console.warn(`Note on user auto-creation for ${u.email}:`, error?.message || error);
           }
         }
       }
+
+      localStorage.setItem('bahiaprev_users_initialized_v2', 'true');
     };
 
     ensureInitialUsers();

@@ -1,6 +1,6 @@
 {
-  "name": "Bahia Prev Hub",
-  "description": "Rede de comunicação interna e portal de colaboradores do Bahia Prev Hub.",
+  "name": "BAHIAPREV HUB",
+  "description": "Rede de comunicação interna e portal de colaboradores do BAHIAPREV HUB.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

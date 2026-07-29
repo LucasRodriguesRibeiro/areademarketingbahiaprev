@@ -1522,7 +1522,7 @@ export const TasksSection: React.FC = () => {
                 key={task.id}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`bg-white rounded-2xl p-5 border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 overflow-hidden ${
                   task.status === 'concluida'
                     ? 'border-emerald-200 bg-emerald-50/20 opacity-80'
                     : overdue
@@ -1553,7 +1553,7 @@ export const TasksSection: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <h4
                         onClick={() => setSelectedTaskForView(task)}
-                        className={`font-extrabold text-sm text-slate-900 leading-snug cursor-pointer hover:text-blue-600 transition-colors ${
+                        className={`font-extrabold text-sm text-slate-900 leading-snug cursor-pointer hover:text-blue-600 transition-colors break-words max-w-full ${
                           task.status === 'concluida' ? 'line-through text-slate-400' : ''
                         }`}
                         title="Clique para abrir detalhes da tarefa"
@@ -1562,19 +1562,19 @@ export const TasksSection: React.FC = () => {
                       </h4>
 
                       {/* Recipient Badge */}
-                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border flex items-center gap-1 shadow-xs ${
+                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 shadow-xs max-w-full break-words ${
                         task.assignedToType === 'all'
                           ? 'bg-amber-100 text-amber-900 border-amber-300'
                           : isAssignedToMe
                           ? 'bg-blue-100 text-blue-900 border-blue-300 font-extrabold'
                           : 'bg-slate-100 text-slate-800 border-slate-300'
                       }`}>
-                        <UserCheck className="h-3 w-3 text-blue-600" />
-                        <span>Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
+                        <UserCheck className="h-3 w-3 text-blue-600 shrink-0" />
+                        <span className="truncate max-w-[200px] sm:max-w-none">Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
                       </span>
 
                       {/* Priority Badge */}
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase ${
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase shrink-0 ${
                         task.priority === 'alta'
                           ? 'bg-red-100 text-red-700 border border-red-200'
                           : task.priority === 'media'
@@ -1588,7 +1588,7 @@ export const TasksSection: React.FC = () => {
                     {task.description && (
                       <p
                         onClick={() => setSelectedTaskForView(task)}
-                        className={`text-xs text-slate-600 leading-relaxed cursor-pointer hover:text-slate-900 transition-colors ${
+                        className={`text-xs text-slate-600 leading-relaxed cursor-pointer hover:text-slate-900 transition-colors break-words ${
                           task.status === 'concluida' ? 'line-through text-slate-400' : ''
                         }`}
                         title="Clique para abrir detalhes"
@@ -1598,18 +1598,18 @@ export const TasksSection: React.FC = () => {
                     )}
 
                     {/* Attachments Links (Initial & Completion) */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 max-w-full">
                       {task.attachmentUrl && (
                         <a
                           href={task.attachmentUrl}
                           download={task.attachmentName || 'documento_anexo'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold text-blue-700 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold text-blue-700 transition-colors shadow-2xs max-w-full"
                           title="Documento anexado no envio da tarefa"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                          <span className="truncate max-w-[200px]">Anexo Inicial: {task.attachmentName || 'Documento'}</span>
+                          <span className="truncate max-w-[180px] sm:max-w-[240px]">Anexo Inicial: {task.attachmentName || 'Documento'}</span>
                         </a>
                       )}
 
@@ -1619,27 +1619,27 @@ export const TasksSection: React.FC = () => {
                           download={task.completionAttachmentName || 'documento_entrega'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800 transition-colors shadow-2xs max-w-full"
                           title="Clique para baixar o documento entregue pelo colaborador"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate max-w-[200px]">Anexo Conclusão: {task.completionAttachmentName || 'Entrega'}</span>
+                          <span className="truncate max-w-[180px] sm:max-w-[240px]">Anexo Conclusão: {task.completionAttachmentName || 'Entrega'}</span>
                         </a>
                       )}
                     </div>
 
                     {/* Creator & Due Date Metadata */}
-                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-500 pt-0.5 max-w-full">
                       {task.createdByName && (
-                        <span className="font-medium text-slate-600 flex items-center gap-1">
-                          <User className="h-3 w-3 text-slate-400" />
+                        <span className="font-medium text-slate-600 flex items-center gap-1 break-words">
+                          <User className="h-3 w-3 text-slate-400 shrink-0" />
                           <span>Enviado por: <strong>{task.createdByName}</strong></span>
                         </span>
                       )}
 
                       {task.status === 'concluida' && task.completedByName && (
                         <span className="font-bold text-emerald-800 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                           <span>Concluído por: {task.completedByName}</span>
                         </span>
                       )}
@@ -1648,7 +1648,7 @@ export const TasksSection: React.FC = () => {
                         <span className={`flex items-center gap-1 ${
                           overdue ? 'text-red-600 font-extrabold bg-red-50 px-2 py-0.5 rounded-lg border border-red-200' : 'text-slate-500'
                         }`}>
-                          {overdue ? <AlertCircle className="h-3 w-3 text-red-600" /> : <Calendar className="h-3 w-3" />}
+                          {overdue ? <AlertCircle className="h-3 w-3 text-red-600 shrink-0" /> : <Calendar className="h-3 w-3 shrink-0" />}
                           <span>Prazo: {task.dueDate.split('-').reverse().join('/')} {overdue ? '(Atrasada)' : ''}</span>
                         </span>
                       )}
@@ -1667,7 +1667,7 @@ export const TasksSection: React.FC = () => {
                 </div>
 
                 {/* Action Controls */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <div className="flex flex-wrap items-center gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100/90 w-full sm:w-auto justify-start sm:justify-end shrink-0">
                   <button
                     onClick={() => handleToggleStatus(task)}
                     className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs ${

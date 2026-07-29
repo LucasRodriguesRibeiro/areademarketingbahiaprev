@@ -35,7 +35,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
     user?.email === 'marketing@bahiaprev.com.br'
   );
 
-  // When activeTab is 'home', the HomePortal component is rendered in the main body.
+  // When activeTab is 'home', hide the header module bar completely as requested
+  if (activeTab === 'home') {
+    return null;
+  }
+
   const handleTabSelect = (tab: TabType) => {
     try {
       window.scrollTo(0, 0);
@@ -57,11 +61,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
         
         {/* Left: Voltar à Página Inicial + Breadcrumb & Logo */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full md:w-auto">
-          {/* Voltar Botão */}
+          {/* Voltar Botão (Apenas em desktop/telas médias ou maiores) */}
           <button
             onClick={() => handleTabSelect('home')}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 border border-blue-400/30 group w-full sm:w-auto"
-            title="Voltar para a Página Inicial (Menu com Módulos em Quadrados)"
+            className="hidden sm:flex px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all items-center justify-center gap-2 cursor-pointer shrink-0 border border-blue-400/30 group w-full sm:w-auto"
+            title="Voltar para a Página Inicial"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             <span>← Voltar para Página Inicial</span>
@@ -95,8 +99,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
           </div>
         </div>
 
-        {/* Right: Quick Page Navigation Switcher */}
-        <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0">
+        {/* Right: Quick Page Navigation Switcher (Apenas em Desktop) */}
+        <div className="hidden md:flex items-center gap-1 sm:gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0">
           <button
             onClick={() => handleTabSelect('feed')}
             className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${

@@ -1,14 +1,14 @@
 {
-  "short_name": "Bahia Prev",
-  "name": "Bahia Prev Hub - Portal Corporativo",
+  "short_name": "BAHIAPREV HUB",
+  "name": "BAHIAPREV HUB",
   "icons": [
     {
-      "src": "/logo_bahia_prev.png",
+      "src": "/logo_bahiaprevhub.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/logo_bahia_prev.png",
+      "src": "/logo_bahiaprevhub.png",
       "type": "image/png",
       "sizes": "512x512"
     }
@@ -18,5 +18,5 @@
   "theme_color": "#020617",
   "display": "standalone",
   "orientation": "portrait",
-  "description": "Portal oficial de suporte, comunicação interna e ferramentas Bahia Prev Hub."
+  "description": "Portal oficial de suporte, comunicação interna e ferramentas BAHIAPREV HUB."
 }

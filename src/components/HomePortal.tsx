@@ -130,7 +130,7 @@ const MODULES: ModuleCard[] = [
     id: 'install',
     title: '📱 Instalar no Celular',
     badge: 'Tutoriais de Instalação',
-    description: 'Guia completo passo a passo de como instalar o aplicativo Bahia Prev no seu iPhone (iOS) e smartphone Android.',
+    description: 'Guia completo passo a passo de como instalar o aplicativo BAHIAPREV HUB no seu iPhone (iOS) e smartphone Android.',
     hoverDestination: 'Página de Tutoriais para Instalação no iPhone e Android',
     icon: Smartphone,
     iconBg: 'from-emerald-600 to-teal-700 text-white',
@@ -255,7 +255,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
               Toque em um módulo para abrir o painel correspondente
             </p>
           </div>
-          <span className="inline-block self-start sm:self-auto text-[11px] sm:text-xs font-bold text-slate-600 bg-slate-200/80 px-2.5 py-1 rounded-lg border border-slate-300/80">
+          <span className="inline-block self-start sm:self-auto text-[11px] sm:text-xs font-bold text-white bg-[#458dee] px-2.5 py-1 rounded-lg shadow-sm">
             {activeModules.length} Páginas Disponíveis
           </span>
         </div>

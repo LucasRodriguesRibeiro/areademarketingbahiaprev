@@ -28,13 +28,23 @@ export const InstallSection: React.FC = () => {
         <div className="absolute bottom-0 left-0 translate-y-12 -translate-x-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold mb-4">
-            <Smartphone className="h-3.5 w-3.5 text-blue-400" />
-            <span>Tutorial de Instalação PWA</span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-12 w-12 rounded-2xl bg-slate-800/90 border border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
+              <img 
+                src="/logo_bahiaprevhub.png" 
+                alt="BAHIAPREV HUB Logo" 
+                className="h-full w-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold">
+              <Smartphone className="h-3.5 w-3.5 text-blue-400" />
+              <span>Tutorial de Instalação PWA</span>
+            </div>
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            Como Instalar o App Bahia Prev no seu Celular
+            Como Instalar o BAHIAPREV HUB no seu Celular
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 mt-3 leading-relaxed">
@@ -181,7 +191,7 @@ export const InstallSection: React.FC = () => {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    No canto superior direito, toque no botão <strong className="text-slate-900 font-bold">"Adicionar"</strong>. Pronto! O aplicativo Bahia Prev Hub estará pronto na sua tela de início!
+                    No canto superior direito, toque no botão <strong className="text-slate-900 font-bold">"Adicionar"</strong>. Pronto! O aplicativo BAHIAPREV HUB estará pronto na sua tela de início!
                   </p>
                 </div>
 
@@ -269,7 +279,7 @@ export const InstallSection: React.FC = () => {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Selecione a opção <strong className="text-slate-900 font-bold">"Instalar aplicativo"</strong> ou <strong className="text-slate-900 font-bold">"Adicionar à tela inicial"</strong>. O ícone do Bahia Prev Hub surgirá entre seus apps!
+                    Selecione a opção <strong className="text-slate-900 font-bold">"Instalar aplicativo"</strong> ou <strong className="text-slate-900 font-bold">"Adicionar à tela inicial"</strong>. O ícone do BAHIAPREV HUB surgirá entre seus apps!
                   </p>
                 </div>
 

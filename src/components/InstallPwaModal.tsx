@@ -45,18 +45,23 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
           {/* Header */}
           <div className="flex items-start justify-between pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-                <Smartphone className="h-6 w-6" />
+              <div className="h-12 w-12 rounded-2xl bg-slate-800 border border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                <img 
+                  src="/logo_bahiaprevhub.png" 
+                  alt="BAHIAPREV HUB Logo" 
+                  className="h-full w-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <span>Instalar App Bahia Prev</span>
+                  <span>Instalar BAHIAPREV HUB</span>
                   <span className="text-[10px] font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
                     PWA Nativo
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Adicione o ícone na tela de início do seu smartphone sem precisar da App Store
+                  Adicione o ícone oficial na tela de início do seu smartphone
                 </p>
               </div>
             </div>
@@ -152,7 +157,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 inline" />
                     </h4>
                     <p className="text-slate-400 text-[11px] mt-0.5">
-                      No canto superior direito da tela, confirme. O ícone oficial do <strong className="text-white">Bahia Prev Hub</strong> será criado na sua tela inicial!
+                      No canto superior direito da tela, confirme. O ícone oficial do <strong className="text-white">BAHIAPREV HUB</strong> será criado na sua tela inicial!
                     </p>
                   </div>
                 </div>

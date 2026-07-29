@@ -67,7 +67,7 @@ function MainAppContent() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-500/15 selection:text-blue-900 antialiased font-sans">
       {/* Top User Status & Info Bar */}
-      <div className="bg-slate-950 text-white text-xs py-2 px-3 sm:px-6 border-b border-slate-800/80 shadow-inner">
+      <div className={`bg-slate-950 text-white text-xs py-2 px-3 sm:px-6 shadow-inner ${activeTab === 'home' ? '' : 'border-b border-slate-800/80'}`}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
           
           {/* Top Left Collaborator Badge & Profile Info */}
@@ -117,16 +117,6 @@ function MainAppContent() {
                 <Camera className="h-3.5 w-3.5 text-blue-400" />
                 <span className="text-[10px]">Foto</span>
               </button>
-
-              {activeTab !== 'home' && (
-                <button
-                  onClick={() => setActiveTab('home')}
-                  className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Página Inicial"
-                >
-                  <Home className="h-3.5 w-3.5" />
-                </button>
-              )}
 
               <button 
                 onClick={logout}
@@ -184,7 +174,7 @@ function MainAppContent() {
       />
       
       {/* Tab Content Rendering */}
-      <main className="bg-slate-50 min-h-[600px] py-2 pb-24 md:pb-8">
+      <main className={`bg-slate-50 ${activeTab === 'home' ? 'py-0' : 'py-2'} min-h-[600px] pb-24 md:pb-8`}>
         <ErrorBoundary key={activeTab} onReset={() => setActiveTab('home')}>
           <AnimatePresence mode="wait">
             <motion.div

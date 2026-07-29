@@ -23,6 +23,8 @@ import { AuthProvider, useAuth } from './components/AuthContext';
 import { AuthForm } from './components/AuthForm';
 import { LogOut, Camera, Home } from 'lucide-react';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -30,11 +32,19 @@ function MainAppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      // safe fallback for mobile
+    }
   }, [activeTab]);
 
   const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
   };
 
   if (loading) {
@@ -167,30 +177,32 @@ function MainAppContent() {
       
       {/* Tab Content Rendering */}
       <main className="bg-slate-50 min-h-[600px] py-2">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-          >
-            {activeTab === 'home' && (
-              <HomePortal 
-                onSelectTab={setActiveTab} 
-                onOpenProfileModal={() => setIsProfileModalOpen(true)} 
-              />
-            )}
-            {activeTab === 'feed' && <FeedSection />}
-            {activeTab === 'members' && <MembersSection onOpenProfileModal={() => setIsProfileModalOpen(true)} />}
-            {activeTab === 'tasks' && <TasksSection />}
-            {activeTab === 'pops' && <PopsSection />}
-            {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
-            {activeTab === 'funeraria' && <FunerariaSection />}
-            {activeTab === 'about' && <AboutCompanySection />}
-            {activeTab === 'admin' && <UserAdminSection />}
-          </motion.div>
-        </AnimatePresence>
+        <ErrorBoundary key={activeTab} onReset={() => setActiveTab('home')}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              {activeTab === 'home' && (
+                <HomePortal 
+                  onSelectTab={setActiveTab} 
+                  onOpenProfileModal={() => setIsProfileModalOpen(true)} 
+                />
+              )}
+              {activeTab === 'feed' && <FeedSection />}
+              {activeTab === 'members' && <MembersSection onOpenProfileModal={() => setIsProfileModalOpen(true)} />}
+              {activeTab === 'tasks' && <TasksSection />}
+              {activeTab === 'pops' && <PopsSection />}
+              {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
+              {activeTab === 'funeraria' && <FunerariaSection />}
+              {activeTab === 'about' && <AboutCompanySection />}
+              {activeTab === 'admin' && <UserAdminSection />}
+            </motion.div>
+          </AnimatePresence>
+        </ErrorBoundary>
       </main>
 
       {/* Main Footer */}

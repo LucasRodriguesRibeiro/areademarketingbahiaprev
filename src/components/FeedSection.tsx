@@ -570,13 +570,13 @@ export const FeedSection: React.FC = () => {
                   </motion.div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     {/* Category Selector */}
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
-                      className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl border-0 focus:ring-2 focus:ring-blue-500/20 cursor-pointer shrink-0"
                     >
                       <option value="Geral">📌 Geral</option>
                       <option value="Comunicado">📢 Comunicado</option>
@@ -586,7 +586,7 @@ export const FeedSection: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-xs font-semibold text-slate-700 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200/60 shadow-sm"
+                      className="text-xs font-semibold text-slate-700 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200/60 shadow-sm whitespace-nowrap shrink-0"
                     >
                       <Paperclip className="h-4 w-4 text-blue-600" />
                       <span>Anexar documento</span>
@@ -596,10 +596,10 @@ export const FeedSection: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowUrlInput(!showUrlInput)}
-                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 rounded-xl bg-slate-100 sm:bg-transparent hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                       title="Cole um link direto"
                     >
-                      <Upload className="h-3.5 w-3.5" />
+                      <Upload className="h-3.5 w-3.5 text-slate-500" />
                       <span>{showUrlInput ? 'Ocultar URL' : 'Colar Link'}</span>
                     </button>
                   </div>
@@ -607,7 +607,7 @@ export const FeedSection: React.FC = () => {
                   <button
                     type="submit"
                     disabled={publishing || (!newContent.trim() && !selectedAttachment && !newImageUrl.trim())}
-                    className="px-5 py-2 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                   >
                     {publishing ? (
                       <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

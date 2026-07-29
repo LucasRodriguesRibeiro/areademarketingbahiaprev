@@ -16,6 +16,7 @@ import {
   Laptop
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import logoAplicativo from '../assets/images/logoaplicativo.png';
 
 export const InstallSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ios' | 'android'>('ios');
@@ -29,11 +30,14 @@ export const InstallSection: React.FC = () => {
 
         <div className="relative z-10 max-w-3xl">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-2xl bg-slate-800/90 border border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
+            <div className="h-14 w-14 rounded-2xl bg-slate-900 border border-slate-700/80 p-1 flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-slate-950">
               <img 
-                src="/logo_bahiaprevhub.png" 
-                alt="BAHIAPREV HUB Logo" 
-                className="h-full w-full object-contain"
+                src={logoAplicativo || "/logoaplicativo.png"} 
+                alt="Bahia Prev HUB Logo" 
+                className="h-full w-full object-contain rounded-xl"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                }}
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -44,11 +48,11 @@ export const InstallSection: React.FC = () => {
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            Como Instalar o BAHIAPREV HUB no seu Celular
+            Como Instalar o Bahia Prev HUB no seu Celular
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 mt-3 leading-relaxed">
-            Siga o passo a passo simples abaixo para adicionar o ícone do sistema diretamente na tela inicial do seu iPhone ou celular Android. Funciona como um aplicativo nativo, sem ocupar espaço na memória.
+            Siga o passo a passo simples abaixo para adicionar o ícone do aplicativo diretamente na tela inicial do seu iPhone ou celular Android. Funciona como um aplicativo nativo, sem ocupar espaço na memória.
           </p>
 
           {/* Quick Platform Switcher Tabs */}
@@ -191,8 +195,24 @@ export const InstallSection: React.FC = () => {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    No canto superior direito, toque no botão <strong className="text-slate-900 font-bold">"Adicionar"</strong>. Pronto! O aplicativo BAHIAPREV HUB estará pronto na sua tela de início!
+                    No canto superior direito, toque no botão <strong className="text-slate-900 font-bold">"Adicionar"</strong>. Pronto! O aplicativo Bahia Prev HUB estará pronto na sua tela de início!
                   </p>
+
+                  <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center gap-3 text-white shadow-inner">
+                    <img 
+                      src={logoAplicativo || "/logoaplicativo.png"} 
+                      alt="Bahia Prev HUB" 
+                      className="h-10 w-10 rounded-xl object-contain bg-slate-950 p-0.5 border border-slate-700 shadow-sm"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <div className="font-extrabold text-xs text-white">Bahia Prev HUB</div>
+                      <div className="text-[10px] text-slate-400">Atalho na Tela Inicial (iOS)</div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] font-bold text-emerald-600 flex items-center gap-1">
@@ -279,8 +299,24 @@ export const InstallSection: React.FC = () => {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Selecione a opção <strong className="text-slate-900 font-bold">"Instalar aplicativo"</strong> ou <strong className="text-slate-900 font-bold">"Adicionar à tela inicial"</strong>. O ícone do BAHIAPREV HUB surgirá entre seus apps!
+                    Selecione a opção <strong className="text-slate-900 font-bold">"Instalar aplicativo"</strong> ou <strong className="text-slate-900 font-bold">"Adicionar à tela inicial"</strong>. O ícone do Bahia Prev HUB surgirá entre seus apps!
                   </p>
+
+                  <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center gap-3 text-white shadow-inner">
+                    <img 
+                      src={logoAplicativo || "/logoaplicativo.png"} 
+                      alt="Bahia Prev HUB" 
+                      className="h-10 w-10 rounded-xl object-contain bg-slate-950 p-0.5 border border-slate-700 shadow-sm"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <div className="font-extrabold text-xs text-white">Bahia Prev HUB</div>
+                      <div className="text-[10px] text-slate-400">Aplicativo Instalado (Android)</div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] font-bold text-emerald-600 flex items-center gap-1">

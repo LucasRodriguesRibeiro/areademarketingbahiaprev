@@ -12,6 +12,7 @@ import {
   Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import logoAplicativo from '../assets/images/logoaplicativo.png';
 
 interface InstallPwaModalProps {
   isOpen: boolean;
@@ -45,17 +46,20 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
           {/* Header */}
           <div className="flex items-start justify-between pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-slate-800 border border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+              <div className="h-12 w-12 rounded-2xl bg-slate-950 border border-slate-700/80 p-1 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
                 <img 
-                  src="/logo_bahiaprevhub.png" 
-                  alt="BAHIAPREV HUB Logo" 
-                  className="h-full w-full object-contain"
+                  src={logoAplicativo || "/logoaplicativo.png"} 
+                  alt="Bahia Prev HUB Logo" 
+                  className="h-full w-full object-contain rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                  }}
                   referrerPolicy="no-referrer"
                 />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <span>Instalar BAHIAPREV HUB</span>
+                  <span>Instalar Bahia Prev HUB</span>
                   <span className="text-[10px] font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
                     PWA Nativo
                   </span>
@@ -151,14 +155,29 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
                   <div className="h-7 w-7 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center shrink-0 text-xs shadow-md">
                     3
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
                       <span>Confirme clicando em "Adicionar"</span>
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 inline" />
                     </h4>
                     <p className="text-slate-400 text-[11px] mt-0.5">
-                      No canto superior direito da tela, confirme. O ícone oficial do <strong className="text-white">BAHIAPREV HUB</strong> será criado na sua tela inicial!
+                      No canto superior direito da tela, confirme. O ícone do aplicativo <strong className="text-white font-bold">Bahia Prev HUB</strong> estará na sua tela inicial!
                     </p>
+                    <div className="mt-2 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                      <img 
+                        src={logoAplicativo || "/logoaplicativo.png"} 
+                        alt="Bahia Prev HUB" 
+                        className="h-8 w-8 rounded-lg object-contain bg-slate-900 p-0.5 border border-slate-700" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+                      <div>
+                        <div className="font-bold text-[11px] text-white">Bahia Prev HUB</div>
+                        <div className="text-[9px] text-slate-400">Atalho PWA no iPhone</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -182,14 +201,29 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-start gap-3">
-                  <div className="h-7 w-7 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0 text-xs shadow-md">
+                  <div className="h-7 w-7 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center shrink-0 text-xs shadow-md">
                     2
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-bold text-white text-xs">Toque nos 3 Pontinhos no canto superior</h4>
                     <p className="text-slate-400 text-[11px] mt-0.5">
-                      Clique no menu do Chrome (⋮) e selecione a opção <strong className="text-white">"Instalar aplicativo"</strong> ou <strong className="text-white">"Adicionar à tela inicial"</strong>.
+                      Clique no menu do Chrome (⋮) e selecione a opção <strong className="text-white font-bold">"Instalar aplicativo"</strong> ou <strong className="text-white font-bold">"Adicionar à tela inicial"</strong>.
                     </p>
+                    <div className="mt-2 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                      <img 
+                        src={logoAplicativo || "/logoaplicativo.png"} 
+                        alt="Bahia Prev HUB" 
+                        className="h-8 w-8 rounded-lg object-contain bg-slate-900 p-0.5 border border-slate-700" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/logoaplicativo.png';
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+                      <div>
+                        <div className="font-bold text-[11px] text-white">Bahia Prev HUB</div>
+                        <div className="text-[9px] text-slate-400">Aplicativo no Android</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

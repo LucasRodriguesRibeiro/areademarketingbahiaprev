@@ -131,6 +131,8 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
 
   const isAdmin = Boolean(
     profile?.role === 'Administrador' ||
+    profile?.role === 'Analista de Marketing' ||
+    profile?.role === 'Diretor/Presidente' ||
     profile?.email === 'lucasrodrigues@bahiaprev.com.br' ||
     profile?.email === 'marketing@bahiaprev.com.br' ||
     profile?.name?.toLowerCase().includes('lucas') ||

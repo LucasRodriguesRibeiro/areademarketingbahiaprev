@@ -632,12 +632,14 @@ export const TasksSection: React.FC = () => {
     }
   };
 
-  // Handle Toggle Status (Pendente -> Em Andamento -> Concluída -> Pendente)
+  // Handle Toggle Status (Marcar como Concluída ou Reabrir)
   const handleToggleStatus = async (task: Task) => {
     let nextStatus: 'pendente' | 'em_andamento' | 'concluida';
-    if (task.status === 'pendente') nextStatus = 'em_andamento';
-    else if (task.status === 'em_andamento') nextStatus = 'concluida';
-    else nextStatus = 'pendente';
+    if (task.status !== 'concluida') {
+      nextStatus = 'concluida';
+    } else {
+      nextStatus = 'pendente';
+    }
 
     const updatePayload: Partial<Task> = {
       status: nextStatus,
@@ -649,6 +651,10 @@ export const TasksSection: React.FC = () => {
       updatePayload.completedByName = userName;
       playNotificationSound('task_complete');
       triggerCompletionToast(task.title, userName);
+    } else {
+      updatePayload.completedAt = undefined;
+      updatePayload.completedByEmail = undefined;
+      updatePayload.completedByName = undefined;
     }
 
     const updated = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload } : t);
@@ -658,12 +664,26 @@ export const TasksSection: React.FC = () => {
       setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
     }
 
-    if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-      try {
+    try {
+      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
         await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
-      } catch (err) {
-        console.warn('Error updating task status in Firestore:', err);
+      } else {
+        // Save default/local task to Firestore as a permanent document
+        const fullTaskData = {
+          ...task,
+          ...updatePayload,
+          userId: task.userId || userId,
+          userEmail: task.userEmail || userEmail,
+          createdByName: task.createdByName || userName,
+          createdAt: serverTimestamp(),
+        };
+        const docRef = await addDoc(collection(db, 'user_tasks'), fullTaskData);
+        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload, id: docRef.id } : t);
+        setTasks(remapped);
+        saveTasksLocally(remapped);
       }
+    } catch (err) {
+      console.warn('Error updating task status in Firestore:', err);
     }
   };
 
@@ -697,12 +717,25 @@ export const TasksSection: React.FC = () => {
     setCompletionAttachmentFile(null);
     setCompletionNoteText('');
 
-    if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-      try {
+    try {
+      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
         await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
-      } catch (err) {
-        console.warn('Error saving completion delivery in Firestore:', err);
+      } else {
+        const fullTaskData = {
+          ...task,
+          ...updatePayload,
+          userId: task.userId || userId,
+          userEmail: task.userEmail || userEmail,
+          createdByName: task.createdByName || userName,
+          createdAt: serverTimestamp(),
+        };
+        const docRef = await addDoc(collection(db, 'user_tasks'), fullTaskData);
+        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload, id: docRef.id } : t);
+        setTasks(remapped);
+        saveTasksLocally(remapped);
       }
+    } catch (err) {
+      console.warn('Error saving completion delivery in Firestore:', err);
     }
   };
 
@@ -1635,6 +1668,19 @@ export const TasksSection: React.FC = () => {
 
                 {/* Action Controls */}
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <button
+                    onClick={() => handleToggleStatus(task)}
+                    className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                      task.status === 'concluida'
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    }`}
+                    title={task.status === 'concluida' ? 'Reabrir tarefa' : 'Marcar tarefa como concluída'}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{task.status === 'concluida' ? 'Reabrir' : 'Concluir'}</span>
+                  </button>
+
                   {isTaskAssignedByMe(task) && (
                     <button
                       onClick={() => openEditTask(task)}
@@ -2761,24 +2807,18 @@ export const TasksSection: React.FC = () => {
                         type="button"
                         onClick={() => {
                           handleToggleStatus(selectedTaskForView);
-                          const nextStatus = selectedTaskForView.status === 'concluida' ? 'pendente' : selectedTaskForView.status === 'em_andamento' ? 'concluida' : 'em_andamento';
-                          setSelectedTaskForView({ ...selectedTaskForView, status: nextStatus });
                         }}
                         className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
                           selectedTaskForView.status === 'concluida'
-                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            : selectedTaskForView.status === 'em_andamento'
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
                         }`}
                       >
                         <CheckCircle2 className="h-4 w-4" />
                         <span>
                           {selectedTaskForView.status === 'concluida'
                             ? 'Reabrir Tarefa'
-                            : selectedTaskForView.status === 'em_andamento'
-                            ? 'Marcar como Concluída'
-                            : 'Iniciar Tarefa'}
+                            : 'Marcar como Concluída'}
                         </span>
                       </button>
 

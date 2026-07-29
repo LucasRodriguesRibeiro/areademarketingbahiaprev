@@ -36,7 +36,9 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
   const canManageRoles = profile?.email === 'marketing@bahiaprev.com.br' || 
                          profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
                          profile?.role === 'Administrador' || 
-                         profile?.role === 'Diretor';
+                         profile?.role === 'Analista de Marketing' || 
+                         profile?.role === 'Diretor' ||
+                         profile?.role === 'Diretor/Presidente';
 
   const handleOpenRoleModal = (member: MemberProfile) => {
     setEditingMember(member);

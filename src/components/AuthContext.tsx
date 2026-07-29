@@ -102,12 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ensureInitialUsers();
 
     const getCorrectRole = (email?: string, name?: string, currentRole?: string) => {
+      if (currentRole && currentRole.trim().length > 0) return currentRole;
       const e = (email || '').toLowerCase();
       const n = (name || '').toLowerCase();
       if (e.includes('cauan') || n.includes('cauan')) return 'Designer Gráfico';
       if (e.includes('jairo') || n.includes('jairo')) return 'Diretor/Presidente';
-      if (e === 'marketing@bahiaprev.com.br' || e.includes('lucas')) return 'Administrador';
-      if (currentRole && currentRole.trim().length > 0) return currentRole;
+      if (e === 'marketing@bahiaprev.com.br' || e.includes('lucas')) return 'Analista de Marketing';
       return 'Colaborador';
     };
 
@@ -157,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!updatedRole) {
               if (uEmail.includes('cauan')) updatedRole = 'Designer Gráfico';
               else if (uEmail.includes('jairo')) updatedRole = 'Diretor/Presidente';
-              else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || uEmail.includes('marketing')) updatedRole = 'Administrador';
+              else if (uEmail.includes('lucas') || uEmail === 'marketing@bahiaprev.com.br' || uEmail.includes('marketing')) updatedRole = 'Analista de Marketing';
               else updatedRole = 'Colaborador';
               needsUpdate = true;
             }

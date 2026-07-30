@@ -141,6 +141,12 @@ export const TasksSection: React.FC = () => {
   const [completionAttachmentFile, setCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
   const [completionNoteText, setCompletionNoteText] = useState<string>('');
 
+  // Edit completed delivery state (for task recipient / completer)
+  const [isEditingCompletion, setIsEditingCompletion] = useState(false);
+  const [editCompletionNoteText, setEditCompletionNoteText] = useState<string>('');
+  const [editCompletionAttachmentFile, setEditCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null | 'remove'>(null);
+  const [isSavingCompletionEdit, setIsSavingCompletionEdit] = useState(false);
+
   // Edit task state
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -737,6 +743,80 @@ export const TasksSection: React.FC = () => {
     } catch (err) {
       console.warn('Error saving completion delivery in Firestore:', err);
     }
+  };
+
+  const handleEditCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('O arquivo de entrega deve ter no máximo 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setEditCompletionAttachmentFile({
+          name: file.name,
+          url: event.target.result as string,
+          type: file.type
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openEditCompletionMode = (task: Task) => {
+    setSelectedTaskForView(task);
+    setIsEditingTask(false);
+    setEditCompletionNoteText(task.completionNote || '');
+    setEditCompletionAttachmentFile(null);
+    setIsEditingCompletion(true);
+  };
+
+  const handleSaveUpdatedCompletionDelivery = async (task: Task) => {
+    setIsSavingCompletionEdit(true);
+
+    const updatePayload: Record<string, any> = {
+      completionNote: editCompletionNoteText.trim(),
+    };
+
+    if (editCompletionAttachmentFile === 'remove') {
+      updatePayload.completionAttachmentName = '';
+      updatePayload.completionAttachmentUrl = '';
+      updatePayload.completionAttachmentType = '';
+    } else if (editCompletionAttachmentFile && typeof editCompletionAttachmentFile === 'object') {
+      updatePayload.completionAttachmentName = editCompletionAttachmentFile.name;
+      updatePayload.completionAttachmentUrl = editCompletionAttachmentFile.url;
+      updatePayload.completionAttachmentType = editCompletionAttachmentFile.type;
+    }
+
+    const updatedTask: Task = {
+      ...task,
+      ...updatePayload,
+      completionAttachmentName: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.name : task.completionAttachmentName),
+      completionAttachmentUrl: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.url : task.completionAttachmentUrl),
+      completionAttachmentType: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.type : task.completionAttachmentType),
+    };
+
+    const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t));
+    saveTasksLocally(updatedTasks);
+
+    if (selectedTaskForView?.id === task.id) {
+      setSelectedTaskForView(updatedTask);
+    }
+
+    try {
+      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
+        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
+      }
+    } catch (err) {
+      console.warn('Error updating completion notes/attachment in Firestore:', err);
+    }
+
+    setIsSavingCompletionEdit(false);
+    setIsEditingCompletion(false);
   };
 
   const isLucasUser = useCallback((email?: string, name?: string) => {
@@ -1668,6 +1748,17 @@ export const TasksSection: React.FC = () => {
 
                 {/* Action Controls */}
                 <div className="flex flex-wrap items-center gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100/90 w-full sm:w-auto justify-start sm:justify-end shrink-0">
+                  {task.status === 'concluida' && (
+                    <button
+                      onClick={() => openEditCompletionMode(task)}
+                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      title="Editar observações digitadas e anexo de entrega"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>Editar Observações</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => handleToggleStatus(task)}
                     className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs ${
@@ -2672,122 +2763,249 @@ export const TasksSection: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Completion Delivery Box (if delivered document or note exists) */}
-                  {(selectedTaskForView.completionAttachmentUrl || selectedTaskForView.completionNote || selectedTaskForView.completedByName) && (
+                  {/* Completion Delivery Box (if delivered document or note exists or task is completed) */}
+                  {(selectedTaskForView.status === 'concluida' || selectedTaskForView.completionAttachmentUrl || selectedTaskForView.completionNote || selectedTaskForView.completedByName) && (
                     <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <h4 className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        <span>Entrega e Comprovante de Conclusão</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <span>Entrega e Comprovante de Conclusão</span>
+                        </h4>
+
+                        {!isEditingCompletion && (
+                          <button
+                            type="button"
+                            onClick={() => openEditCompletionMode(selectedTaskForView)}
+                            className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-extrabold text-[11px] rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-emerald-300"
+                            title="Editar observações digitadas e substituir anexo de entrega"
+                          >
+                            <Pencil className="h-3 w-3 text-emerald-700" />
+                            <span>Editar Observações / Anexo</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {isEditingCompletion ? (
+                        /* MODO DE EDIÇÃO DAS OBSERVAÇÕES E ANEXO DE ENTREGA */
+                        <div className="p-4 bg-emerald-50/90 border border-emerald-300 rounded-2xl space-y-3">
+                          <p className="text-xs font-bold text-emerald-950 flex items-center gap-1">
+                            <Pencil className="h-3.5 w-3.5 text-emerald-700" />
+                            <span>Editar Observações e Anexo da Entrega</span>
+                          </p>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-bold text-emerald-900 uppercase">
+                              Sua Observação / Anotação de Entrega:
+                            </label>
+                            <SpellCheckTextarea
+                              value={editCompletionNoteText}
+                              onChangeValue={(val) => setEditCompletionNoteText(val)}
+                              placeholder="Digite ou edite suas observações sobre a entrega desta tarefa..."
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-bold text-emerald-900 uppercase flex items-center gap-1">
+                              <Paperclip className="h-3.5 w-3.5 text-emerald-700" />
+                              <span>Substituir ou Anexar Documento de Entrega:</span>
+                            </label>
+
+                            {editCompletionAttachmentFile === 'remove' ? (
+                              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center justify-between">
+                                <span>O anexo de entrega será removido ao salvar</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditCompletionAttachmentFile(null)}
+                                  className="text-xs font-bold underline hover:text-red-900 cursor-pointer"
+                                >
+                                  Desfazer
+                                </button>
+                              </div>
+                            ) : editCompletionAttachmentFile && typeof editCompletionAttachmentFile === 'object' ? (
+                              <div className="flex items-center justify-between p-2.5 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-950">
+                                <span className="truncate max-w-[180px] font-bold" title={editCompletionAttachmentFile.name}>
+                                  Novo anexo: {editCompletionAttachmentFile.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditCompletionAttachmentFile(null)}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-emerald-200 cursor-pointer"
+                                  title="Remover novo anexo"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ) : selectedTaskForView.completionAttachmentUrl ? (
+                              <div className="flex items-center justify-between p-2.5 bg-white border border-emerald-200 rounded-xl text-xs text-slate-800">
+                                <span className="truncate max-w-[180px] font-bold text-emerald-900" title={selectedTaskForView.completionAttachmentName}>
+                                  {selectedTaskForView.completionAttachmentName || 'Anexo de Entrega'}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-300">
+                                    Substituir Anexo
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      onChange={handleEditCompletionFileChange}
+                                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditCompletionAttachmentFile('remove')}
+                                    className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                                  >
+                                    Excluir Anexo
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <label className="flex items-center justify-center gap-1.5 p-2 bg-white border border-dashed border-emerald-300 hover:border-emerald-500 rounded-xl text-xs font-bold text-emerald-800 cursor-pointer transition-colors h-[38px]">
+                                <Paperclip className="h-4 w-4 text-emerald-600" />
+                                <span>Anexar Arquivo de Entrega</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={handleEditCompletionFileChange}
+                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                                />
+                              </label>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-emerald-200">
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingCompletion(false)}
+                              className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isSavingCompletionEdit}
+                              onClick={() => handleSaveUpdatedCompletionDelivery(selectedTaskForView)}
+                              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Save className="h-3.5 w-3.5" />
+                              <span>{isSavingCompletionEdit ? 'Salvando...' : 'Salvar Alterações da Entrega'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* MODO VISUALIZAÇÃO DA ENTREGA */
+                        <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3">
+                          {selectedTaskForView.completedByName && (
+                            <p className="text-xs text-emerald-900 font-bold">
+                              Entregue por: <strong className="text-slate-900">{selectedTaskForView.completedByName}</strong>
+                              {selectedTaskForView.completedAt && (
+                                <span className="font-normal text-emerald-700"> em {new Date(selectedTaskForView.completedAt).toLocaleString('pt-BR')}</span>
+                              )}
+                            </p>
+                          )}
+
+                          {selectedTaskForView.completionNote && (
+                            <div className="space-y-1">
+                              <span className="text-[11px] font-bold text-emerald-800 uppercase">Observação de Entrega:</span>
+                              <p className="text-xs text-slate-800 bg-white/90 p-3 rounded-xl border border-emerald-100 leading-relaxed font-medium">
+                                "{selectedTaskForView.completionNote}"
+                              </p>
+                            </div>
+                          )}
+
+                          {selectedTaskForView.completionAttachmentUrl && (
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="p-2.5 bg-emerald-600 text-white rounded-xl shrink-0">
+                                  <FileText className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.completionAttachmentName}>
+                                    {selectedTaskForView.completionAttachmentName || 'Documento de Entrega'}
+                                  </p>
+                                  <p className="text-[11px] text-emerald-700">
+                                    Anexo enviado no término da tarefa
+                                  </p>
+                                </div>
+                              </div>
+                              <a
+                                href={selectedTaskForView.completionAttachmentUrl}
+                                download={selectedTaskForView.completionAttachmentName || 'documento_entregue'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                              >
+                                <Download className="h-4 w-4" />
+                                <span>Baixar Documento Entregue</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Form to Attach Document and Deliver Completion (shows if task is NOT concluded) */}
+                  {selectedTaskForView.status !== 'concluida' && (
+                    <div className="space-y-3 pt-2 border-t border-slate-100 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <Upload className="h-4 w-4 text-blue-600" />
+                        <span>Anexar Documento de Entrega / Resposta</span>
                       </h4>
 
-                      <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3">
-                        {selectedTaskForView.completedByName && (
-                          <p className="text-xs text-emerald-900 font-bold">
-                            Entregue por: <strong className="text-slate-900">{selectedTaskForView.completedByName}</strong>
-                            {selectedTaskForView.completedAt && (
-                              <span className="font-normal text-emerald-700"> em {new Date(selectedTaskForView.completedAt).toLocaleString('pt-BR')}</span>
-                            )}
-                          </p>
-                        )}
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Anexe o documento final ou relatório de conclusão para enviar a tarefa entregue ao criador.
+                      </p>
 
-                        {selectedTaskForView.completionNote && (
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-bold text-emerald-800 uppercase">Observação de Entrega:</span>
-                            <p className="text-xs text-slate-800 bg-white/90 p-3 rounded-xl border border-emerald-100 leading-relaxed font-medium">
-                              "{selectedTaskForView.completionNote}"
-                            </p>
-                          </div>
-                        )}
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          id="completion-file-input"
+                          onChange={handleCompletionFileChange}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="completion-file-input"
+                          className="w-full px-4 py-2.5 bg-white border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Paperclip className="h-4 w-4 text-blue-600" />
+                          <span className="truncate">{completionAttachmentFile ? completionAttachmentFile.name : 'Clique para escolher documento de entrega (PDF, Imagem, Doc)'}</span>
+                        </label>
 
-                        {selectedTaskForView.completionAttachmentUrl && (
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="p-2.5 bg-emerald-600 text-white rounded-xl shrink-0">
-                                <FileText className="h-5 w-5" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.completionAttachmentName}>
-                                  {selectedTaskForView.completionAttachmentName || 'Documento de Entrega'}
-                                </p>
-                                <p className="text-[11px] text-emerald-700">
-                                  Anexo enviado no término da tarefa
-                                </p>
-                              </div>
-                            </div>
-                            <a
-                              href={selectedTaskForView.completionAttachmentUrl}
-                              download={selectedTaskForView.completionAttachmentName || 'documento_entregue'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                        {completionAttachmentFile && (
+                          <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                            <span className="truncate font-bold">{completionAttachmentFile.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setCompletionAttachmentFile(null)}
+                              className="text-red-500 hover:text-red-700 font-black px-1 cursor-pointer"
                             >
-                              <Download className="h-4 w-4" />
-                              <span>Baixar Documento Entregue</span>
-                            </a>
+                              ✕
+                            </button>
                           </div>
+                        )}
+
+                        <SpellCheckTextarea
+                          value={completionNoteText}
+                          onChangeValue={(val) => setCompletionNoteText(val)}
+                          placeholder="Escreva uma observação de entrega (opcional)..."
+                          rows={2}
+                        />
+
+                        {(completionAttachmentFile || completionNoteText) && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Enviar Anexo de Entrega & Concluir Tarefa</span>
+                          </button>
                         )}
                       </div>
                     </div>
                   )}
-
-                  {/* Form to Attach Document and Deliver Completion */}
-                  <div className="space-y-3 pt-2 border-t border-slate-100 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <Upload className="h-4 w-4 text-blue-600" />
-                      <span>Anexar Documento de Entrega / Resposta</span>
-                    </h4>
-
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Anexe o documento final ou relatório de conclusão para enviar a tarefa entregue ao criador.
-                    </p>
-
-                    <div className="space-y-2">
-                      <input
-                        type="file"
-                        id="completion-file-input"
-                        onChange={handleCompletionFileChange}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor="completion-file-input"
-                        className="w-full px-4 py-2.5 bg-white border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <Paperclip className="h-4 w-4 text-blue-600" />
-                        <span className="truncate">{completionAttachmentFile ? completionAttachmentFile.name : 'Clique para escolher documento de entrega (PDF, Imagem, Doc)'}</span>
-                      </label>
-
-                      {completionAttachmentFile && (
-                        <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-                          <span className="truncate font-bold">{completionAttachmentFile.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setCompletionAttachmentFile(null)}
-                            className="text-red-500 hover:text-red-700 font-black px-1 cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
-
-                      <SpellCheckTextarea
-                        value={completionNoteText}
-                        onChangeValue={(val) => setCompletionNoteText(val)}
-                        placeholder="Escreva uma observação de entrega (opcional)..."
-                        rows={2}
-                      />
-
-                      {(completionAttachmentFile || completionNoteText) && (
-                        <button
-                          type="button"
-                          onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}
-                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span>Enviar Anexo de Entrega & Concluir Tarefa</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
 
                   {/* Bottom Actions */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">

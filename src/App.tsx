@@ -21,7 +21,7 @@ import { Partner } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { AuthForm } from './components/AuthForm';
-import { LogOut, Camera, Home } from 'lucide-react';
+import { LogOut, Camera, Home, AlertTriangle, Database } from 'lucide-react';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -173,6 +173,23 @@ function MainAppContent() {
             </button>
           </div>
 
+        </div>
+      </div>
+
+      {/* Global Database Maintenance Alert Strip */}
+      <div className="bg-amber-500 text-amber-950 font-semibold text-xs py-2 px-3 sm:px-6 border-b border-amber-600/30 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="bg-amber-900 text-amber-100 text-[10px] font-black px-2 py-0.5 rounded uppercase shrink-0 flex items-center gap-1">
+              <Database className="h-3 w-3" /> Manutenção
+            </span>
+            <p className="truncate text-[11px] sm:text-xs">
+              <strong className="font-extrabold text-amber-950">Aviso:</strong> Banco de dados em atualização. Podem ocorrer instabilidades ou não salvamento de tarefas/procedimentos temporariamente.
+            </p>
+          </div>
+          <span className="text-[10px] sm:text-xs text-amber-900 font-bold bg-amber-400/80 px-2 py-0.5 rounded shrink-0 hidden md:inline">
+            Aguarde expansão de limite
+          </span>
         </div>
       </div>
 

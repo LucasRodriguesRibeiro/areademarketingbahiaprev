@@ -56,7 +56,8 @@ import {
   onSnapshot, 
   query, 
   orderBy, 
-  getDocs 
+  getDocs,
+  limit 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
@@ -298,7 +299,7 @@ export const FunerariaSection: React.FC = () => {
   useEffect(() => {
     setLoadingOrders(true);
     const osRef = collection(db, 'funeraria_os');
-    const q = query(osRef, orderBy('createdAtISO', 'desc'));
+    const q = query(osRef, orderBy('createdAtISO', 'desc'), limit(100));
 
     const unsubscribe = onSnapshot(
       q,
@@ -499,55 +500,9 @@ export const FunerariaSection: React.FC = () => {
     const timeShortStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Attempt automatic GPS capture when marking item as completed
-    let gpsSuccess = false;
-    let gpsCoords: { lat?: number; lng?: number; mapsUrl?: string } = {};
-    if (!wasCompleted) {
-      try {
-        gpsCoords = await new Promise((resolve) => {
-          if (!navigator.geolocation) {
-            resolve({});
-            return;
-          }
-          const timer = setTimeout(() => resolve({}), 1800);
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              clearTimeout(timer);
-              const lat = pos.coords.latitude;
-              const lng = pos.coords.longitude;
-              gpsSuccess = true;
-              resolve({
-                lat,
-                lng,
-                mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`
-              });
-            },
-            (err) => {
-              clearTimeout(timer);
-              console.warn("Aviso na captura do GPS:", err);
-              resolve({});
-            },
-            { timeout: 1800, enableHighAccuracy: true }
-          );
-        });
-      } catch (e) {
-        console.warn("Exceção no GPS:", e);
-      }
-    }
-
-    const finalLat = gpsCoords.lat ?? currentOS.serviceLat;
-    const finalLng = gpsCoords.lng ?? currentOS.serviceLng;
-
-    let reverseGeoStreet: string | null = null;
-    if (typeof finalLat === 'number' && typeof finalLng === 'number') {
-      reverseGeoStreet = await fetchAddressFromCoordinates(finalLat, finalLng);
-    }
-
     const readableLocationStr = 
       currentOS.serviceLocationName 
-      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : '')
-      || reverseGeoStreet
-      || (finalLat && finalLng ? `Localização GPS (${finalLat.toFixed(3)}, ${finalLng.toFixed(3)})` : gpsCoords.mapsUrl || '');
+      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : '');
 
     const updatedChecklist = currentOS.checklist.map((item) => {
       if (item.id === itemId) {
@@ -576,14 +531,14 @@ export const FunerariaSection: React.FC = () => {
           delete newItem.photoUrl;
         }
 
-        if (newCompleted && typeof finalLat === 'number' && !isNaN(finalLat)) {
-          newItem.completedLat = finalLat;
+        if (newCompleted && typeof currentOS.serviceLat === 'number') {
+          newItem.completedLat = currentOS.serviceLat;
         } else {
           delete newItem.completedLat;
         }
 
-        if (newCompleted && typeof finalLng === 'number' && !isNaN(finalLng)) {
-          newItem.completedLng = finalLng;
+        if (newCompleted && typeof currentOS.serviceLng === 'number') {
+          newItem.completedLng = currentOS.serviceLng;
         } else {
           delete newItem.completedLng;
         }
@@ -612,15 +567,6 @@ export const FunerariaSection: React.FC = () => {
         updatedTimeFormatted: timeShortStr
       };
 
-      // Auto-set service coordinates if not already present
-      if (typeof gpsCoords.lat === 'number' && typeof gpsCoords.lng === 'number' && !currentOS.serviceLat) {
-        updateDataRaw.serviceLat = gpsCoords.lat;
-        updateDataRaw.serviceLng = gpsCoords.lng;
-        if (!currentOS.serviceAddress && gpsCoords.mapsUrl) {
-          updateDataRaw.serviceAddress = gpsCoords.mapsUrl;
-        }
-      }
-
       const updateData = cleanFirestoreObject(updateDataRaw);
 
       await updateDoc(osDocRef, updateData);
@@ -635,18 +581,7 @@ export const FunerariaSection: React.FC = () => {
         if (isServiceFinishedChecked) {
           showToast("Serviço Encerrado! Ordem de Serviço alterada para Finalizada.");
         } else {
-          if (gpsSuccess) {
-            showToast(`Etapa "${targetItem?.label}" concluída com GPS registrado!`);
-          } else {
-            showToast(`Etapa "${targetItem?.label}" concluída!`);
-            // Prompt popup for GPS permission/loading if not captured automatically
-            setGpsModalInfo({
-              isOpen: true,
-              osId,
-              itemId,
-              itemLabel: targetItem?.label || 'Etapa'
-            });
-          }
+          showToast(`Etapa "${targetItem?.label}" concluída!`);
         }
       }
     } catch (err) {
@@ -657,63 +592,38 @@ export const FunerariaSection: React.FC = () => {
 
   const handleModalLoadGps = async () => {
     if (!gpsModalInfo) return;
-    if (!navigator.geolocation) {
-      showToast("Seu dispositivo ou navegador não suporta GPS.");
+    const currentOS = orders.find((o) => o.id === gpsModalInfo.osId);
+    if (!currentOS) {
       setGpsModalInfo(null);
       return;
     }
-    setIsCapturingModalGps(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
 
-        const currentOS = orders.find((o) => o.id === gpsModalInfo.osId);
-        const reverseGeoStreet = await fetchAddressFromCoordinates(lat, lng);
+    const readableLocationStr = 
+      currentOS.serviceLocationName 
+      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : 'Sede Bahia Prev');
 
-        const readableLocationStr = 
-          reverseGeoStreet
-          || currentOS?.serviceLocationName 
-          || (currentOS?.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : '')
-          || `Localização GPS (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+    const updatedChecklist = currentOS.checklist.map((item) => {
+      if (item.id === gpsModalInfo.itemId) {
+        return {
+          ...item,
+          completedLocation: readableLocationStr
+        };
+      }
+      return item;
+    });
 
-        setIsCapturingModalGps(false);
-        if (currentOS) {
-          const updatedChecklist = currentOS.checklist.map((item) => {
-            if (item.id === gpsModalInfo.itemId) {
-              return {
-                ...item,
-                completedLocation: readableLocationStr,
-                completedLat: lat,
-                completedLng: lng
-              };
-            }
-            return item;
-          });
-          const sanitizedChecklist = cleanFirestoreObject(updatedChecklist);
-          try {
-            const osDocRef = doc(db, 'funeraria_os', gpsModalInfo.osId);
-            await updateDoc(osDocRef, cleanFirestoreObject({
-              checklist: sanitizedChecklist,
-              serviceLat: currentOS.serviceLat || lat,
-              serviceLng: currentOS.serviceLng || lng,
-              serviceAddress: currentOS.serviceAddress || reverseGeoStreet || `https://www.google.com/maps?q=${lat},${lng}`
-            }));
-            showToast(`Localização registrada: ${readableLocationStr}`);
-          } catch (e) {
-            console.error("Erro ao vincular GPS:", e);
-            showToast("Não foi possível atualizar o GPS na etapa.");
-          }
-        }
-        setGpsModalInfo(null);
-      },
-      (err) => {
-        setIsCapturingModalGps(false);
-        console.error("Erro ao capturar GPS:", err);
-        showToast("Não foi possível acessar o GPS. Verifique se o acesso à localização está permitido no seu navegador.");
-      },
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
+    try {
+      const osDocRef = doc(db, 'funeraria_os', gpsModalInfo.osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        checklist: cleanFirestoreObject(updatedChecklist)
+      }));
+      showToast(`Localização vinculada: ${readableLocationStr}`);
+    } catch (e) {
+      console.error("Erro ao vincular localização:", e);
+      showToast("Não foi possível atualizar a localização.");
+    } finally {
+      setGpsModalInfo(null);
+    }
   };
 
   // Save address for OS in Google Maps

@@ -6,10 +6,10 @@ import {
   signOut,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-interface UserProfile {
+export interface UserProfile {
   uid: string;
   name: string;
   email: string;
@@ -27,6 +27,8 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   providerNotEnabled: boolean;
+  allUsers: UserProfile[];
+  usersMap: Record<string, UserProfile>;
   login: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -39,6 +41,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [usersMap, setUsersMap] = useState<Record<string, UserProfile>>({});
   const [loading, setLoading] = useState(true);
   const [providerNotEnabled, setProviderNotEnabled] = useState(false);
 
@@ -122,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     let unsubsDoc: (() => void) | null = null;
+    let unsubUsersColl: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -129,8 +134,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubsDoc();
         unsubsDoc = null;
       }
+      if (unsubUsersColl) {
+        unsubUsersColl();
+        unsubUsersColl = null;
+      }
 
       if (firebaseUser) {
+        // Shared single collection listener for all app components
+        unsubUsersColl = onSnapshot(collection(db, 'users'), (snapshot) => {
+          const list: UserProfile[] = [];
+          const map: Record<string, UserProfile> = {};
+          snapshot.docs.forEach((d) => {
+            const data = d.data() as any;
+            const p: UserProfile = {
+              uid: d.id,
+              name: data.name || (data.email ? data.email.split('@')[0] : 'Usuário'),
+              email: data.email || '',
+              role: data.role || 'Colaborador',
+              avatarUrl: data.avatarUrl || undefined,
+              createdAt: data.createdAt || new Date().toISOString(),
+              isOnline: Boolean(data.isOnline),
+              lastSeen: data.lastSeen,
+              canPostFeed: data.canPostFeed,
+              canCreateTasks: data.canCreateTasks
+            };
+            list.push(p);
+            map[d.id] = p;
+          });
+          setAllUsers(list);
+          setUsersMap(map);
+        }, (err) => {
+          console.warn('Error fetching shared users collection:', err);
+        });
+
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
         // Mark user as online in Firestore when session begins
@@ -230,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       unsubscribe();
       if (unsubsDoc) unsubsDoc();
+      if (unsubUsersColl) unsubUsersColl();
     };
   }, []);
 
@@ -315,7 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, allUsers, usersMap, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

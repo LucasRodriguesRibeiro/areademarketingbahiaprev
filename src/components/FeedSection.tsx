@@ -14,7 +14,8 @@ import {
   arrayRemove, 
   deleteDoc, 
   serverTimestamp,
-  getDocs
+  getDocs,
+  limit
 } from 'firebase/firestore';
 import { 
   MessageSquare, 
@@ -79,31 +80,12 @@ const CATEGORIES = [
 ];
 
 export const FeedSection: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, usersMap } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
-  const [usersMap, setUsersMap] = useState<Record<string, { name?: string; avatarUrl?: string; role?: string }>>({});
   const knownPostIdsRef = useRef<Set<string> | null>(null);
-
-  // Subscribe to real-time users collection for live profile updates
-  useEffect(() => {
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const map: Record<string, { name?: string; avatarUrl?: string; role?: string }> = {};
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data();
-        map[docSnap.id] = {
-          name: data.name,
-          avatarUrl: data.avatarUrl,
-          role: data.role
-        };
-      });
-      setUsersMap(map);
-    }, (err) => {
-      console.warn('Error fetching users map:', err);
-    });
-    return () => unsubUsers();
-  }, []);
+  const commentUnsubsRef = useRef<Record<string, () => void>>({});
 
   const isCauan = profile?.email?.toLowerCase().includes('cauan') || profile?.name?.toLowerCase().includes('cauan');
 
@@ -237,27 +219,16 @@ export const FeedSection: React.FC = () => {
   const [commentInputMap, setCommentInputMap] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Fetch real-time posts from Firestore
+  // Fetch real-time posts from Firestore with limit
   useEffect(() => {
     const postsRef = collection(db, 'posts');
-    const q = query(postsRef, orderBy('createdAt', 'desc'));
+    const q = query(postsRef, orderBy('createdAt', 'desc'), limit(50));
 
-    const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedPosts: Post[] = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data()
       })) as Post[];
-
-      // Clean up any old seed posts or requested test posts if present in Firestore
-      for (const p of fetchedPosts) {
-        if (
-          p.authorUid?.startsWith('admin-seed-') || 
-          p.content?.trim() === 'Teste' || 
-          p.content?.trim() === 'Aviso importante'
-        ) {
-          deleteDoc(doc(db, 'posts', p.id)).catch(() => {});
-        }
-      }
 
       const realPosts = fetchedPosts.filter(p => 
         !p.authorUid?.startsWith('admin-seed-') && 
@@ -288,7 +259,14 @@ export const FeedSection: React.FC = () => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Clean up any active comment listeners on unmount
+      Object.values(commentUnsubsRef.current).forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
+      });
+      commentUnsubsRef.current = {};
+    };
   }, []);
 
   // Handle create post
@@ -408,23 +386,35 @@ export const FeedSection: React.FC = () => {
   const handleToggleComments = (postId: string) => {
     if (activeCommentsPostId === postId) {
       setActiveCommentsPostId(null);
+      if (commentUnsubsRef.current[postId]) {
+        commentUnsubsRef.current[postId]();
+        delete commentUnsubsRef.current[postId];
+      }
       return;
     }
 
     setActiveCommentsPostId(postId);
 
+    if (commentUnsubsRef.current[postId]) {
+      commentUnsubsRef.current[postId]();
+    }
+
     // Subscribe to comments subcollection
     const commentsRef = collection(db, 'posts', postId, 'comments');
-    const q = query(commentsRef, orderBy('createdAt', 'asc'));
+    const q = query(commentsRef, orderBy('createdAt', 'asc'), limit(50));
 
-    onSnapshot(q, (snapshot) => {
+    const unsub = onSnapshot(q, (snapshot) => {
       const fetchedComments = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data()
       })) as Comment[];
 
       setCommentsMap(prev => ({ ...prev, [postId]: fetchedComments }));
+    }, (err) => {
+      console.warn("Error listening to comments:", err);
     });
+
+    commentUnsubsRef.current[postId] = unsub;
   };
 
   // Handle submit comment

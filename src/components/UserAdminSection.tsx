@@ -23,7 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { db } from '../lib/firebase';
@@ -59,7 +59,7 @@ const PRESET_ROLES = [
 ];
 
 export const UserAdminSection: React.FC = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, allUsers } = useAuth();
 
   // Verification: Admin access for Analista de Marketing / Administrator
   const isLucas = Boolean(
@@ -102,72 +102,40 @@ export const UserAdminSection: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Subscribe to all users in Firestore & auto-cleanup duplicates
+  // Subscribe to all users in Firestore
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const allDocs: { id: string; data: any; uEmail: string; uName: string; hasPhoto: boolean; isCurrentAuth: boolean }[] = [];
+    const loaded: ManagedUser[] = allUsers.map((item) => {
+      const uEmail = (item.email || '').toLowerCase().trim();
+      const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : true;
+      const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : true;
+      const finalName = item.name || (uEmail ? uEmail.split('@')[0] : 'Usuário');
+      const finalEmail = item.email || '';
+      const finalRole = item.role || 'Colaborador';
 
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const uEmail = (data.email || '').toLowerCase().trim();
-        const uName = (data.name || '').toLowerCase().trim();
-        const avatarUrl = (data.avatarUrl || '').trim();
-        const hasPhoto = avatarUrl.startsWith('http') || avatarUrl.startsWith('data:');
-        const isCurrentAuth = Boolean(user && docSnap.id === user.uid);
-
-        allDocs.push({
-          id: docSnap.id,
-          data,
-          uEmail,
-          uName,
-          hasPhoto,
-          isCurrentAuth
-        });
-      });
-
-      const loaded: ManagedUser[] = [];
-      allDocs.forEach((item) => {
-        const { id, data, uEmail } = item;
-
-        const defaultCanPost = data.canPostFeed !== undefined 
-          ? Boolean(data.canPostFeed) 
-          : true;
-
-        const defaultCanTasks = data.canCreateTasks !== undefined 
-          ? Boolean(data.canCreateTasks) 
-          : true;
-
-        const finalName = data.name || (uEmail ? uEmail.split('@')[0] : 'Usuário');
-        const finalEmail = data.email || '';
-        const finalRole = data.role || 'Colaborador';
-
-        loaded.push({
-          uid: id,
-          name: finalName,
-          email: finalEmail,
-          role: finalRole,
-          avatarUrl: data.avatarUrl,
-          canPostFeed: defaultCanPost,
-          canCreateTasks: defaultCanTasks,
-          isOnline: data.isOnline,
-          lastSeen: data.lastSeen,
-          createdAt: data.createdAt
-        });
-      });
-
-      // Sort users: Lucas & Directors first, then alphabetically
-      loaded.sort((a, b) => {
-        if (a.email.includes('lucas') || a.email === 'marketing@bahiaprev.com.br') return -1;
-        if (b.email.includes('lucas') || b.email === 'marketing@bahiaprev.com.br') return 1;
-        return a.name.localeCompare(b.name);
-      });
-
-      setUsersList(loaded);
-      setLoadingUsers(false);
+      return {
+        uid: item.uid,
+        name: finalName,
+        email: finalEmail,
+        role: finalRole,
+        avatarUrl: item.avatarUrl,
+        canPostFeed: defaultCanPost,
+        canCreateTasks: defaultCanTasks,
+        isOnline: item.isOnline,
+        lastSeen: item.lastSeen,
+        createdAt: item.createdAt
+      };
     });
 
-    return () => unsub();
-  }, [user]);
+    // Sort users: Lucas & Directors first, then alphabetically
+    loaded.sort((a, b) => {
+      if (a.email.includes('lucas') || a.email === 'marketing@bahiaprev.com.br') return -1;
+      if (b.email.includes('lucas') || b.email === 'marketing@bahiaprev.com.br') return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    setUsersList(loaded);
+    setLoadingUsers(false);
+  }, [allUsers]);
 
   // Helper to register new user without logging out active admin
   const handleRegisterUser = async (e: React.FormEvent) => {

@@ -29,7 +29,8 @@ import {
   onSnapshot, 
   deleteDoc, 
   doc, 
-  serverTimestamp 
+  serverTimestamp,
+  limit 
 } from 'firebase/firestore';
 
 export interface PopItem {
@@ -77,7 +78,7 @@ export const PopsSection: React.FC = () => {
     profile?.email === 'jairoqueiroz@bahiaprev.com.br';
 
   useEffect(() => {
-    const q = query(collection(db, 'pops'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'pops'), orderBy('createdAt', 'desc'), limit(100));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: PopItem[] = snapshot.docs.map(docSnap => ({
         id: docSnap.id,

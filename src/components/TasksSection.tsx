@@ -36,7 +36,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
 
 export interface Task {
   id: string;
@@ -108,7 +108,7 @@ const DEFAULT_MEMBERS: MemberOption[] = [
 ];
 
 export const TasksSection: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, allUsers } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [collaborators, setCollaborators] = useState<MemberOption[]>(DEFAULT_MEMBERS);
   const [loading, setLoading] = useState(true);
@@ -233,86 +233,77 @@ export const TasksSection: React.FC = () => {
         userEmail === 'jairoqueiroz@bahiaprev.com.br'
       ));
 
-  // Fetch registered team members from Firestore
+  // Derive registered team members from allUsers
   useEffect(() => {
-    const usersRef = collection(db, 'users');
-    const unsubUsers = onSnapshot(usersRef, (snapshot) => {
-      const map: Record<string, MemberOption> = {
-        'lucas': {
-          uid: 'm-lucas-mkt',
-          name: 'Analista de Marketing',
-          email: 'lucasrodrigues@bahiaprev.com.br',
+    const map: Record<string, MemberOption> = {
+      'lucas': {
+        uid: 'm-lucas-mkt',
+        name: 'Analista de Marketing',
+        email: 'lucasrodrigues@bahiaprev.com.br',
+        role: 'Administrador'
+      },
+      'jairo': {
+        uid: 'm-jairo',
+        name: 'Jairo Queiroz',
+        email: 'jairoqueiroz@bahiaprev.com.br',
+        role: 'Diretor'
+      },
+      'cauan': {
+        uid: 'm-cauan',
+        name: 'Cauan',
+        email: 'cauan@bahiaprev.com.br',
+        role: 'Designer Gráfico'
+      }
+    };
+
+    allUsers.forEach((uData) => {
+      const email = (uData.email || '').toLowerCase();
+      const name = (uData.name || '').toLowerCase();
+
+      if (email.includes('lucas') || name.includes('lucas') || name.includes('analista') || email === 'marketing@bahiaprev.com.br') {
+        let resolvedName = uData.name || 'Lucas Rodrigues';
+        if (resolvedName === 'Analista de Marketing' || resolvedName === 'Lucas' || resolvedName === 'marketing') {
+          resolvedName = 'Lucas Rodrigues';
+        }
+        map['lucas'] = {
+          uid: uData.uid,
+          name: resolvedName,
+          email: uData.email || 'marketing@bahiaprev.com.br',
           role: 'Administrador'
-        },
-        'jairo': {
-          uid: 'm-jairo',
+        };
+      } else if (email.includes('jairo') || name.includes('jairo')) {
+        map['jairo'] = {
+          uid: uData.uid,
           name: 'Jairo Queiroz',
           email: 'jairoqueiroz@bahiaprev.com.br',
           role: 'Diretor'
-        },
-        'cauan': {
-          uid: 'm-cauan',
-          name: 'Cauan',
+        };
+      } else if (email.includes('cauan') || name.includes('cauan')) {
+        map['cauan'] = {
+          uid: uData.uid,
+          name: (uData.name && uData.name.toLowerCase() !== 'cauan' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Cauan',
           email: 'cauan@bahiaprev.com.br',
-          role: 'Designer Gráfico'
-        }
-      };
-
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const email = (data.email || '').toLowerCase();
-        const name = (data.name || '').toLowerCase();
-
-        if (email.includes('lucas') || name.includes('lucas') || name.includes('analista') || email === 'marketing@bahiaprev.com.br') {
-          let resolvedName = data.name || 'Lucas Rodrigues';
-          if (resolvedName === 'Analista de Marketing' || resolvedName === 'Lucas' || resolvedName === 'marketing') {
-            resolvedName = 'Lucas Rodrigues';
-          }
-          map['lucas'] = {
-            uid: docSnap.id,
-            name: resolvedName,
-            email: data.email || 'marketing@bahiaprev.com.br',
-            role: 'Administrador'
-          };
-        } else if (email.includes('jairo') || name.includes('jairo')) {
-          map['jairo'] = {
-            uid: docSnap.id,
-            name: 'Jairo Queiroz',
-            email: 'jairoqueiroz@bahiaprev.com.br',
-            role: 'Diretor'
-          };
-        } else if (email.includes('cauan') || name.includes('cauan')) {
-          map['cauan'] = {
-            uid: docSnap.id,
-            name: (data.name && data.name.toLowerCase() !== 'cauan' && data.name.toLowerCase() !== 'colaborador' && !data.name.includes('@')) ? data.name : 'Cauan',
-            email: 'cauan@bahiaprev.com.br',
-            role: (data.role && data.role !== 'Colaborador') ? data.role : 'Designer Gráfico'
-          };
-        } else if (email.includes('paulo') || name.includes('paulo')) {
-          map['paulo'] = {
-            uid: docSnap.id,
-            name: (data.name && data.name.toLowerCase() !== 'paulo' && data.name.toLowerCase() !== 'colaborador' && !data.name.includes('@')) ? data.name : 'Paulo',
-            email: 'paulo@bahiaprev.com.br',
-            role: data.role || 'Colaborador'
-          };
-        } else {
-          map[docSnap.id] = {
-            uid: docSnap.id,
-            name: data.name || email.split('@')[0],
-            email: data.email,
-            role: data.role || 'Colaborador'
-          };
-        }
-      });
-
-      setCollaborators(Object.values(map));
-    }, (err) => {
-      console.warn('Error fetching collaborators list:', err);
-      setCollaborators(DEFAULT_MEMBERS);
+          role: (uData.role && uData.role !== 'Colaborador') ? uData.role : 'Designer Gráfico'
+        };
+      } else if (email.includes('paulo') || name.includes('paulo')) {
+        map['paulo'] = {
+          uid: uData.uid,
+          name: (uData.name && uData.name.toLowerCase() !== 'paulo' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Paulo',
+          email: 'paulo@bahiaprev.com.br',
+          role: uData.role || 'Colaborador'
+        };
+      } else {
+        map[uData.uid] = {
+          uid: uData.uid,
+          name: uData.name || email.split('@')[0],
+          email: uData.email,
+          role: uData.role || 'Colaborador'
+        };
+      }
     });
 
-    return () => unsubUsers();
-  }, []);
+    setCollaborators(Object.values(map));
+  }, [allUsers]);
 
   // Helper to check if a task should be visible to the current user (Strict confidentiality rule)
   const isTargetedToUser = useCallback((task: Task) => {
@@ -404,9 +395,10 @@ export const TasksSection: React.FC = () => {
 
     try {
       const tasksRef = collection(db, 'user_tasks');
+      const qTasks = query(tasksRef, limit(200));
 
       unsubscribe = onSnapshot(
-        tasksRef,
+        qTasks,
         (snapshot) => {
           const loaded: Task[] = [];
           snapshot.forEach((docSnap) => {

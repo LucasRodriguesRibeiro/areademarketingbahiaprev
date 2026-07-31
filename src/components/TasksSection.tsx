@@ -1254,22 +1254,28 @@ export const TasksSection: React.FC = () => {
         return false;
       }
 
-      // Only show collaborator if they have at least 1 open or overdue task
+      // Show collaborator if they have any tasks (open, overdue, or completed) or if currently selected
       const counts = getCollabCounts(collab);
-      return counts.open > 0 || counts.overdue > 0;
+      const isSelected = !!selectedCollaboratorUid && (
+        selectedCollaboratorUid === collab.uid ||
+        selectedCollaboratorUid.toLowerCase() === (collab.email || '').toLowerCase() ||
+        selectedCollaboratorUid.toLowerCase() === collab.name.toLowerCase() ||
+        collab.name.toLowerCase().includes(selectedCollaboratorUid.toLowerCase())
+      );
+      return counts.total > 0 || isSelected;
     });
-  }, [allCollaboratorOptions, getCollabCounts, myEmail, myName, myFirstName, isLucasUser]);
+  }, [allCollaboratorOptions, getCollabCounts, myEmail, myName, myFirstName, isLucasUser, selectedCollaboratorUid]);
 
   const selectedCollabObj = useMemo(() => {
     if (!selectedCollaboratorUid) return null;
-    return activeCollaboratorOptions.find(c => 
+    return allCollaboratorOptions.find(c => 
       c.uid === selectedCollaboratorUid || 
       c.email?.toLowerCase() === selectedCollaboratorUid.toLowerCase() ||
       c.name.toLowerCase() === selectedCollaboratorUid.toLowerCase() ||
       (c.name && selectedCollaboratorUid && c.name.toLowerCase().includes(selectedCollaboratorUid.toLowerCase())) ||
       (c.email && selectedCollaboratorUid && c.email.toLowerCase().includes(selectedCollaboratorUid.toLowerCase()))
     ) || null;
-  }, [selectedCollaboratorUid, activeCollaboratorOptions]);
+  }, [selectedCollaboratorUid, allCollaboratorOptions]);
 
   const collabOpenCount = useMemo(() => {
     if (!selectedCollabObj) return 0;

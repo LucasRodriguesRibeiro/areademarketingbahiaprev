@@ -6,7 +6,7 @@ import {
   signOut,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 export interface UserProfile {
@@ -29,6 +29,7 @@ interface AuthContextType {
   providerNotEnabled: boolean;
   allUsers: UserProfile[];
   usersMap: Record<string, UserProfile>;
+  fetchUsers: () => Promise<UserProfile[]>;
   login: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,6 +46,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [usersMap, setUsersMap] = useState<Record<string, UserProfile>>({});
   const [loading, setLoading] = useState(true);
   const [providerNotEnabled, setProviderNotEnabled] = useState(false);
+
+  const fetchUsers = async (): Promise<UserProfile[]> => {
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      const list: UserProfile[] = [];
+      const map: Record<string, UserProfile> = {};
+      snapshot.docs.forEach((d) => {
+        const data = d.data() as any;
+        const p: UserProfile = {
+          uid: d.id,
+          name: data.name || (data.email ? data.email.split('@')[0] : 'Usuário'),
+          email: data.email || '',
+          role: data.role || 'Colaborador',
+          avatarUrl: data.avatarUrl || undefined,
+          createdAt: data.createdAt || new Date().toISOString(),
+          isOnline: Boolean(data.isOnline),
+          lastSeen: data.lastSeen,
+          canPostFeed: data.canPostFeed,
+          canCreateTasks: data.canCreateTasks
+        };
+        list.push(p);
+        map[d.id] = p;
+      });
+      setAllUsers(list);
+      setUsersMap(map);
+      return list;
+    } catch (err) {
+      console.warn('Error fetching users collection:', err);
+      return [];
+    }
+  };
 
   useEffect(() => {
     // Auto-create/ensure initial system users exist (run once per browser)
@@ -126,7 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     let unsubsDoc: (() => void) | null = null;
-    let unsubUsersColl: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -134,38 +165,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubsDoc();
         unsubsDoc = null;
       }
-      if (unsubUsersColl) {
-        unsubUsersColl();
-        unsubUsersColl = null;
-      }
 
       if (firebaseUser) {
-        // Shared single collection listener for all app components
-        unsubUsersColl = onSnapshot(collection(db, 'users'), (snapshot) => {
-          const list: UserProfile[] = [];
-          const map: Record<string, UserProfile> = {};
-          snapshot.docs.forEach((d) => {
-            const data = d.data() as any;
-            const p: UserProfile = {
-              uid: d.id,
-              name: data.name || (data.email ? data.email.split('@')[0] : 'Usuário'),
-              email: data.email || '',
-              role: data.role || 'Colaborador',
-              avatarUrl: data.avatarUrl || undefined,
-              createdAt: data.createdAt || new Date().toISOString(),
-              isOnline: Boolean(data.isOnline),
-              lastSeen: data.lastSeen,
-              canPostFeed: data.canPostFeed,
-              canCreateTasks: data.canCreateTasks
-            };
-            list.push(p);
-            map[d.id] = p;
-          });
-          setAllUsers(list);
-          setUsersMap(map);
-        }, (err) => {
-          console.warn('Error fetching shared users collection:', err);
-        });
+        // Fetch users snapshot once on login instead of maintaining a global collection listener
+        fetchUsers().catch(() => {});
 
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
@@ -177,6 +180,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         window.addEventListener('beforeunload', handleUnload);
         
+        /* 
+          PROTEÇÃO GLOBAL CONTRA LOOPS NO FIRESTORE:
+          ATENÇÃO: NUNCA execute setDoc(), updateDoc() ou addDoc() dentro de callbacks de onSnapshot() sem prévia verificação estrita ou apenas quando o documento não existir.
+          Escrever incondicionalmente ou atualizar campos dentro de onSnapshot causa um ciclo infinito catastrófico:
+          Firestore -> onSnapshot -> setDoc -> Firestore -> onSnapshot -> ...
+        */
         unsubsDoc = onSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
@@ -222,10 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               canCreateTasks: canCreateTasksCalculated
             };
 
-            if (needsUpdate) {
-              setDoc(userDocRef, { name: activeProfile.name, role: activeProfile.role, email: activeProfile.email }, { merge: true }).catch(console.error);
-            }
-
+            // Compute missing display fields in memory without triggering automatic setDoc writes in snapshot listener
             setProfile(activeProfile);
           } else {
             const uEmail = (firebaseUser.email || '').toLowerCase();
@@ -266,7 +272,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       unsubscribe();
       if (unsubsDoc) unsubsDoc();
-      if (unsubUsersColl) unsubUsersColl();
     };
   }, []);
 
@@ -352,7 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, allUsers, usersMap, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, allUsers, usersMap, fetchUsers, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

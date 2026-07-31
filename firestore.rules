@@ -1,47 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     // Users
     match /users/{userId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
     
     // Feed Posts
     match /posts/{postId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read, create, update, delete: if isAuthenticated();
 
       match /comments/{commentId} {
-        allow read, create, update, delete: if request.auth != null;
+        allow read, create, update, delete: if isAuthenticated();
       }
     }
 
     // Official Announcements
     match /announcements/{announcementId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     // Tasks / To-dos
     match /tasks/{taskId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     match /user_tasks/{taskId} {
-      allow read, create, update, delete: if true;
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     // Gestão Funerária - Ordens de Serviço
     match /funeraria_os/{osId} {
-      allow read, create, update, delete: if true;
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     // Configurações do sistema (Branding / Favicon / Logos)
     match /system_config/{configId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // POPs
     match /pops/{popId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     // Default fallback
@@ -50,4 +55,3 @@ service cloud.firestore {
     }
   }
 }
-

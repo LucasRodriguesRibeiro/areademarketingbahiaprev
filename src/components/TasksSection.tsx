@@ -395,7 +395,7 @@ export const TasksSection: React.FC = () => {
 
     try {
       const tasksRef = collection(db, 'user_tasks');
-      const qTasks = query(tasksRef, limit(200));
+      const qTasks = query(tasksRef, limit(50));
 
       unsubscribe = onSnapshot(
         qTasks,
@@ -541,7 +541,7 @@ export const TasksSection: React.FC = () => {
     }
 
     return () => unsubscribe();
-  }, [userId, userEmail, userName, userRole, isAdmin, isTargetedToUser, getDefaultTasks]);
+  }, [userId, userEmail, userName, userRole, isAdmin]);
 
   // Local storage backup persistence
   const saveTasksLocally = (updatedTasks: Task[]) => {

@@ -299,7 +299,7 @@ export const FunerariaSection: React.FC = () => {
   useEffect(() => {
     setLoadingOrders(true);
     const osRef = collection(db, 'funeraria_os');
-    const q = query(osRef, orderBy('createdAtISO', 'desc'), limit(100));
+    const q = query(osRef, orderBy('createdAtISO', 'desc'), limit(50));
 
     const unsubscribe = onSnapshot(
       q,
@@ -372,16 +372,17 @@ export const FunerariaSection: React.FC = () => {
     setIsCreating(true);
 
     try {
-      // 1. Compute next sequential OS number (e.g. OS-000001)
+      // 1. Compute next sequential OS number (e.g. OS-000001) using efficient limit(1) query
       const osRef = collection(db, 'funeraria_os');
-      const snapshot = await getDocs(osRef);
+      const osQuery = query(osRef, orderBy('seqNumber', 'desc'), limit(1));
+      const snapshot = await getDocs(osQuery);
       let maxSeq = 0;
-      snapshot.docs.forEach((d) => {
-        const val = d.data()?.seqNumber;
-        if (typeof val === 'number' && val > maxSeq) {
-          maxSeq = val;
+      if (!snapshot.empty) {
+        const topDoc = snapshot.docs[0].data();
+        if (typeof topDoc?.seqNumber === 'number') {
+          maxSeq = topDoc.seqNumber;
         }
-      });
+      }
 
       const nextSeq = maxSeq + 1;
       const osNumber = `OS-${String(nextSeq).padStart(6, '0')}`;

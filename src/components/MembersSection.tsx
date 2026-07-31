@@ -21,10 +21,14 @@ interface MembersSectionProps {
 }
 
 export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileModal }) => {
-  const { user, profile, updateUserProfile, allUsers } = useAuth();
+  const { user, profile, updateUserProfile, allUsers, fetchUsers } = useAuth();
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchUsers().catch(() => {});
+  }, []);
 
   // Modal for editing collaborator cargo
   const [editingMember, setEditingMember] = useState<MemberProfile | null>(null);

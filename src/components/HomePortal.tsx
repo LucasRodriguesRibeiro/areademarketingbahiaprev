@@ -252,30 +252,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
       </section>
 
       {/* Main Grid of Square / Rectangular Module Cards */}
-      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
-        {/* System Database Maintenance Alert Banner */}
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl p-4 sm:p-5 text-amber-900 shadow-md relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4"
-        >
-          <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
-          <div className="h-11 w-11 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
-            <AlertTriangle className="h-6 w-6 animate-bounce" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="bg-amber-600 text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                <Database className="h-3 w-3" /> Atualização em Andamento
-              </span>
-              <span className="text-amber-800 font-bold text-xs sm:text-sm">Aviso de Manutenção do Banco de Dados</span>
-            </div>
-            <p className="text-xs sm:text-sm text-amber-950 font-medium leading-relaxed">
-              O sistema está em <strong>atualização e ampliação do limite do banco de dados</strong> neste momento. Por conta disso, podem ocorrer oscilações temporárias e o <strong>não salvamento de tarefas, ordens de serviço ou outros procedimentos</strong> realizados no portal.
-            </p>
-          </div>
-        </motion.div>
-
+      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-14">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 pb-3 border-b border-slate-200 gap-2">
           <div>
             <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">

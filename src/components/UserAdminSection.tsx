@@ -59,7 +59,11 @@ const PRESET_ROLES = [
 ];
 
 export const UserAdminSection: React.FC = () => {
-  const { profile, user, allUsers } = useAuth();
+  const { profile, user, allUsers, fetchUsers } = useAuth();
+
+  useEffect(() => {
+    fetchUsers().catch(() => {});
+  }, []);
 
   // Verification: Admin access for Analista de Marketing / Administrator
   const isLucas = Boolean(
@@ -216,6 +220,8 @@ export const UserAdminSection: React.FC = () => {
       setCanPostFeed(true);
       setCanCreateTasks(true);
 
+      fetchUsers().catch(() => {});
+
     } catch (err: any) {
       console.error('Error registering user:', err);
       setStatusMessage({ 
@@ -233,6 +239,7 @@ export const UserAdminSection: React.FC = () => {
       await updateDoc(doc(db, 'users', userUid), {
         [field]: !currentValue
       });
+      fetchUsers().catch(() => {});
     } catch (err) {
       console.error('Error updating permission:', err);
     }
@@ -265,6 +272,7 @@ export const UserAdminSection: React.FC = () => {
       const timeoutPromise = new Promise(resolve => setTimeout(resolve, 6000));
       await Promise.race([savePromise, timeoutPromise]);
       setEditingUser(null);
+      fetchUsers().catch(() => {});
     } catch (err) {
       console.error('Error saving user edit:', err);
     } finally {
@@ -287,6 +295,7 @@ export const UserAdminSection: React.FC = () => {
       if (editingUser?.uid === deletingUser.uid) {
         setEditingUser(null);
       }
+      fetchUsers().catch(() => {});
     } catch (err: any) {
       console.error('Error deleting user:', err);
       setStatusMessage({

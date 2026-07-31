@@ -222,7 +222,7 @@ export const FeedSection: React.FC = () => {
   // Fetch real-time posts from Firestore with limit
   useEffect(() => {
     const postsRef = collection(db, 'posts');
-    const q = query(postsRef, orderBy('createdAt', 'desc'), limit(50));
+    const q = query(postsRef, orderBy('createdAt', 'desc'), limit(30));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedPosts: Post[] = snapshot.docs.map(docSnap => ({

@@ -26,7 +26,7 @@ import {
   addDoc, 
   query, 
   orderBy, 
-  onSnapshot, 
+  getDocs, 
   deleteDoc, 
   doc, 
   serverTimestamp,
@@ -77,21 +77,25 @@ export const PopsSection: React.FC = () => {
     profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
     profile?.email === 'jairoqueiroz@bahiaprev.com.br';
 
-  useEffect(() => {
-    const q = query(collection(db, 'pops'), orderBy('createdAt', 'desc'), limit(100));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+  const fetchPops = async () => {
+    try {
+      setLoading(true);
+      const q = query(collection(db, 'pops'), orderBy('createdAt', 'desc'), limit(50));
+      const snapshot = await getDocs(q);
       const items: PopItem[] = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data()
       })) as PopItem[];
       setPops(items);
-      setLoading(false);
-    }, (err) => {
+    } catch (err) {
       console.warn('Error fetching POPs:', err);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchPops();
   }, []);
 
   const getCategoryLabel = (cat: string) => {
@@ -138,6 +142,7 @@ export const PopsSection: React.FC = () => {
       setNewDescription('');
       setNewStepsText('');
       setIsAddModalOpen(false);
+      await fetchPops();
     } catch (err) {
       console.error('Error creating POP:', err);
       alert('Erro ao cadastrar POP. Tente novamente.');
@@ -150,6 +155,7 @@ export const PopsSection: React.FC = () => {
     if (!confirm('Deseja realmente excluir este Procedimento Operacional Padrão (POP)?')) return;
     try {
       await deleteDoc(doc(db, 'pops', id));
+      await fetchPops();
     } catch (err) {
       console.error('Error deleting POP:', err);
     }

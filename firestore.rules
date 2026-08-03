@@ -8,50 +8,56 @@ service cloud.firestore {
 
     // Users
     match /users/{userId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
     
     // Feed Posts
     match /posts/{postId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
 
       match /comments/{commentId} {
-        allow read, create, update, delete: if isAuthenticated();
+        allow read, write: if true;
       }
     }
 
     // Official Announcements
     match /announcements/{announcementId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Tasks / To-dos
     match /tasks/{taskId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /user_tasks/{taskId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Gestão Funerária - Ordens de Serviço
     match /funeraria_os/{osId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
+    }
+
+    // Gestão Funerária - Pesquisas de Satisfação
+    match /funeraria_satisfaction_surveys/{surveyId} {
+      allow read, write: if true;
     }
 
     // Configurações do sistema (Branding / Favicon / Logos)
     match /system_config/{configId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // POPs
     match /pops/{popId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Default fallback
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }
+

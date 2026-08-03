@@ -74,6 +74,18 @@
         "checklist": { "type": "array", "description": "List of 16 operational checklist items with status" }
       }
     },
+    "funeraria_satisfaction_surveys": {
+      "description": "Satisfaction surveys for funeral service evaluation",
+      "fields": {
+        "surveyCode": { "type": "string", "description": "Unique code e.g. PS-000001" },
+        "deceasedName": { "type": "string", "description": "Name of the deceased" },
+        "familyMemberName": { "type": "string", "description": "Name of the interviewed family member" },
+        "finalScore": { "type": "number", "description": "Final score 0-10 given by family" },
+        "classification": { "type": "string", "description": "Internal classification: Excelente, Muito Bom, Atenção, Crítico" },
+        "hasCriticalAlert": { "type": "boolean", "description": "Flag indicating critical alert" },
+        "createdAtISO": { "type": "string", "description": "ISO timestamp of creation" }
+      }
+    },
     "system_config": {
       "description": "Configurações do sistema, como logotipo, favicon e identidade visual do Bahia Prev HUB",
       "fields": {

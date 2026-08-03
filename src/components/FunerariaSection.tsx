@@ -29,8 +29,10 @@ import {
   Camera,
   MessageSquare,
   X,
+  HeartHandshake,
   Image as ImageIcon
 } from 'lucide-react';
+import { SatisfactionSurveySection } from './SatisfactionSurveySection';
 
 function cleanFirestoreObject<T>(obj: T): T {
   if (Array.isArray(obj)) {
@@ -234,7 +236,10 @@ const getLocationHref = (item: ChecklistItemData, os?: FunerariaOS): string => {
 export const FunerariaSection: React.FC = () => {
   const { user, profile } = useAuth();
 
-  // Navigation state: 'list' | 'new' | 'detail' | 'track'
+  // Sub-module level inside Gestão Funerária: 'portal' | 'os' | 'satisfaction'
+  const [subModule, setSubModule] = useState<'portal' | 'os' | 'satisfaction'>('portal');
+
+  // Navigation state inside OS: 'list' | 'new' | 'detail' | 'track'
   const [view, setView] = useState<'list' | 'new' | 'detail' | 'track'>('list');
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
 
@@ -760,61 +765,186 @@ export const FunerariaSection: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Header Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 rounded-3xl p-6 sm:p-10 text-white border border-slate-800 shadow-2xl mb-8">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Portal Main Grid View (When inside Gestão Funerária portal) */}
+      {subModule === 'portal' && (
+        <div className="space-y-8">
+          {/* Main Header Banner */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 rounded-3xl p-6 sm:p-10 text-white border border-slate-800 shadow-2xl">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold uppercase tracking-wider">
-              <span className="text-base">⚰️</span>
-              <span>Módulo Operacional</span>
-            </div>
+            <div className="relative z-10 space-y-3 max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold uppercase tracking-wider">
+                <span className="text-base">⚰️</span>
+                <span>Módulo Gestão Funerária</span>
+              </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
-              <span>Gestão Funerária</span>
-            </h1>
+              <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                Módulos de Gestão Funerária
+              </h1>
 
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-              Gerencie ordens de serviço, acompanhe atendimentos, registre etapas operacionais e monitore as ocorrências funerárias da equipe.
-            </p>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
+                Selecione o módulo operacional desejado para gerenciar ordens de serviço ou realizar pesquisas de satisfação e avaliação do atendimento com os familiares Bahia Prev.
+              </p>
 
-            <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
-              <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
-                <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
-                Bahia Prev Operations
-              </span>
-              <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
-                <User className="h-3.5 w-3.5 text-blue-400" />
-                Agente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
-              </span>
+              <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
+                <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                  <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
+                  Bahia Prev Operations
+                </span>
+                <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                  <User className="h-3.5 w-3.5 text-blue-400" />
+                  Agente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="shrink-0 flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center gap-3 w-full md:w-auto">
-            {view === 'list' && (
-              <button
-                onClick={() => setView('new')}
-                className="px-6 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-purple-600/25 border border-purple-400/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Nova Ordem de Serviço</span>
-              </button>
-            )}
+          {/* Module Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Card 1: Ordem de Serviço */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              onClick={() => setSubModule('os')}
+              className="bg-slate-900 border border-purple-500/30 hover:border-purple-500 rounded-3xl p-6 sm:p-8 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-purple-500/20 group relative overflow-hidden flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="p-3.5 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-purple-600/30 group-hover:scale-105 transition-transform">
+                    <Cross className="h-8 w-8" />
+                  </div>
+                  <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold rounded-full">
+                    OS & Atendimentos
+                  </span>
+                </div>
 
-            {view !== 'list' && (
-              <button
-                onClick={() => setView('list')}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Voltar para Lista de OS</span>
-              </button>
-            )}
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white group-hover:text-purple-300 transition-colors">
+                    Ordem de Serviço
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+                    Acompanhamento em tempo real das ordens de serviço funerárias, checklist operacional de 16 etapas com foto e registro de geolocalização dos agentes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-purple-400 group-hover:text-purple-300">
+                <span>Acessar Ordens de Serviço</span>
+                <ChevronRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.div>
+
+            {/* Card 2: Pesquisa de Satisfação */}
+            <motion.div
+              whileHover={{ y: -4 }}
+              onClick={() => setSubModule('satisfaction')}
+              className="bg-slate-900 border border-emerald-500/30 hover:border-emerald-500 rounded-3xl p-6 sm:p-8 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-emerald-500/20 group relative overflow-hidden flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="p-3.5 bg-gradient-to-tr from-emerald-600 to-teal-600 text-white rounded-2xl shadow-lg shadow-emerald-600/30 group-hover:scale-105 transition-transform">
+                    <HeartHandshake className="h-8 w-8" />
+                  </div>
+                  <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-full">
+                    Atendimento & Qualidade
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white group-hover:text-emerald-300 transition-colors">
+                    Pesquisa de Satisfação
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+                    Pesquisa completa de avaliação do atendimento prestado às famílias, indicadores IQAF, controle de qualidade e alertas de ocorrências críticas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-400 group-hover:text-emerald-300">
+                <span>Acessar Pesquisa de Satisfação</span>
+                <ChevronRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.div>
+
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Sub-module 2: Pesquisa de Satisfação */}
+      {subModule === 'satisfaction' && (
+        <SatisfactionSurveySection onBackToModules={() => setSubModule('portal')} />
+      )}
+
+      {/* Sub-module 1: Ordem de Serviço */}
+      {subModule === 'os' && (
+        <>
+          {/* Back to Funeraria Modules Portal button */}
+          <div className="mb-4">
+            <button
+              onClick={() => setSubModule('portal')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition-colors cursor-pointer shadow-sm"
+            >
+              <ArrowLeft className="h-4 w-4 text-purple-400" />
+              <span>Voltar aos Módulos de Gestão Funerária</span>
+            </button>
+          </div>
+
+          {/* Main Header Banner */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 rounded-3xl p-6 sm:p-10 text-white border border-slate-800 shadow-2xl mb-8">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-3 max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold uppercase tracking-wider">
+                  <span className="text-base">⚰️</span>
+                  <span>Módulo Operacional</span>
+                </div>
+
+                <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+                  <span>Ordens de Serviço Funerárias</span>
+                </h1>
+
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
+                  Gerencie ordens de serviço, acompanhe atendimentos, registre etapas operacionais e monitore as ocorrências funerárias da equipe.
+                </p>
+
+                <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
+                  <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                    <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
+                    Bahia Prev Operations
+                  </span>
+                  <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                    <User className="h-3.5 w-3.5 text-blue-400" />
+                    Agente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center gap-3 w-full md:w-auto">
+                {view === 'list' && (
+                  <button
+                    onClick={() => setView('new')}
+                    className="px-6 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-purple-600/25 border border-purple-400/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Nova Ordem de Serviço</span>
+                  </button>
+                )}
+
+                {view !== 'list' && (
+                  <button
+                    onClick={() => setView('list')}
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Voltar para Lista de OS</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
       {/* VIEW 1: NEW ORDER FORM ("Nova Ordem de Serviço") */}
       {view === 'new' && (
@@ -1843,6 +1973,8 @@ export const FunerariaSection: React.FC = () => {
             );
           })()}
         </div>
+      )}
+        </>
       )}
 
       {/* MODAL PERMISSÃO / REGISTRO GPS */}

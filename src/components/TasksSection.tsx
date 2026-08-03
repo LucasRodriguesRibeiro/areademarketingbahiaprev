@@ -38,6 +38,13 @@ import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
 
+export interface AttachmentItem {
+  id?: string;
+  name: string;
+  url: string;
+  type?: string;
+}
+
 export interface Task {
   id: string;
   userId: string; // creator UID
@@ -57,15 +64,47 @@ export interface Task {
   attachmentName?: string;
   attachmentUrl?: string;
   attachmentType?: string;
+  attachments?: AttachmentItem[];
   // Completion / Delivery fields
   completionAttachmentName?: string;
   completionAttachmentUrl?: string;
   completionAttachmentType?: string;
+  completionAttachments?: AttachmentItem[];
   completionNote?: string;
   completedAt?: string;
   completedByEmail?: string;
   completedByName?: string;
 }
+
+export const getTaskAttachments = (task: Task | null | undefined): AttachmentItem[] => {
+  if (!task) return [];
+  if (task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0) {
+    return task.attachments;
+  }
+  if (task.attachmentUrl) {
+    return [{
+      name: task.attachmentName || 'Documento Anexo',
+      url: task.attachmentUrl,
+      type: task.attachmentType
+    }];
+  }
+  return [];
+};
+
+export const getTaskCompletionAttachments = (task: Task | null | undefined): AttachmentItem[] => {
+  if (!task) return [];
+  if (task.completionAttachments && Array.isArray(task.completionAttachments) && task.completionAttachments.length > 0) {
+    return task.completionAttachments;
+  }
+  if (task.completionAttachmentUrl) {
+    return [{
+      name: task.completionAttachmentName || 'Documento de Entrega',
+      url: task.completionAttachmentUrl,
+      type: task.completionAttachmentType
+    }];
+  }
+  return [];
+};
 
 export interface MemberOption {
   uid: string;
@@ -138,13 +177,13 @@ export const TasksSection: React.FC = () => {
 
   // Modal for viewing task details and submitting completion delivery
   const [selectedTaskForView, setSelectedTaskForView] = useState<Task | null>(null);
-  const [completionAttachmentFile, setCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
+  const [completionAttachmentFiles, setCompletionAttachmentFiles] = useState<AttachmentItem[]>([]);
   const [completionNoteText, setCompletionNoteText] = useState<string>('');
 
   // Edit completed delivery state (for task recipient / completer)
   const [isEditingCompletion, setIsEditingCompletion] = useState(false);
   const [editCompletionNoteText, setEditCompletionNoteText] = useState<string>('');
-  const [editCompletionAttachmentFile, setEditCompletionAttachmentFile] = useState<{ name: string; url: string; type: string } | null | 'remove'>(null);
+  const [editCompletionAttachmentFiles, setEditCompletionAttachmentFiles] = useState<AttachmentItem[]>([]);
   const [isSavingCompletionEdit, setIsSavingCompletionEdit] = useState(false);
 
   // Edit task state
@@ -155,7 +194,7 @@ export const TasksSection: React.FC = () => {
   const [editStatus, setEditStatus] = useState<'pendente' | 'em_andamento' | 'concluida'>('pendente');
   const [editDueDate, setEditDueDate] = useState('');
   const [editRecipient, setEditRecipient] = useState<string>('me');
-  const [editAttachmentFile, setEditAttachmentFile] = useState<{ name: string; url: string; type: string } | null | 'remove'>(null);
+  const [editAttachmentFiles, setEditAttachmentFiles] = useState<AttachmentItem[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Modal and state for purging/clearing all tasks
@@ -169,51 +208,64 @@ export const TasksSection: React.FC = () => {
   const [newPriority, setNewPriority] = useState<'baixa' | 'media' | 'alta'>('media');
   const [newDueDate, setNewDueDate] = useState('');
   const [selectedRecipient, setSelectedRecipient] = useState<string>('me'); // 'me' | 'all' | email
-  const [attachmentFile, setAttachmentFile] = useState<{ name: string; url: string; type: string } | null>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<AttachmentItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processSelectedFiles = (e: React.ChangeEvent<HTMLInputElement>, onFilesLoaded: (items: AttachmentItem[]) => void) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo de entrega deve ter no máximo 5MB.');
-      return;
+    const validFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`O arquivo "${file.name}" excede o limite de 10MB.`);
+        continue;
+      }
+      validFiles.push(file);
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setCompletionAttachmentFile({
-          name: file.name,
-          url: event.target.result as string,
-          type: file.type
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    if (validFiles.length === 0) return;
+
+    const readPromises = validFiles.map(file => {
+      return new Promise<AttachmentItem>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          resolve({
+            name: file.name,
+            url: (event.target?.result as string) || '',
+            type: file.type
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(readPromises).then(newItems => {
+      onFilesLoaded(newItems);
+    });
+
+    e.target.value = '';
+  };
+
+  const handleCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processSelectedFiles(e, (newItems) => {
+      setCompletionAttachmentFiles(prev => [...prev, ...newItems]);
+    });
+  };
+
+  const removeCompletionAttachmentFile = (index: number) => {
+    setCompletionAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    processSelectedFiles(e, (newItems) => {
+      setAttachmentFiles(prev => [...prev, ...newItems]);
+    });
+  };
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo deve ter no máximo 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setAttachmentFile({
-          name: file.name,
-          url: event.target.result as string,
-          type: file.type
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+  const removeAttachmentFile = (index: number) => {
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const userRole = profile?.role || 'Colaborador';
@@ -468,9 +520,11 @@ export const TasksSection: React.FC = () => {
               attachmentName: data.attachmentName || undefined,
               attachmentUrl: data.attachmentUrl || undefined,
               attachmentType: data.attachmentType || undefined,
+              attachments: Array.isArray(data.attachments) ? data.attachments : (data.attachmentUrl ? [{ name: data.attachmentName || 'Documento Anexo', url: data.attachmentUrl, type: data.attachmentType }] : undefined),
               completionAttachmentName: data.completionAttachmentName || undefined,
               completionAttachmentUrl: data.completionAttachmentUrl || undefined,
               completionAttachmentType: data.completionAttachmentType || undefined,
+              completionAttachments: Array.isArray(data.completionAttachments) ? data.completionAttachments : (data.completionAttachmentUrl ? [{ name: data.completionAttachmentName || 'Documento de Entrega', url: data.completionAttachmentUrl, type: data.completionAttachmentType }] : undefined),
               completionNote: data.completionNote || undefined,
               completedAt: data.completedAt || undefined,
               completedByEmail: data.completedByEmail || undefined,
@@ -592,10 +646,11 @@ export const TasksSection: React.FC = () => {
       assignedToType: assignedType,
       assignedToName: assignedName,
       assignedToEmail: assignedEmail,
-      ...(attachmentFile ? {
-        attachmentName: attachmentFile.name,
-        attachmentUrl: attachmentFile.url,
-        attachmentType: attachmentFile.type,
+      attachments: attachmentFiles,
+      ...(attachmentFiles.length > 0 ? {
+        attachmentName: attachmentFiles[0].name,
+        attachmentUrl: attachmentFiles[0].url,
+        attachmentType: attachmentFiles[0].type,
       } : {})
     };
 
@@ -625,7 +680,7 @@ export const TasksSection: React.FC = () => {
       setNewDescription('');
       setNewDueDate('');
       setSelectedRecipient('me');
-      setAttachmentFile(null);
+      setAttachmentFiles([]);
       setIsModalOpen(false);
     }
   };
@@ -696,10 +751,11 @@ export const TasksSection: React.FC = () => {
     playNotificationSound('task_complete');
     triggerCompletionToast(task.title, userName);
 
-    if (completionAttachmentFile) {
-      updatePayload.completionAttachmentName = completionAttachmentFile.name;
-      updatePayload.completionAttachmentUrl = completionAttachmentFile.url;
-      updatePayload.completionAttachmentType = completionAttachmentFile.type;
+    updatePayload.completionAttachments = completionAttachmentFiles;
+    if (completionAttachmentFiles.length > 0) {
+      updatePayload.completionAttachmentName = completionAttachmentFiles[0].name;
+      updatePayload.completionAttachmentUrl = completionAttachmentFiles[0].url;
+      updatePayload.completionAttachmentType = completionAttachmentFiles[0].type;
     }
     if (completionNoteText.trim()) {
       updatePayload.completionNote = completionNoteText.trim();
@@ -712,7 +768,7 @@ export const TasksSection: React.FC = () => {
       setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
     }
 
-    setCompletionAttachmentFile(null);
+    setCompletionAttachmentFiles([]);
     setCompletionNoteText('');
 
     try {
@@ -738,32 +794,20 @@ export const TasksSection: React.FC = () => {
   };
 
   const handleEditCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    processSelectedFiles(e, (newItems) => {
+      setEditCompletionAttachmentFiles(prev => [...prev, ...newItems]);
+    });
+  };
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo de entrega deve ter no máximo 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setEditCompletionAttachmentFile({
-          name: file.name,
-          url: event.target.result as string,
-          type: file.type
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+  const removeEditCompletionFile = (index: number) => {
+    setEditCompletionAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const openEditCompletionMode = (task: Task) => {
     setSelectedTaskForView(task);
     setIsEditingTask(false);
     setEditCompletionNoteText(task.completionNote || '');
-    setEditCompletionAttachmentFile(null);
+    setEditCompletionAttachmentFiles(getTaskCompletionAttachments(task));
     setIsEditingCompletion(true);
   };
 
@@ -772,24 +816,15 @@ export const TasksSection: React.FC = () => {
 
     const updatePayload: Record<string, any> = {
       completionNote: editCompletionNoteText.trim(),
+      completionAttachments: editCompletionAttachmentFiles,
+      completionAttachmentName: editCompletionAttachmentFiles[0]?.name || '',
+      completionAttachmentUrl: editCompletionAttachmentFiles[0]?.url || '',
+      completionAttachmentType: editCompletionAttachmentFiles[0]?.type || '',
     };
-
-    if (editCompletionAttachmentFile === 'remove') {
-      updatePayload.completionAttachmentName = '';
-      updatePayload.completionAttachmentUrl = '';
-      updatePayload.completionAttachmentType = '';
-    } else if (editCompletionAttachmentFile && typeof editCompletionAttachmentFile === 'object') {
-      updatePayload.completionAttachmentName = editCompletionAttachmentFile.name;
-      updatePayload.completionAttachmentUrl = editCompletionAttachmentFile.url;
-      updatePayload.completionAttachmentType = editCompletionAttachmentFile.type;
-    }
 
     const updatedTask: Task = {
       ...task,
       ...updatePayload,
-      completionAttachmentName: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.name : task.completionAttachmentName),
-      completionAttachmentUrl: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.url : task.completionAttachmentUrl),
-      completionAttachmentType: editCompletionAttachmentFile === 'remove' ? undefined : (typeof editCompletionAttachmentFile === 'object' && editCompletionAttachmentFile ? editCompletionAttachmentFile.type : task.completionAttachmentType),
     };
 
     const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t));
@@ -868,7 +903,7 @@ export const TasksSection: React.FC = () => {
     setEditPriority(task.priority || 'media');
     setEditStatus(task.status || 'pendente');
     setEditDueDate(task.dueDate || '');
-    setEditAttachmentFile(null);
+    setEditAttachmentFiles(getTaskAttachments(task));
 
     if (task.assignedToType === 'all') {
       setEditRecipient('all');
@@ -884,25 +919,13 @@ export const TasksSection: React.FC = () => {
   };
 
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    processSelectedFiles(e, (newItems) => {
+      setEditAttachmentFiles(prev => [...prev, ...newItems]);
+    });
+  };
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo deve ter no máximo 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setEditAttachmentFile({
-          name: file.name,
-          url: event.target.result as string,
-          type: file.type
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+  const removeEditFile = (index: number) => {
+    setEditAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveTaskEdit = async (e: React.FormEvent) => {
@@ -956,22 +979,14 @@ export const TasksSection: React.FC = () => {
       triggerCompletionToast(editTitle, userName);
     }
 
-    if (editAttachmentFile === 'remove') {
-      updatePayload.attachmentName = '';
-      updatePayload.attachmentUrl = '';
-      updatePayload.attachmentType = '';
-    } else if (editAttachmentFile && typeof editAttachmentFile === 'object') {
-      updatePayload.attachmentName = editAttachmentFile.name;
-      updatePayload.attachmentUrl = editAttachmentFile.url;
-      updatePayload.attachmentType = editAttachmentFile.type;
-    }
+    updatePayload.attachments = editAttachmentFiles;
+    updatePayload.attachmentName = editAttachmentFiles[0]?.name || '';
+    updatePayload.attachmentUrl = editAttachmentFiles[0]?.url || '';
+    updatePayload.attachmentType = editAttachmentFiles[0]?.type || '';
 
     const updatedTask: Task = {
       ...selectedTaskForView,
       ...updatePayload,
-      attachmentName: editAttachmentFile === 'remove' ? undefined : (typeof editAttachmentFile === 'object' && editAttachmentFile ? editAttachmentFile.name : selectedTaskForView.attachmentName),
-      attachmentUrl: editAttachmentFile === 'remove' ? undefined : (typeof editAttachmentFile === 'object' && editAttachmentFile ? editAttachmentFile.url : selectedTaskForView.attachmentUrl),
-      attachmentType: editAttachmentFile === 'remove' ? undefined : (typeof editAttachmentFile === 'object' && editAttachmentFile ? editAttachmentFile.type : selectedTaskForView.attachmentType),
     };
 
     const updatedTasksList = tasks.map(t => t.id === selectedTaskForView.id ? updatedTask : t);
@@ -1677,33 +1692,35 @@ export const TasksSection: React.FC = () => {
 
                     {/* Attachments Links (Initial & Completion) */}
                     <div className="flex flex-wrap items-center gap-2 pt-1 max-w-full">
-                      {task.attachmentUrl && (
+                      {getTaskAttachments(task).map((att, idx) => (
                         <a
-                          href={task.attachmentUrl}
-                          download={task.attachmentName || 'documento_anexo'}
+                          key={`initial-att-${idx}`}
+                          href={att.url}
+                          download={att.name || `anexo_${idx + 1}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold text-blue-700 transition-colors shadow-2xs max-w-full"
-                          title="Documento anexado no envio da tarefa"
+                          title={`Documento anexado (${att.name})`}
                         >
                           <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                          <span className="truncate max-w-[180px] sm:max-w-[240px]">Anexo Inicial: {task.attachmentName || 'Documento'}</span>
+                          <span className="truncate max-w-[180px] sm:max-w-[240px]">{att.name}</span>
                         </a>
-                      )}
+                      ))}
 
-                      {task.completionAttachmentUrl && (
+                      {getTaskCompletionAttachments(task).map((att, idx) => (
                         <a
-                          href={task.completionAttachmentUrl}
-                          download={task.completionAttachmentName || 'documento_entrega'}
+                          key={`comp-att-${idx}`}
+                          href={att.url}
+                          download={att.name || `entrega_${idx + 1}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800 transition-colors shadow-2xs max-w-full"
-                          title="Clique para baixar o documento entregue pelo colaborador"
+                          title={`Documento de entrega (${att.name})`}
                         >
                           <Paperclip className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate max-w-[180px] sm:max-w-[240px]">Anexo Conclusão: {task.completionAttachmentName || 'Entrega'}</span>
+                          <span className="truncate max-w-[180px] sm:max-w-[240px]">Entrega: {att.name}</span>
                         </a>
-                      )}
+                      ))}
                     </div>
 
                     {/* Creator & Due Date Metadata */}
@@ -2344,37 +2361,49 @@ export const TasksSection: React.FC = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                      <Paperclip className="h-3.5 w-3.5 text-blue-600" />
-                      <span>Anexar Documento</span>
+                  <div className="col-span-1 sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Paperclip className="h-3.5 w-3.5 text-blue-600" />
+                        <span>Anexar Arquivos ({attachmentFiles.length})</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-normal">Pode selecionar múltiplos arquivos</span>
                     </label>
-                    {attachmentFile ? (
-                      <div className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
-                        <span className="truncate max-w-[110px] font-bold" title={attachmentFile.name}>
-                          {attachmentFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setAttachmentFile(null)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-blue-100 cursor-pointer"
-                          title="Remover anexo"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+
+                    {attachmentFiles.length > 0 && (
+                      <div className="space-y-1.5 mb-2 max-h-36 overflow-y-auto pr-1">
+                        {attachmentFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                              <span className="truncate font-bold" title={file.name}>
+                                {file.name}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachmentFile(idx)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-blue-100 cursor-pointer shrink-0"
+                              title="Remover este arquivo"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <label className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 cursor-pointer transition-colors h-[38px]">
-                        <Paperclip className="h-4 w-4 text-blue-600" />
-                        <span>Anexar Arquivo</span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={handleFileChange}
-                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
-                        />
-                      </label>
                     )}
+
+                    <label className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 cursor-pointer transition-colors h-[38px]">
+                      <Paperclip className="h-4 w-4 text-blue-600" />
+                      <span>{attachmentFiles.length > 0 ? 'Adicionar Mais Arquivos' : 'Anexar Arquivos'}</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -2539,78 +2568,49 @@ export const TasksSection: React.FC = () => {
                   </div>
 
                   {/* Anexo Inicial Edição */}
-                  <div>
+                  <div className="col-span-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5 text-blue-600" />
-                        <span>Documento Anexo Inicial</span>
+                        <span>Arquivos Anexados ({editAttachmentFiles.length})</span>
                       </span>
-                      {selectedTaskForView.attachmentUrl && editAttachmentFile !== 'remove' && (
-                        <span className="text-[10px] text-slate-500">Anexo atual mantido</span>
-                      )}
+                      <span className="text-[10px] text-slate-500">Pode adicionar ou remover arquivos</span>
                     </label>
 
-                    {editAttachmentFile === 'remove' ? (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center justify-between">
-                        <span>Anexo original será removido ao salvar</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditAttachmentFile(null)}
-                          className="text-xs font-bold underline hover:text-red-900 cursor-pointer"
-                        >
-                          Desfazer
-                        </button>
+                    {editAttachmentFiles.length > 0 && (
+                      <div className="space-y-1.5 mb-2 max-h-36 overflow-y-auto pr-1">
+                        {editAttachmentFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                              <span className="truncate font-bold" title={file.name}>
+                                {file.name}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeEditFile(idx)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-blue-100 cursor-pointer shrink-0"
+                              title="Remover este arquivo"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ) : editAttachmentFile && typeof editAttachmentFile === 'object' ? (
-                      <div className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
-                        <span className="truncate max-w-[180px] font-bold" title={editAttachmentFile.name}>
-                          Novo anexo: {editAttachmentFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setEditAttachmentFile(null)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-blue-100 cursor-pointer"
-                          title="Remover novo anexo"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ) : selectedTaskForView.attachmentUrl ? (
-                      <div className="flex items-center justify-between p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800">
-                        <span className="truncate max-w-[180px] font-bold" title={selectedTaskForView.attachmentName}>
-                          {selectedTaskForView.attachmentName || 'Documento anexado'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <label className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer">
-                            Substituir
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={handleEditFileChange}
-                              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setEditAttachmentFile('remove')}
-                            className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
-                          >
-                            Excluir Anexo
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <label className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 cursor-pointer transition-colors h-[38px]">
-                        <Paperclip className="h-4 w-4 text-blue-600" />
-                        <span>Anexar Arquivo Inicial</span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={handleEditFileChange}
-                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
-                        />
-                      </label>
                     )}
+
+                    <label className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 cursor-pointer transition-colors h-[38px]">
+                      <Paperclip className="h-4 w-4 text-blue-600" />
+                      <span>Adicionar Mais Arquivos</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleEditFileChange}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                      />
+                    </label>
                   </div>
 
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -2726,37 +2726,41 @@ export const TasksSection: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Attachment Download Box (if initial attachment exists) */}
-                  {selectedTaskForView.attachmentUrl && (
+                  {/* Attachment Download Box (if initial attachments exist) */}
+                  {getTaskAttachments(selectedTaskForView).length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                         <Paperclip className="h-4 w-4 text-blue-600" />
-                        <span>Documento Anexo Inicial</span>
+                        <span>Documentos Anexados ({getTaskAttachments(selectedTaskForView).length})</span>
                       </h4>
-                      <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2.5 bg-blue-600 text-white rounded-xl shrink-0">
-                            <FileText className="h-5 w-5" />
+                      <div className="space-y-2">
+                        {getTaskAttachments(selectedTaskForView).map((att, idx) => (
+                          <div key={idx} className="p-3 bg-blue-50/60 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-2 bg-blue-600 text-white rounded-xl shrink-0">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-900 truncate" title={att.name}>
+                                  {att.name}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  Arquivo anexado na criação
+                                </p>
+                              </div>
+                            </div>
+                            <a
+                              href={att.url}
+                              download={att.name || `anexo_${idx + 1}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full sm:w-auto px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span>Baixar</span>
+                            </a>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.attachmentName}>
-                              {selectedTaskForView.attachmentName || 'Documento Anexo'}
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              Arquivo anexado ao criar a tarefa
-                            </p>
-                          </div>
-                        </div>
-                        <a
-                          href={selectedTaskForView.attachmentUrl}
-                          download={selectedTaskForView.attachmentName || 'documento_anexo'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                        >
-                          <Download className="h-4 w-4" />
-                          <span>Baixar Anexo Inicial</span>
-                        </a>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -2804,72 +2808,47 @@ export const TasksSection: React.FC = () => {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="block text-[11px] font-bold text-emerald-900 uppercase flex items-center gap-1">
-                              <Paperclip className="h-3.5 w-3.5 text-emerald-700" />
-                              <span>Substituir ou Anexar Documento de Entrega:</span>
+                            <label className="block text-[11px] font-bold text-emerald-900 uppercase flex items-center justify-between">
+                              <span className="flex items-center gap-1">
+                                <Paperclip className="h-3.5 w-3.5 text-emerald-700" />
+                                <span>Documentos da Entrega ({editCompletionAttachmentFiles.length})</span>
+                              </span>
                             </label>
 
-                            {editCompletionAttachmentFile === 'remove' ? (
-                              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center justify-between">
-                                <span>O anexo de entrega será removido ao salvar</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditCompletionAttachmentFile(null)}
-                                  className="text-xs font-bold underline hover:text-red-900 cursor-pointer"
-                                >
-                                  Desfazer
-                                </button>
+                            {editCompletionAttachmentFiles.length > 0 && (
+                              <div className="space-y-1.5 mb-2 max-h-36 overflow-y-auto pr-1">
+                                {editCompletionAttachmentFiles.map((file, idx) => (
+                                  <div key={idx} className="flex items-center justify-between p-2 bg-white border border-emerald-200 rounded-xl text-xs text-slate-800">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Paperclip className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                      <span className="truncate font-bold text-emerald-950" title={file.name}>
+                                        {file.name}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeEditCompletionFile(idx)}
+                                      className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-emerald-100 cursor-pointer shrink-0"
+                                      title="Remover este anexo"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
-                            ) : editCompletionAttachmentFile && typeof editCompletionAttachmentFile === 'object' ? (
-                              <div className="flex items-center justify-between p-2.5 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-950">
-                                <span className="truncate max-w-[180px] font-bold" title={editCompletionAttachmentFile.name}>
-                                  Novo anexo: {editCompletionAttachmentFile.name}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditCompletionAttachmentFile(null)}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-emerald-200 cursor-pointer"
-                                  title="Remover novo anexo"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            ) : selectedTaskForView.completionAttachmentUrl ? (
-                              <div className="flex items-center justify-between p-2.5 bg-white border border-emerald-200 rounded-xl text-xs text-slate-800">
-                                <span className="truncate max-w-[180px] font-bold text-emerald-900" title={selectedTaskForView.completionAttachmentName}>
-                                  {selectedTaskForView.completionAttachmentName || 'Anexo de Entrega'}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <label className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-300">
-                                    Substituir Anexo
-                                    <input
-                                      type="file"
-                                      className="hidden"
-                                      onChange={handleEditCompletionFileChange}
-                                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
-                                    />
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditCompletionAttachmentFile('remove')}
-                                    className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
-                                  >
-                                    Excluir Anexo
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <label className="flex items-center justify-center gap-1.5 p-2 bg-white border border-dashed border-emerald-300 hover:border-emerald-500 rounded-xl text-xs font-bold text-emerald-800 cursor-pointer transition-colors h-[38px]">
-                                <Paperclip className="h-4 w-4 text-emerald-600" />
-                                <span>Anexar Arquivo de Entrega</span>
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  onChange={handleEditCompletionFileChange}
-                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
-                                />
-                              </label>
                             )}
+
+                            <label className="flex items-center justify-center gap-1.5 p-2 bg-white border border-dashed border-emerald-300 hover:border-emerald-500 rounded-xl text-xs font-bold text-emerald-800 cursor-pointer transition-colors h-[38px]">
+                              <Paperclip className="h-4 w-4 text-emerald-600" />
+                              <span>Adicionar Arquivos de Entrega</span>
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                onChange={handleEditCompletionFileChange}
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx"
+                              />
+                            </label>
                           </div>
 
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-emerald-200">
@@ -2912,31 +2891,38 @@ export const TasksSection: React.FC = () => {
                             </div>
                           )}
 
-                          {selectedTaskForView.completionAttachmentUrl && (
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="p-2.5 bg-emerald-600 text-white rounded-xl shrink-0">
-                                  <FileText className="h-5 w-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-bold text-slate-900 truncate" title={selectedTaskForView.completionAttachmentName}>
-                                    {selectedTaskForView.completionAttachmentName || 'Documento de Entrega'}
-                                  </p>
-                                  <p className="text-[11px] text-emerald-700">
-                                    Anexo enviado no término da tarefa
-                                  </p>
-                                </div>
+                          {getTaskCompletionAttachments(selectedTaskForView).length > 0 && (
+                            <div className="space-y-2 pt-1">
+                              <span className="text-[11px] font-bold text-emerald-800 uppercase">Documentos Entregues ({getTaskCompletionAttachments(selectedTaskForView).length}):</span>
+                              <div className="space-y-2">
+                                {getTaskCompletionAttachments(selectedTaskForView).map((att, idx) => (
+                                  <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-2.5 bg-white border border-emerald-200 rounded-xl">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="p-2 bg-emerald-600 text-white rounded-lg shrink-0">
+                                        <FileText className="h-4 w-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-bold text-slate-900 truncate" title={att.name}>
+                                          {att.name}
+                                        </p>
+                                        <p className="text-[11px] text-emerald-700">
+                                          Anexo de entrega #{idx + 1}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <a
+                                      href={att.url}
+                                      download={att.name || `entrega_${idx + 1}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="w-full sm:w-auto px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                      <span>Baixar</span>
+                                    </a>
+                                  </div>
+                                ))}
                               </div>
-                              <a
-                                href={selectedTaskForView.completionAttachmentUrl}
-                                download={selectedTaskForView.completionAttachmentName || 'documento_entregue'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                              >
-                                <Download className="h-4 w-4" />
-                                <span>Baixar Documento Entregue</span>
-                              </a>
                             </div>
                           )}
                         </div>
@@ -2949,16 +2935,38 @@ export const TasksSection: React.FC = () => {
                     <div className="space-y-3 pt-2 border-t border-slate-100 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                         <Upload className="h-4 w-4 text-blue-600" />
-                        <span>Anexar Documento de Entrega / Resposta</span>
+                        <span>Anexar Documento(s) de Entrega / Resposta</span>
                       </h4>
 
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Anexe o documento final ou relatório de conclusão para enviar a tarefa entregue ao criador.
+                        Anexe os documentos finais ou relatórios de conclusão para enviar a tarefa entregue ao criador.
                       </p>
 
                       <div className="space-y-2">
+                        {completionAttachmentFiles.length > 0 && (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                            {completionAttachmentFiles.map((file, idx) => (
+                              <div key={idx} className="flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                  <span className="truncate font-bold">{file.name}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeCompletionAttachmentFile(idx)}
+                                  className="text-red-500 hover:text-red-700 font-black px-1 cursor-pointer shrink-0"
+                                  title="Remover este anexo"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <input
                           type="file"
+                          multiple
                           id="completion-file-input"
                           onChange={handleCompletionFileChange}
                           className="hidden"
@@ -2968,21 +2976,8 @@ export const TasksSection: React.FC = () => {
                           className="w-full px-4 py-2.5 bg-white border border-dashed border-slate-300 hover:border-blue-500 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                         >
                           <Paperclip className="h-4 w-4 text-blue-600" />
-                          <span className="truncate">{completionAttachmentFile ? completionAttachmentFile.name : 'Clique para escolher documento de entrega (PDF, Imagem, Doc)'}</span>
+                          <span className="truncate">{completionAttachmentFiles.length > 0 ? 'Adicionar mais documentos de entrega' : 'Clique para escolher documento(s) de entrega (PDF, Imagem, Doc)'}</span>
                         </label>
-
-                        {completionAttachmentFile && (
-                          <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-                            <span className="truncate font-bold">{completionAttachmentFile.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => setCompletionAttachmentFile(null)}
-                              className="text-red-500 hover:text-red-700 font-black px-1 cursor-pointer"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
 
                         <SpellCheckTextarea
                           value={completionNoteText}
@@ -2991,7 +2986,7 @@ export const TasksSection: React.FC = () => {
                           rows={2}
                         />
 
-                        {(completionAttachmentFile || completionNoteText) && (
+                        {(completionAttachmentFiles.length > 0 || completionNoteText) && (
                           <button
                             type="button"
                             onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}

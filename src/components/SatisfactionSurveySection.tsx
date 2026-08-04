@@ -92,13 +92,13 @@ export interface SatisfactionSurvey {
   sec5_familySatisfied: string;
   sec5_obs: string;
 
-  // 6. Velório e Estrutura
-  sec6_cleanliness: string;
-  sec6_comfort: string;
-  sec6_restrooms: string;
-  sec6_amenities: string;
-  sec6_teamSupport: string;
-  sec6_obs: string;
+  // 6. Velório e Estrutura (opcional para retrocompatibilidade)
+  sec6_cleanliness?: string;
+  sec6_comfort?: string;
+  sec6_restrooms?: string;
+  sec6_amenities?: string;
+  sec6_teamSupport?: string;
+  sec6_obs?: string;
 
   // 7. Divulgação da Nota
   sec7_authorized: string;
@@ -171,6 +171,9 @@ export interface SatisfactionSurvey {
   sec16_needsActionPlan: string;
   sec16_analysisResponsible: string;
   sec16_analysisDate: string;
+
+  // Observações opcionais por item
+  itemNotes?: Record<string, string>;
 }
 
 const RATING_OPTIONS = [
@@ -184,9 +187,9 @@ const RATING_OPTIONS = [
 
 const CRITICAL_ALERT_OPTIONS = [
   'Desrespeito ou tratamento inadequado à família',
-  'Problema grave na preparação/apresentação do falecido',
+  'Problema grave na preparação/apresentação do ente querido',
   'Atraso grave ou não cumprimento de horário',
-  'Erro na identificação do falecido ou documentação',
+  'Erro na identificação do ente querido ou documentação',
   'Erro grave na nota de falecimento/divulgação',
   'Cobrança indevida ou conflito financeiro relevante',
   'Serviço prometido e não realizado',
@@ -199,7 +202,7 @@ const AREA_OPTIONS = [
   'Atendimento inicial',
   'Acolhimento/Comunicação',
   'Tempo/Atraso',
-  'Preparação do falecido',
+  'Preparação do ente querido',
   'Urna/Ornamentação',
   'Velório/Estrutura',
   'Nota de falecimento/Divulgação',
@@ -247,7 +250,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     familyMemberName: '',
     relationship: '',
     phone: '',
-    unitResponsible: 'Bahia Prev Central',
+    unitResponsible: '',
     deathDate: getTodayFormatted(),
     funeralDate: getTodayFormatted(),
     wakeLocation: '',
@@ -275,13 +278,6 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     sec5_ornamentation: '5',
     sec5_familySatisfied: 'sim_total',
     sec5_obs: '',
-
-    sec6_cleanliness: '5',
-    sec6_comfort: '5',
-    sec6_restrooms: '5',
-    sec6_amenities: '5',
-    sec6_teamSupport: '5',
-    sec6_obs: '',
 
     sec7_authorized: 'sim',
     sec7_soundCarDone: 'sim',
@@ -345,6 +341,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     sec16_needsActionPlan: 'nao',
     sec16_analysisResponsible: profile?.name || '',
     sec16_analysisDate: getTodayFormatted(),
+    itemNotes: {},
   });
 
   const [formData, setFormData] = useState(initialFormState());
@@ -384,7 +381,6 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
       data.sec3_speed, data.sec3_cordiality, data.sec3_empathy, data.sec3_clarity, data.sec3_reassurance,
       data.sec4_proceduralSpeed, data.sec4_punctuality, data.sec4_communication, data.sec4_generalOrg,
       data.sec5_prepQuality, data.sec5_appearance, data.sec5_urnPresentation, data.sec5_ornamentation,
-      data.sec6_cleanliness, data.sec6_comfort, data.sec6_restrooms, data.sec6_amenities, data.sec6_teamSupport,
       data.sec7_timing, data.sec7_generalRating,
       data.sec8_cleanliness, data.sec8_punctuality, data.sec8_processionOrg, data.sec8_staffPostures, data.sec8_fullSupport,
       data.sec9_overallStaffRating
@@ -404,8 +400,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     });
 
     // NPS adjustment (0..10 score converts to percentage weight)
-    const npsPoints = (data.sec12_npsScore / 10) * 5; // scaled to 5 max
-    if (!isNaN(npsPoints)) {
+    const npsVal = Number(data.sec12_npsScore);
+    if (typeof data.sec12_npsScore !== 'undefined' && data.sec12_npsScore !== null && !isNaN(npsVal)) {
+      const npsPoints = (npsVal / 10) * 5; // scaled to 5 max
       totalPoints += npsPoints;
       validCount++;
     }
@@ -421,7 +418,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     else if (score >= 60) classif = 'Atenção';
     else classif = 'Crítico';
 
-    if (data.sec14_criticalItems.length > 0) {
+    if (data.sec14_criticalItems && data.sec14_criticalItems.length > 0) {
       classif = 'Crítico';
     }
 
@@ -546,37 +543,71 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
 
   // Analytics Metrics
   const totalSurveys = surveys.length;
-  const avgNps = totalSurveys > 0 ? (surveys.reduce((acc, curr) => acc + (curr.sec12_npsScore || 0), 0) / totalSurveys).toFixed(1) : '10.0';
-  const avgIqaf = totalSurveys > 0 ? Math.round(surveys.reduce((acc, curr) => acc + (curr.sec16_iqafScore || 0), 0) / totalSurveys) : 100;
+  const avgNps = totalSurveys > 0 ? (surveys.reduce((acc, curr) => acc + (Number(curr.sec12_npsScore) || 0), 0) / totalSurveys).toFixed(1) : '0.0';
+  const avgIqaf = totalSurveys > 0 ? Math.round(surveys.reduce((acc, curr) => acc + (Number(curr.sec16_iqafScore) || 0), 0) / totalSurveys) : 0;
   const criticalCount = surveys.filter(s => s.sec14_criticalItems && s.sec14_criticalItems.length > 0).length;
 
-  const renderRatingField = (label: string, fieldKey: keyof typeof formData) => (
-    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-      <span className="text-xs font-bold text-slate-800 block">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {RATING_OPTIONS.map((opt) => (
-          <label
-            key={opt.val}
-            className={`px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-              formData[fieldKey] === opt.val
-                ? `${opt.color} ring-2 ring-indigo-500/30 scale-102`
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-            }`}
+  const renderRatingField = (label: string, fieldKey: keyof typeof formData) => {
+    const val = String(formData[fieldKey] || '');
+    const isBelowExcelente = val !== '' && val !== '5';
+    const currentNote = (formData.itemNotes as Record<string, string>)?.[fieldKey as string] || '';
+
+    return (
+      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <span className="text-xs font-bold text-slate-800 block">{label}</span>
+        <div className="flex flex-wrap gap-2">
+          {RATING_OPTIONS.map((opt) => (
+            <label
+              key={opt.val}
+              className={`px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                formData[fieldKey] === opt.val
+                  ? `${opt.color} ring-2 ring-indigo-500/30 scale-102`
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <input
+                type="radio"
+                name={fieldKey as string}
+                value={opt.val}
+                checked={formData[fieldKey] === opt.val}
+                onChange={(e) => setFormData({ ...formData, [fieldKey]: e.target.value })}
+                className="hidden"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+
+        {isBelowExcelente && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="pt-2 border-t border-slate-200/80 mt-2 space-y-1"
           >
-            <input
-              type="radio"
-              name={fieldKey as string}
-              value={opt.val}
-              checked={formData[fieldKey] === opt.val}
-              onChange={(e) => setFormData({ ...formData, [fieldKey]: e.target.value })}
-              className="hidden"
+            <label className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+              <MessageSquare className="h-3 w-3 text-amber-600" />
+              <span>Observação / Motivo (Opcional)</span>
+            </label>
+            <SpellCheckInput
+              value={currentNote}
+              onChangeValue={(text) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  itemNotes: {
+                    ...(prev.itemNotes || {}),
+                    [fieldKey as string]: text,
+                  },
+                }));
+              }}
+              placeholder="Digite uma observação sobre este item (opcional)..."
+              className="w-full p-2 bg-amber-50/50 border border-amber-200 rounded-lg text-xs font-medium text-slate-800 focus:bg-white focus:border-amber-400"
             />
-            <span>{opt.label}</span>
-          </label>
-        ))}
+          </motion.div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 space-y-6">
@@ -668,7 +699,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por falecido, familiar, código, atendente..."
+            placeholder="Buscar por ente querido, familiar, código, atendente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -770,7 +801,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                 {/* Body Details */}
                 <div className="p-4 space-y-3 flex-1">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Falecido(a)</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ente Querido</span>
                     <h4 className="text-sm font-black text-slate-900 truncate" title={survey.deceasedName}>
                       {survey.deceasedName}
                     </h4>
@@ -920,7 +951,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                     <div><strong className="text-slate-500 block text-[10px]">Código Pesquisa:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.surveyCode || 'Não informado'}</span></div>
                     <div><strong className="text-slate-500 block text-[10px]">Data / Horário:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.surveyDate || 'Não informado'} {selectedSurveyForView.surveyTime ? `(${selectedSurveyForView.surveyTime})` : ''}</span></div>
-                    <div><strong className="text-slate-500 block text-[10px]">Falecido(a):</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.deceasedName || 'Não informado'}</span></div>
+                    <div><strong className="text-slate-500 block text-[10px]">Ente Querido:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.deceasedName || 'Não informado'}</span></div>
                     <div><strong className="text-slate-500 block text-[10px]">Familiar Entrevistado:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.familyMemberName || 'Não informado'}</span></div>
                     <div><strong className="text-slate-500 block text-[10px]">Parentesco:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.relationship || 'Não informado'}</span></div>
                     <div><strong className="text-slate-500 block text-[10px]">Telefone / WhatsApp:</strong> <span className="font-bold text-slate-900">{selectedSurveyForView.phone || 'Não informado'}</span></div>
@@ -966,12 +997,12 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </p>
                   </div>
 
-                  {/* 5. Preparação do Falecido */}
+                  {/* 5. Preparação do Ente Querido */}
                   <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">5. Preparação e Apresentação do Falecido</h5>
+                    <h5 className="font-extrabold text-slate-900 border-b pb-1">5. Preparação e Apresentação do Ente Querido</h5>
                     <ul className="space-y-1 text-slate-700">
                       <li>• Cuidado na preparação: <strong>{selectedSurveyForView.sec5_prepQuality || 'Não informado'}</strong></li>
-                      <li>• Aparência do falecido: <strong>{selectedSurveyForView.sec5_appearance || 'Não informado'}</strong></li>
+                      <li>• Aparência do ente querido: <strong>{selectedSurveyForView.sec5_appearance || 'Não informado'}</strong></li>
                       <li>• Apresentação da urna: <strong>{selectedSurveyForView.sec5_urnPresentation || 'Não informado'}</strong></li>
                       <li>• Ornamentação e acabamento: <strong>{selectedSurveyForView.sec5_ornamentation || 'Não informado'}</strong></li>
                       <li>• Satisfação da família: <strong>
@@ -986,24 +1017,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </p>
                   </div>
 
-                  {/* 6. Velório e Estrutura */}
+                  {/* 6. Divulgação da Nota */}
                   <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">6. Velório e Estrutura</h5>
-                    <ul className="space-y-1 text-slate-700">
-                      <li>• Limpeza e organização: <strong>{selectedSurveyForView.sec6_cleanliness || 'Não informado'}</strong></li>
-                      <li>• Conforto à família: <strong>{selectedSurveyForView.sec6_comfort || 'Não informado'}</strong></li>
-                      <li>• Banheiros e instalações: <strong>{selectedSurveyForView.sec6_restrooms || 'Não informado'}</strong></li>
-                      <li>• Água, café e itens apoio: <strong>{selectedSurveyForView.sec6_amenities || 'Não informado'}</strong></li>
-                      <li>• Suporte da equipe: <strong>{selectedSurveyForView.sec6_teamSupport || 'Não informado'}</strong></li>
-                    </ul>
-                    <p className="text-[11px] text-slate-500 italic border-t pt-1 mt-1">
-                      Obs: {selectedSurveyForView.sec6_obs || 'Nenhuma observação informada'}
-                    </p>
-                  </div>
-
-                  {/* 7. Divulgação da Nota */}
-                  <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">7. Divulgação da Nota de Falecimento</h5>
+                    <h5 className="font-extrabold text-slate-900 border-b pb-1">6. Divulgação da Nota de Falecimento</h5>
                     <ul className="space-y-1 text-slate-700">
                       <li>• Autorizou divulgação: <strong>{selectedSurveyForView.sec7_authorized === 'sim' ? 'Sim' : selectedSurveyForView.sec7_authorized === 'nao' ? 'Não' : 'Não informado'}</strong></li>
                       <li>• Carro de som/funerário: <strong>{selectedSurveyForView.sec7_soundCarDone === 'sim' ? 'Sim' : selectedSurveyForView.sec7_soundCarDone === 'nao' ? 'Não' : 'N/A'}</strong></li>
@@ -1016,9 +1032,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </p>
                   </div>
 
-                  {/* 8. Veículo Funerário, Cortejo e Sepultamento */}
+                  {/* 7. Veículo Funerário, Cortejo e Sepultamento */}
                   <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">8. Veículo Funerário, Cortejo e Sepultamento</h5>
+                    <h5 className="font-extrabold text-slate-900 border-b pb-1">7. Veículo Funerário, Cortejo e Sepultamento</h5>
                     <ul className="space-y-1 text-slate-700">
                       <li>• Limpeza e conservação do veículo: <strong>{selectedSurveyForView.sec8_cleanliness || 'Não informado'}</strong></li>
                       <li>• Pontualidade do veículo e equipe: <strong>{selectedSurveyForView.sec8_punctuality || 'Não informado'}</strong></li>
@@ -1031,9 +1047,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </p>
                   </div>
 
-                  {/* 9. Avaliação da Equipe */}
+                  {/* 8. Avaliação da Equipe */}
                   <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">9. Avaliação da Equipe Bahia Prev</h5>
+                    <h5 className="font-extrabold text-slate-900 border-b pb-1">8. Avaliação da Equipe Bahia Prev</h5>
                     <ul className="space-y-1 text-slate-700">
                       <li>• Avaliação geral dos funcionários: <strong>{selectedSurveyForView.sec9_overallStaffRating || 'Não informado'}</strong></li>
                       <li>• Funcionário com destaque positivo: <strong>{selectedSurveyForView.sec9_positiveHighlight === 'sim' ? 'SIM' : 'NÃO'}</strong></li>
@@ -1047,9 +1063,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </ul>
                   </div>
 
-                  {/* 10. Controle de Qualidade */}
+                  {/* 9. Controle de Qualidade */}
                   <div className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
-                    <h5 className="font-extrabold text-slate-900 border-b pb-1">10. Controle de Qualidade</h5>
+                    <h5 className="font-extrabold text-slate-900 border-b pb-1">9. Controle de Qualidade</h5>
                     <ul className="space-y-1 text-slate-700">
                       <li>• Tudo combinado foi cumprido: <strong>
                         {selectedSurveyForView.sec10_fulfilled === 'sim_total' ? 'Sim, totalmente' : 
@@ -1067,9 +1083,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 11. Pergunta Essencial de Experiência */}
+                {/* 10. Pergunta Essencial de Experiência */}
                 <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
-                  <h5 className="font-black text-amber-950 uppercase text-xs">11. Pergunta Essencial de Experiência</h5>
+                  <h5 className="font-black text-amber-950 uppercase text-xs">10. Pergunta Essencial de Experiência</h5>
                   <p className="text-xs text-slate-700 font-semibold">
                     Ficou insatisfeito, preocupado ou sentiu que poderíamos ter feito melhor? <strong>{selectedSurveyForView.sec11_wasDissatisfied === 'sim' ? 'SIM' : 'NÃO'}</strong>
                   </p>
@@ -1078,9 +1094,9 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </p>
                 </div>
 
-                {/* 12. Avaliação Final & NPS */}
+                {/* 11. Avaliação Final */}
                 <div className="p-5 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-3">
-                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">12. Avaliação Final & NPS</h4>
+                  <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">11. Avaliação, Nota de Satisfação e Recomendação</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div><span className="text-slate-500 block text-[10px]">Nota Geral (0 a 10):</span> <span className="font-black text-lg text-indigo-900">{selectedSurveyForView.sec12_npsScore ?? 'Não informado'}</span></div>
                     <div><span className="text-slate-500 block text-[10px]">Recomendaria a Bahia Prev:</span> <span className="font-bold text-slate-900">{selectedSurveyForView.sec12_recommendation === 'sim_certeza' ? 'Sim, com certeza' : selectedSurveyForView.sec12_recommendation === 'talvez' ? 'Talvez' : selectedSurveyForView.sec12_recommendation === 'nao' ? 'Não' : 'Não informado'}</span></div>
@@ -1094,45 +1110,6 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     <strong className="text-slate-600 block text-[10px]">O que PODE MELHORAR:</strong>
                     <p className="text-slate-800 font-medium bg-white p-2 rounded-xl border border-indigo-100 mt-0.5">{selectedSurveyForView.sec12_improvement || 'Não informado'}</p>
                   </div>
-                </div>
-
-                {/* 13. Classificação Interna */}
-                <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-2 text-xs">
-                  <h5 className="font-black text-indigo-300 uppercase text-xs border-b border-slate-800 pb-1">13. Classificação Interna Pós-Atendimento</h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><strong className="text-slate-400 block text-[10px]">Percepção Geral:</strong> <span className="font-semibold text-slate-100">{selectedSurveyForView.sec13_perception || 'Não informado'}</span></div>
-                    <div><strong className="text-slate-400 block text-[10px]">Falha Identificada:</strong> <span className="font-semibold text-slate-100">{selectedSurveyForView.sec13_faultIdentified || 'Não'}</span></div>
-                  </div>
-                  <div>
-                    <strong className="text-slate-400 block text-[10px]">Áreas Relacionadas:</strong>
-                    <span className="font-semibold text-slate-200">
-                      {selectedSurveyForView.sec13_areas && selectedSurveyForView.sec13_areas.length > 0 ? selectedSurveyForView.sec13_areas.join(', ') : 'Nenhuma área associada'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 14. Alerta de Ocorrência Crítica */}
-                <div className={`p-5 rounded-2xl border space-y-2 ${
-                  selectedSurveyForView.sec14_criticalItems && selectedSurveyForView.sec14_criticalItems.length > 0
-                    ? 'bg-red-50 border-red-300'
-                    : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-900">
-                    <AlertTriangle className={`h-4 w-4 ${selectedSurveyForView.sec14_criticalItems && selectedSurveyForView.sec14_criticalItems.length > 0 ? 'text-red-600' : 'text-slate-400'}`} />
-                    <span>14. Alerta de Ocorrência Crítica</span>
-                  </h4>
-                  {selectedSurveyForView.sec14_criticalItems && selectedSurveyForView.sec14_criticalItems.length > 0 ? (
-                    <ul className="list-disc list-inside text-xs font-bold text-red-800 space-y-1">
-                      {selectedSurveyForView.sec14_criticalItems.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs font-semibold text-slate-600">Nenhuma ocorrência crítica registrada.</p>
-                  )}
-                  <p className="text-xs text-slate-800 pt-2 border-t border-slate-200 font-semibold">
-                    <strong>Providência adotada:</strong> {selectedSurveyForView.sec14_actionTaken || 'Nenhuma providência anotada'}
-                  </p>
                 </div>
 
               </div>
@@ -1263,7 +1240,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                       <label className={`block text-xs font-bold mb-1 ${
                         attemptedSubmit && !formData.deceasedName.trim() ? 'text-red-600 font-extrabold' : 'text-slate-700'
                       }`}>
-                        Nome do Falecido(a) <span className="text-red-500 font-black text-sm ml-0.5">*</span>
+                        Nome do Ente Querido <span className="text-red-500 font-black text-sm ml-0.5">*</span>
                       </label>
                       <SpellCheckInput
                         value={formData.deceasedName}
@@ -1271,7 +1248,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                           setFormData({ ...formData, deceasedName: val });
                           if (val.trim()) setShowValidationAlert(false);
                         }}
-                        placeholder="Nome completo do falecido"
+                        placeholder="Nome completo do ente querido"
                         className={`w-full p-2.5 rounded-xl text-xs font-semibold transition-all ${
                           attemptedSubmit && !formData.deceasedName.trim()
                             ? 'bg-red-50 border-2 border-red-500 text-red-900 placeholder-red-400 focus:ring-2 focus:ring-red-400'
@@ -1281,17 +1258,17 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                       {attemptedSubmit && !formData.deceasedName.trim() && (
                         <span className="text-[11px] font-bold text-red-600 flex items-center gap-1 mt-1">
                           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                          Campo obrigatório! Preencha o nome do falecido(a).
+                          Campo obrigatório! Preencha o nome do ente querido.
                         </span>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Cidade / Unidade Responsável</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Cidade do Ente Querido</label>
                       <SpellCheckInput
                         value={formData.unitResponsible}
                         onChangeValue={(val) => setFormData({ ...formData, unitResponsible: val })}
-                        placeholder="Ex: Bahia Prev Jequié"
+                        placeholder="Ex: Jequié - BA"
                         className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800"
                       />
                     </div>
@@ -1412,8 +1389,8 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     <MessageSquare className="h-4 w-4 text-indigo-600" />
                     <span>2. Abertura da Ligação — Script de Orientação</span>
                   </h3>
-                  <div className="p-3.5 bg-white border border-indigo-100 rounded-xl text-xs text-slate-800 leading-relaxed italic">
-                    “Olá, Sr.(a) <strong className="text-indigo-900">{formData.familyMemberName || '___________'}</strong>. Meu nome é <strong className="text-indigo-900">{formData.researcherName || '___________'}</strong>, falo em nome da Bahia Prev. Primeiramente, gostaríamos de agradecer à família pela confiança em nosso trabalho. Estamos realizando uma breve pesquisa para avaliar o atendimento prestado pela nossa equipe e identificar como podemos melhorar cada vez mais. Se o(a) senhor(a) se sentir confortável, farei algumas perguntas rápidas sobre o atendimento recebido.”
+                  <div className="p-3.5 bg-white border border-indigo-100 rounded-xl text-xs text-slate-800 leading-relaxed italic shadow-2xs">
+                    “Olá, Sr.(a) <strong className="text-indigo-900">{formData.familyMemberName || '___________'}</strong>. Meu nome é <strong className="text-indigo-900">{formData.researcherName || '___________'}</strong>, falo em nome da Bahia Prev. Primeiramente, prestamos nossos mais sinceros sentimentos a você e sua família, e agradecemos pela confiança em nosso trabalho. Se o(a) senhor(a) se sentir confortável, gostaria de fazer breves perguntas sobre o nosso atendimento. Caso prefira não falar sobre isso agora, respeitamos totalmente o seu tempo.”
                   </div>
                   <div className="text-[11px] font-bold text-indigo-800 bg-indigo-100/80 px-3 py-1.5 rounded-lg border border-indigo-200">
                     PADRÃO DE AVALIAÇÃO: 5 – Excelente | 4 – Bom | 3 – Regular | 2 – Ruim | 1 – Péssimo | N/A – Não se aplica ou não soube avaliar
@@ -1490,19 +1467,19 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 5. PREPARAÇÃO E APRESENTAÇÃO DO FALECIDO */}
+                {/* 5. PREPARAÇÃO E APRESENTAÇÃO DO ENTE QUERIDO */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-2">
-                    5. Preparação e Apresentação do Falecido
+                    5. Preparação e Apresentação do Ente Querido
                   </h3>
 
-                  {renderRatingField('5.1 Qualidade e cuidado na preparação do falecido', 'sec5_prepQuality')}
-                  {renderRatingField('5.2 Aparência e apresentação do falecido', 'sec5_appearance')}
+                  {renderRatingField('5.1 Qualidade e cuidado na preparação do ente querido', 'sec5_prepQuality')}
+                  {renderRatingField('5.2 Aparência e apresentação do ente querido', 'sec5_appearance')}
                   {renderRatingField('5.3 Organização e apresentação da urna funerária', 'sec5_urnPresentation')}
                   {renderRatingField('5.4 Ornamentação, flores e acabamento geral', 'sec5_ornamentation')}
 
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                    <span className="text-xs font-bold text-slate-800 block">A família ficou satisfeita com a apresentação do falecido?</span>
+                    <span className="text-xs font-bold text-slate-800 block">A família ficou satisfeita com a apresentação do ente querido?</span>
                     <div className="flex flex-wrap gap-3">
                       {[
                         { val: 'sim_total', label: 'Sim, totalmente' },
@@ -1525,7 +1502,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Observações (Apresentação do Falecido)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Observações (Apresentação do Ente Querido)</label>
                     <SpellCheckTextarea
                       value={formData.sec5_obs}
                       onChangeValue={(val) => setFormData({ ...formData, sec5_obs: val })}
@@ -1535,43 +1512,15 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 6. VELÓRIO E ESTRUTURA */}
-                <div className="space-y-4">
-                  <div className="border-b pb-2">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                      6. Velório e Estrutura
-                    </h3>
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      (Marcar N/A quando o item não for de responsabilidade da Bahia Prev)
-                    </span>
-                  </div>
-
-                  {renderRatingField('6.1 Limpeza e organização do ambiente', 'sec6_cleanliness')}
-                  {renderRatingField('6.2 Conforto oferecido à família', 'sec6_comfort')}
-                  {renderRatingField('6.3 Banheiros e instalações', 'sec6_restrooms')}
-                  {renderRatingField('6.4 Água, café e demais itens de apoio, quando oferecidos', 'sec6_amenities')}
-                  {renderRatingField('6.5 Suporte da equipe durante o velório', 'sec6_teamSupport')}
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Observações (Estrutura do Velório)</label>
-                    <SpellCheckTextarea
-                      value={formData.sec6_obs}
-                      onChangeValue={(val) => setFormData({ ...formData, sec6_obs: val })}
-                      placeholder="Comentários sobre o local do velório..."
-                      rows={2}
-                    />
-                  </div>
-                </div>
-
-                {/* 7. DIVULGAÇÃO DA NOTA DE FALECIMENTO */}
+                {/* 6. DIVULGAÇÃO DA NOTA DE FALECIMENTO */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-2">
-                    7. Divulgação da Nota de Falecimento
+                    6. Divulgação da Nota de Falecimento
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-3 bg-slate-50 border rounded-xl space-y-1">
-                      <span className="text-xs font-bold text-slate-800 block">7.1 Autorizou divulgação da nota?</span>
+                      <span className="text-xs font-bold text-slate-800 block">6.1 Autorizou divulgação da nota?</span>
                       <div className="flex gap-3 text-xs font-semibold">
                         {['sim', 'nao', 'nao_soube'].map((val) => (
                           <label key={val} className="flex items-center gap-1 cursor-pointer">
@@ -1589,7 +1538,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </div>
 
                     <div className="p-3 bg-slate-50 border rounded-xl space-y-1">
-                      <span className="text-xs font-bold text-slate-800 block">7.2 Divulgação por carro de som/funerário realizada?</span>
+                      <span className="text-xs font-bold text-slate-800 block">6.2 Divulgação por carro de som/funerário realizada?</span>
                       <div className="flex gap-3 text-xs font-semibold">
                         {['sim', 'nao', 'N/A'].map((val) => (
                           <label key={val} className="flex items-center gap-1 cursor-pointer">
@@ -1607,8 +1556,8 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </div>
                   </div>
 
-                  {renderRatingField('7.4 A divulgação ocorreu em tempo adequado?', 'sec7_timing')}
-                  {renderRatingField('7.5 Avaliação geral da divulgação da nota', 'sec7_generalRating')}
+                  {renderRatingField('6.3 A divulgação ocorreu em tempo adequado?', 'sec7_timing')}
+                  {renderRatingField('6.4 Avaliação geral da divulgação da nota', 'sec7_generalRating')}
 
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                     <span className="text-xs font-bold text-slate-800 block">Houve algum erro de nome, horário, local ou outra informação?</span>
@@ -1646,17 +1595,17 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 8. VEÍCULO FUNERÁRIO, CORTEJO E SEPULTAMENTO */}
+                {/* 7. VEÍCULO FUNERÁRIO, CORTEJO E SEPULTAMENTO */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-2">
-                    8. Veículo Funerário, Cortejo e Sepultamento
+                    7. Veículo Funerário, Cortejo e Sepultamento
                   </h3>
 
-                  {renderRatingField('8.1 Limpeza e conservação do veículo funerário', 'sec8_cleanliness')}
-                  {renderRatingField('8.2 Pontualidade do veículo e da equipe', 'sec8_punctuality')}
-                  {renderRatingField('8.3 Organização e condução do cortejo', 'sec8_processionOrg')}
-                  {renderRatingField('8.4 Postura, apresentação e respeito demonstrados', 'sec8_staffPostures')}
-                  {renderRatingField('8.5 Acompanhamento e suporte até a finalização', 'sec8_fullSupport')}
+                  {renderRatingField('7.1 Limpeza e conservação do veículo funerário', 'sec8_cleanliness')}
+                  {renderRatingField('7.2 Pontualidade do veículo e da equipe', 'sec8_punctuality')}
+                  {renderRatingField('7.3 Organização e condução do cortejo', 'sec8_processionOrg')}
+                  {renderRatingField('7.4 Postura, apresentação e respeito demonstrados', 'sec8_staffPostures')}
+                  {renderRatingField('7.5 Acompanhamento e suporte até a finalização', 'sec8_fullSupport')}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Observações (Veículo / Sepultamento)</label>
@@ -1669,17 +1618,17 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 9. AVALIAÇÃO DA EQUIPE */}
+                {/* 8. AVALIAÇÃO DA EQUIPE */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-2">
-                    9. Avaliação da Equipe Bahia Prev
+                    8. Avaliação da Equipe Bahia Prev
                   </h3>
 
-                  {renderRatingField('9.1 De modo geral, como foi o atendimento dos funcionários?', 'sec9_overallStaffRating')}
+                  {renderRatingField('8.1 De modo geral, como foi o atendimento dos funcionários?', 'sec9_overallStaffRating')}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
-                      <span className="text-xs font-bold text-emerald-950 block">9.2 Algum funcionário se destacou positivamente?</span>
+                      <span className="text-xs font-bold text-emerald-950 block">8.2 Algum funcionário se destacou positivamente?</span>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                           <input type="radio" name="sec9_positiveHighlight" value="nao" checked={formData.sec9_positiveHighlight === 'nao'} onChange={() => setFormData({ ...formData, sec9_positiveHighlight: 'nao' })} />
@@ -1700,7 +1649,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                     </div>
 
                     <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
-                      <span className="text-xs font-bold text-red-950 block">9.3 Houve algum comportamento que desagradou à família?</span>
+                      <span className="text-xs font-bold text-red-950 block">8.3 Houve algum comportamento que desagradou à família?</span>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                           <input type="radio" name="sec9_negativeBehavior" value="nao" checked={formData.sec9_negativeBehavior === 'nao'} onChange={() => setFormData({ ...formData, sec9_negativeBehavior: 'nao' })} />
@@ -1722,14 +1671,14 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 10. PERGUNTAS DE CONTROLE DE QUALIDADE */}
+                {/* 9. PERGUNTAS DE CONTROLE DE QUALIDADE */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-2">
-                    10. Perguntas de Controle de Qualidade
+                    9. Perguntas de Controle de Qualidade
                   </h3>
 
                   <div className="p-4 bg-slate-50 border rounded-xl space-y-2">
-                    <span className="text-xs font-bold text-slate-800 block">10.1 Tudo o que foi combinado/informado à família foi cumprido?</span>
+                    <span className="text-xs font-bold text-slate-800 block">9.1 Tudo o que foi combinado/informado à família foi cumprido?</span>
                     <div className="flex flex-wrap gap-3">
                       {[
                         { val: 'sim_total', label: 'Sim, totalmente' },
@@ -1761,7 +1710,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
 
                   <div className="p-4 bg-slate-50 border rounded-xl space-y-2">
-                    <span className="text-xs font-bold text-slate-800 block">10.2 Houve algum problema que a família precisou reclamar?</span>
+                    <span className="text-xs font-bold text-slate-800 block">9.2 Houve algum problema que a família precisou reclamar?</span>
                     <div className="flex gap-4">
                       <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                         <input type="radio" name="sec10_hadComplaint" value="nao" checked={formData.sec10_hadComplaint === 'nao'} onChange={() => setFormData({ ...formData, sec10_hadComplaint: 'nao' })} />
@@ -1784,11 +1733,11 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   </div>
                 </div>
 
-                {/* 11. PERGUNTA ESSENCIAL DE EXPERIÊNCIA */}
+                {/* 10. PERGUNTA ESSENCIAL DE EXPERIÊNCIA */}
                 <div className="p-5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3">
                   <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
                     <HelpCircle className="h-4 w-4 text-amber-600" />
-                    <span>11. Pergunta Essencial de Experiência</span>
+                    <span>10. Pergunta Essencial de Experiência</span>
                   </h3>
                   <p className="text-xs text-amber-900 italic font-medium">
                     “Em algum momento do atendimento o(a) senhor(a) ou alguém da família ficou insatisfeito, preocupado ou sentiu que a Bahia Prev poderia ter feito algo melhor?”
@@ -1815,10 +1764,10 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                   )}
                 </div>
 
-                {/* 12. AVALIAÇÃO FINAL */}
+                {/* 11. AVALIAÇÃO FINAL */}
                 <div className="space-y-4 p-5 bg-indigo-50/50 border border-indigo-200 rounded-2xl">
                   <h3 className="text-sm font-black text-indigo-950 uppercase tracking-wide border-b pb-2">
-                    12. Avaliação Final e Recomendação (NPS)
+                    11. Avaliação, Nota de Satisfação e Recomendação
                   </h3>
 
                   <div>
@@ -1863,103 +1812,6 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
                       value={formData.sec12_improvement}
                       onChangeValue={(val) => setFormData({ ...formData, sec12_improvement: val })}
                       placeholder="Sugestões de melhoria..."
-                      rows={2}
-                    />
-                  </div>
-                </div>
-
-                {/* 13. CLASSIFICAÇÃO INTERNA */}
-                <div className="space-y-4 p-5 bg-slate-900 text-white rounded-2xl">
-                  <h3 className="text-sm font-black text-indigo-300 uppercase tracking-wide border-b border-slate-800 pb-2">
-                    13. Classificação Interna — Preenchimento pós-ligação
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Percepção Geral da Família</label>
-                      <select
-                        value={formData.sec13_perception}
-                        onChange={(e) => setFormData({ ...formData, sec13_perception: e.target.value })}
-                        className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white focus:outline-none"
-                      >
-                        <option value="muito_satisfeita">Muito satisfeita</option>
-                        <option value="satisfeita">Satisfeita</option>
-                        <option value="neutra">Neutra</option>
-                        <option value="insatisfeita">Insatisfeita</option>
-                        <option value="muito_insatisfeita">Muito insatisfeita</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Foi Identificada alguma falha?</label>
-                      <select
-                        value={formData.sec13_faultIdentified}
-                        onChange={(e) => setFormData({ ...formData, sec13_faultIdentified: e.target.value })}
-                        className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white focus:outline-none"
-                      >
-                        <option value="nao">Não</option>
-                        <option value="leve">Sim — Falha leve</option>
-                        <option value="moderada">Sim — Falha moderada</option>
-                        <option value="grave">Sim — Falha grave/crítica</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-2">Área Relacionada à Ocorrência</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                      {AREA_OPTIONS.map((area) => (
-                        <label key={area} className="flex items-center gap-1.5 cursor-pointer text-slate-300 text-[11px]">
-                          <input
-                            type="checkbox"
-                            checked={formData.sec13_areas.includes(area)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              if (checked) setFormData({ ...formData, sec13_areas: [...formData.sec13_areas, area] });
-                              else setFormData({ ...formData, sec13_areas: formData.sec13_areas.filter(a => a !== area) });
-                            }}
-                          />
-                          <span>{area}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 14. ALERTA DE OCORRÊNCIA CRÍTICA */}
-                <div className="space-y-4 p-5 bg-red-950/40 border border-red-500/40 rounded-2xl text-red-100">
-                  <h3 className="text-sm font-black text-red-400 uppercase tracking-wide flex items-center gap-2 border-b border-red-900 pb-2">
-                    <ShieldAlert className="h-5 w-5 text-red-500" />
-                    <span>14. Alerta de Ocorrência Crítica</span>
-                  </h3>
-                  <p className="text-xs text-red-300 font-bold">
-                    SE HOUVER QUALQUER UMA DAS SITUAÇÕES ABAIXO, COMUNICAR IMEDIATAMENTE À GESTÃO.
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {CRITICAL_ALERT_OPTIONS.map((crit) => (
-                      <label key={crit} className="flex items-start gap-2 p-2 bg-red-900/30 rounded-xl border border-red-800/40 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.sec14_criticalItems.includes(crit)}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            if (checked) setFormData({ ...formData, sec14_criticalItems: [...formData.sec14_criticalItems, crit] });
-                            else setFormData({ ...formData, sec14_criticalItems: formData.sec14_criticalItems.filter(c => c !== crit) });
-                          }}
-                          className="mt-0.5"
-                        />
-                        <span className="font-semibold text-slate-200">{crit}</span>
-                      </label>
-                    ))}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-red-300 mb-1">Providência adotada de imediato</label>
-                    <SpellCheckTextarea
-                      value={formData.sec14_actionTaken}
-                      onChangeValue={(val) => setFormData({ ...formData, sec14_actionTaken: val })}
-                      placeholder="Anote a providência ou encaminhamento feito..."
                       rows={2}
                     />
                   </div>
@@ -2012,7 +1864,7 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
 
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 text-xs text-slate-700">
                 <p><strong>Código da Pesquisa:</strong> <span className="font-bold text-indigo-700">{surveyToDelete.surveyCode}</span></p>
-                <p><strong>Falecido(a):</strong> <span className="font-bold text-slate-900">{surveyToDelete.deceasedName || 'Não informado'}</span></p>
+                <p><strong>Ente Querido:</strong> <span className="font-bold text-slate-900">{surveyToDelete.deceasedName || 'Não informado'}</span></p>
                 <p><strong>Familiar:</strong> <span className="font-bold text-slate-900">{surveyToDelete.familyMemberName || 'Não informado'}</span></p>
               </div>
 

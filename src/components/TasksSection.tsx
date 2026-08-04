@@ -113,6 +113,12 @@ export interface MemberOption {
   role: string;
 }
 
+export const isDirectorOrPresidentRole = (role?: string): boolean => {
+  if (!role) return false;
+  const r = role.toLowerCase().trim();
+  return r.includes('diretor') || r.includes('presidente') || r.includes('diretoria');
+};
+
 const DEFAULT_MEMBERS: MemberOption[] = [
   {
     uid: 'm-lucas-mkt',
@@ -612,6 +618,17 @@ export const TasksSection: React.FC = () => {
 
     setSubmitting(true);
 
+    if (selectedRecipient !== 'me' && selectedRecipient !== 'all') {
+      const targetMember = collaborators.find(c => c.email === selectedRecipient);
+      const targetUser = allUsers.find(u => u.email === selectedRecipient);
+      const targetRole = targetMember?.role || targetUser?.role;
+      if (isDirectorOrPresidentRole(targetRole) || selectedRecipient.toLowerCase().includes('jairo')) {
+        alert('Nenhum usuário pode enviar tarefas para o cargo de Diretor/Presidente.');
+        setSubmitting(false);
+        return;
+      }
+    }
+
     let assignedType: 'specific_user' | 'all' | 'me' = 'me';
     let assignedName = userName;
     let assignedEmail = userEmail;
@@ -939,6 +956,17 @@ export const TasksSection: React.FC = () => {
     }
 
     setIsSavingEdit(true);
+
+    if (editRecipient !== 'me' && editRecipient !== 'all') {
+      const targetMember = collaborators.find(c => c.email === editRecipient);
+      const targetUser = allUsers.find(u => u.email === editRecipient);
+      const targetRole = targetMember?.role || targetUser?.role;
+      if (isDirectorOrPresidentRole(targetRole) || editRecipient.toLowerCase().includes('jairo')) {
+        alert('Nenhum usuário pode enviar tarefas para o cargo de Diretor/Presidente.');
+        setIsSavingEdit(false);
+        return;
+      }
+    }
 
     let assignedType: 'specific_user' | 'all' | 'me' = 'me';
     let assignedName = userName;
@@ -1869,158 +1897,158 @@ export const TasksSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Seção 1: Minhas Tarefas (com opção de Minimizar / Expandir) */}
+      {/* Seção 1: Minhas Tarefas */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-2xs">
-              <UserCheck className="h-5 w-5" />
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-2xs">
+                <UserCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                  <span>Minhas Tarefas</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full">
+                    {myTotalTasksCount} {myTotalTasksCount === 1 ? 'tarefa' : 'tarefas'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tarefas destinadas a você (<strong>{userName}</strong>) para realização
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                <span>Minhas Tarefas</span>
-                <span className="text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full">
-                  {myTotalTasksCount} {myTotalTasksCount === 1 ? 'tarefa' : 'tarefas'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Tarefas destinadas a você (<strong>{userName}</strong>) para realização
-              </p>
-            </div>
+
+            <button
+              onClick={() => setIsMyTasksMinimized(!isMyTasksMinimized)}
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/80"
+            >
+              {isMyTasksMinimized ? (
+                <>
+                  <ChevronDown className="h-4 w-4 text-indigo-600" />
+                  <span>Expandir Minhas Tarefas</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="h-4 w-4 text-slate-500" />
+                  <span>Minimizar</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <button
-            onClick={() => setIsMyTasksMinimized(!isMyTasksMinimized)}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/80"
-          >
-            {isMyTasksMinimized ? (
-              <>
-                <ChevronDown className="h-4 w-4 text-indigo-600" />
-                <span>Expandir Minhas Tarefas</span>
-              </>
-            ) : (
-              <>
-                <ChevronUp className="h-4 w-4 text-slate-500" />
-                <span>Minimizar</span>
-              </>
-            )}
-          </button>
+          {/* Conteúdo Expansível de Minhas Tarefas */}
+          {!isMyTasksMinimized && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-4 pt-1"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Metric 1: Minhas Abertas */}
+                <button
+                  onClick={() => {
+                    setTaskScopeMode('minhas');
+                    setSelectedCollaboratorUid(null);
+                    setStatusFilter('abertas');
+                    setSelectedUserFilterForCompleted('minhas');
+                  }}
+                  className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    statusFilter === 'abertas' && taskScopeMode === 'minhas'
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/30'
+                      : 'bg-indigo-50/50 hover:bg-indigo-100/60 border-indigo-200/80 shadow-2xs'
+                  }`}
+                >
+                  <div>
+                    <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                      statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-indigo-100' : 'text-indigo-700'
+                    }`}>
+                      Minhas Tarefas Abertas
+                    </span>
+                    <span className={`text-2xl font-black mt-0.5 block ${
+                      statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      {myOpenTasksCount}
+                    </span>
+                  </div>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                    statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    <Clock className="h-5 w-5" />
+                  </div>
+                </button>
+
+                {/* Metric 2: Minhas Atrasadas */}
+                <button
+                  onClick={() => {
+                    setTaskScopeMode('minhas');
+                    setSelectedCollaboratorUid(null);
+                    setStatusFilter('atrasadas');
+                    setSelectedUserFilterForCompleted('minhas');
+                  }}
+                  className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas'
+                      ? 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400/30'
+                      : 'bg-red-50/50 hover:bg-red-100/60 border-red-200 shadow-2xs'
+                  }`}
+                >
+                  <div>
+                    <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                      statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-red-100' : 'text-red-700'
+                    }`}>
+                      Minhas Atrasadas
+                    </span>
+                    <span className={`text-2xl font-black mt-0.5 block ${
+                      statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-red-700'
+                    }`}>
+                      {myOverdueTasksCount}
+                    </span>
+                  </div>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                  }`}>
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                </button>
+
+                {/* Metric 3: Minhas Concluídas */}
+                <button
+                  onClick={() => {
+                    setTaskScopeMode('minhas');
+                    setSelectedCollaboratorUid(null);
+                    setStatusFilter('concluida');
+                    setSelectedUserFilterForCompleted('minhas');
+                  }}
+                  className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    statusFilter === 'concluida' && taskScopeMode === 'minhas'
+                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/30'
+                      : 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200 shadow-2xs'
+                  }`}
+                >
+                  <div>
+                    <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                      statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-emerald-100' : 'text-emerald-700'
+                    }`}>
+                      Minhas Concluídas
+                    </span>
+                    <span className={`text-2xl font-black mt-0.5 block ${
+                      statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-white' : 'text-emerald-700'
+                    }`}>
+                      {myCompletedTasksCount}
+                    </span>
+                  </div>
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                    statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                </button>
+              </div>
+
+              {/* Lista e Filtros de Minhas Tarefas Alocados no Topo */}
+              {taskScopeMode === 'minhas' && renderTaskListSection()}
+            </motion.div>
+          )}
         </div>
-
-        {/* Conteúdo Expansível de Minhas Tarefas */}
-        {!isMyTasksMinimized && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-4 pt-1"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Metric 1: Minhas Abertas */}
-              <button
-                onClick={() => {
-                  setTaskScopeMode('minhas');
-                  setSelectedCollaboratorUid(null);
-                  setStatusFilter('abertas');
-                  setSelectedUserFilterForCompleted('minhas');
-                }}
-                className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  statusFilter === 'abertas' && taskScopeMode === 'minhas'
-                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/30'
-                    : 'bg-indigo-50/50 hover:bg-indigo-100/60 border-indigo-200/80 shadow-2xs'
-                }`}
-              >
-                <div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                    statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-indigo-100' : 'text-indigo-700'
-                  }`}>
-                    Minhas Tarefas Abertas
-                  </span>
-                  <span className={`text-2xl font-black mt-0.5 block ${
-                    statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-slate-900'
-                  }`}>
-                    {myOpenTasksCount}
-                  </span>
-                </div>
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                  statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
-                }`}>
-                  <Clock className="h-5 w-5" />
-                </div>
-              </button>
-
-              {/* Metric 2: Minhas Atrasadas */}
-              <button
-                onClick={() => {
-                  setTaskScopeMode('minhas');
-                  setSelectedCollaboratorUid(null);
-                  setStatusFilter('atrasadas');
-                  setSelectedUserFilterForCompleted('minhas');
-                }}
-                className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  statusFilter === 'atrasadas' && taskScopeMode === 'minhas'
-                    ? 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400/30'
-                    : 'bg-red-50/50 hover:bg-red-100/60 border-red-200 shadow-2xs'
-                }`}
-              >
-                <div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-red-100' : 'text-red-700'
-                  }`}>
-                    Minhas Atrasadas
-                  </span>
-                  <span className={`text-2xl font-black mt-0.5 block ${
-                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-red-700'
-                  }`}>
-                    {myOverdueTasksCount}
-                  </span>
-                </div>
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                  statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
-                }`}>
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-              </button>
-
-              {/* Metric 3: Minhas Concluídas */}
-              <button
-                onClick={() => {
-                  setTaskScopeMode('minhas');
-                  setSelectedCollaboratorUid(null);
-                  setStatusFilter('concluida');
-                  setSelectedUserFilterForCompleted('minhas');
-                }}
-                className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  statusFilter === 'concluida' && taskScopeMode === 'minhas'
-                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/30'
-                    : 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200 shadow-2xs'
-                }`}
-              >
-                <div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                    statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-emerald-100' : 'text-emerald-700'
-                  }`}>
-                    Minhas Concluídas
-                  </span>
-                  <span className={`text-2xl font-black mt-0.5 block ${
-                    statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-white' : 'text-emerald-700'
-                  }`}>
-                    {myCompletedTasksCount}
-                  </span>
-                </div>
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                  statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
-                }`}>
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-              </button>
-            </div>
-
-            {/* Lista e Filtros de Minhas Tarefas Alocados no Topo */}
-            {taskScopeMode === 'minhas' && renderTaskListSection()}
-          </motion.div>
-        )}
-      </div>
 
       {/* Seção 2: Tarefas Atribuídas */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
@@ -2308,15 +2336,19 @@ export const TasksSection: React.FC = () => {
                     onChange={(e) => setSelectedRecipient(e.target.value)}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
-                    <option value="me">👤 Mim mesmo ({userName})</option>
+                    {!isDirectorOrPresidentRole(userRole) && (
+                      <option value="me">👤 Mim mesmo ({userName})</option>
+                    )}
                     <option value="all">👥 Todos os Colaboradores (Geral)</option>
                     
                     <optgroup label="Selecione o Colaborador por Nome:">
-                      {collaborators.map((member) => (
-                        <option key={member.email} value={member.email}>
-                          👤 {member.name} — ({member.role || 'Colaborador'})
-                        </option>
-                      ))}
+                      {collaborators
+                        .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                        .map((member) => (
+                          <option key={member.email || member.uid} value={member.email}>
+                            👤 {member.name} — ({member.role || 'Colaborador'})
+                          </option>
+                        ))}
                     </optgroup>
                   </select>
 
@@ -2486,15 +2518,19 @@ export const TasksSection: React.FC = () => {
                       onChange={(e) => setEditRecipient(e.target.value)}
                       className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                     >
-                      <option value="me">👤 Mim mesmo ({userName})</option>
+                      {!isDirectorOrPresidentRole(userRole) && (
+                        <option value="me">👤 Mim mesmo ({userName})</option>
+                      )}
                       <option value="all">👥 Todos os Colaboradores (Geral)</option>
                       
                       <optgroup label="Selecione o Colaborador por Nome:">
-                        {collaborators.map((member) => (
-                          <option key={member.email} value={member.email}>
-                            👤 {member.name} — ({member.role || 'Colaborador'})
-                          </option>
-                        ))}
+                        {collaborators
+                          .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                          .map((member) => (
+                            <option key={member.email || member.uid} value={member.email}>
+                              👤 {member.name} — ({member.role || 'Colaborador'})
+                            </option>
+                          ))}
                       </optgroup>
                     </select>
 

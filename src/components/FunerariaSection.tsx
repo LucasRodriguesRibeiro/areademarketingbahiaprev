@@ -30,9 +30,25 @@ import {
   MessageSquare,
   X,
   HeartHandshake,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Phone,
+  MessageCircle,
+  Zap,
+  Truck,
+  Heart,
+  Building,
+  Flower2,
+  FileCheck,
+  Share2,
+  Volume2,
+  ChevronDown,
+  ChevronUp,
+  Paperclip,
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
 import { SatisfactionSurveySection } from './SatisfactionSurveySection';
+import { NewFuneralOrderForm, OpeningFormData, AttachmentPhoto, AttachmentAudio } from './NewFuneralOrderForm';
 
 function cleanFirestoreObject<T>(obj: T): T {
   if (Array.isArray(obj)) {
@@ -49,6 +65,7 @@ function cleanFirestoreObject<T>(obj: T): T {
   }
   return obj;
 }
+
 import { 
   collection, 
   addDoc, 
@@ -70,7 +87,6 @@ const GOOGLE_MAPS_API_KEY =
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
   '';
-const hasValidMapsKey = Boolean(GOOGLE_MAPS_API_KEY) && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY';
 
 export const CHECKLIST_ITEMS = [
   'Ocorrência recebida',
@@ -104,18 +120,44 @@ export interface ChecklistItemData {
   photoUrl?: string;
 }
 
+export interface TimelineEntry {
+  id: string;
+  timestampISO: string;
+  dateFormatted: string;
+  timeFormatted: string;
+  userName: string;
+  action: string;
+  type?: 'status' | 'pickup' | 'checklist' | 'attachment' | 'system';
+}
+
+export interface AgenteAcompanhamento {
+  name: string;
+  email?: string;
+  uid?: string;
+  addedAtFormatted: string;
+  addedAtISO: string;
+}
+
 export interface FunerariaOS {
   id: string;
   osNumber: string;
   seqNumber: number;
-  status: 'Em Andamento' | 'Finalizada' | 'Serviço Encerrado';
+  status: 'Aberto' | 'Em remoção' | 'Em preparação' | 'Em velório' | 'Em sepultamento/cremação' | 'Finalizado' | 'Em Andamento' | 'Finalizada' | 'Serviço Encerrado';
+  prioridade?: 'Normal' | 'Urgente' | 'Emergencial';
   responsavelName: string;
   responsavelEmail: string;
   responsavelUid: string;
+  atendenteName?: string;
+  unidadeAtendimento?: string;
+  agentesAcompanhamento?: AgenteAcompanhamento[];
   createdAtISO: string;
   dateFormatted: string;
   timeFormatted: string;
+  formData?: OpeningFormData;
   checklist: ChecklistItemData[];
+  photos?: AttachmentPhoto[];
+  audioMemos?: AttachmentAudio[];
+  timeline?: TimelineEntry[];
   updatedAtISO?: string;
   updatedDateFormatted?: string;
   updatedTimeFormatted?: string;
@@ -124,97 +166,6 @@ export interface FunerariaOS {
   serviceLat?: number;
   serviceLng?: number;
 }
-
-const fetchAddressFromCoordinates = async (lat: number, lng: number): Promise<string | null> => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      {
-        signal: controller.signal,
-        headers: {
-          'Accept-Language': 'pt-BR,pt;q=0.9'
-        }
-      }
-    );
-    clearTimeout(timeoutId);
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (data && data.address) {
-      const addr = data.address;
-      const road = addr.road || addr.pedestrian || addr.street || addr.avenue || addr.square || addr.suburb || addr.neighbourhood;
-      const houseNumber = addr.house_number ? `, ${addr.house_number}` : '';
-      const city = addr.city || addr.town || addr.municipality || addr.village;
-      if (road) {
-        return city ? `${road}${houseNumber} - ${city}` : `${road}${houseNumber}`;
-      }
-      if (data.display_name) {
-        const parts = data.display_name.split(',').map((s: string) => s.trim());
-        return parts.slice(0, 2).join(', ');
-      }
-    }
-  } catch (err) {
-    console.warn("Reverse geocode error:", err);
-  }
-  return null;
-};
-
-const compressImageToDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 800;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
-        } else {
-          resolve(e.target?.result as string);
-        }
-      };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
-
-const getLocationText = (item: ChecklistItemData, os?: FunerariaOS): string => {
-  if (item.completedLocation && !item.completedLocation.startsWith('http')) {
-    return item.completedLocation;
-  }
-  if (os?.serviceLocationName) {
-    return os.serviceLocationName;
-  }
-  if (os?.serviceAddress && !os.serviceAddress.startsWith('http')) {
-    return os.serviceAddress;
-  }
-  if (typeof item.completedLat === 'number' && typeof item.completedLng === 'number') {
-    return `Localização GPS (${item.completedLat.toFixed(3)}, ${item.completedLng.toFixed(3)})`;
-  }
-  if (typeof os?.serviceLat === 'number' && typeof os?.serviceLng === 'number') {
-    return `Localização GPS (${os.serviceLat.toFixed(3)}, ${os.serviceLng.toFixed(3)})`;
-  }
-  return 'Google Maps';
-};
 
 const getLocationHref = (item: ChecklistItemData, os?: FunerariaOS): string => {
   if (typeof item.completedLat === 'number' && typeof item.completedLng === 'number') {
@@ -226,11 +177,36 @@ const getLocationHref = (item: ChecklistItemData, os?: FunerariaOS): string => {
   if (item.completedLocation && item.completedLocation.startsWith('http')) {
     return item.completedLocation;
   }
-  const query = os?.serviceLocationName || os?.serviceAddress || item.completedLocation || '';
+  const query = 
+    os?.formData?.enderecoRemocao 
+    || os?.formData?.localVelorio 
+    || os?.serviceLocationName 
+    || os?.serviceAddress 
+    || item.completedLocation 
+    || '';
   if (query) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   }
   return 'https://maps.google.com';
+};
+
+const getLocationText = (item: ChecklistItemData, os?: FunerariaOS): string => {
+  if (item.completedLocation && !item.completedLocation.startsWith('http')) {
+    return item.completedLocation;
+  }
+  if (os?.formData?.enderecoRemocao) {
+    return os.formData.enderecoRemocao;
+  }
+  if (os?.serviceLocationName) {
+    return os.serviceLocationName;
+  }
+  if (os?.serviceAddress && !os.serviceAddress.startsWith('http')) {
+    return os.serviceAddress;
+  }
+  if (typeof item.completedLat === 'number' && typeof item.completedLng === 'number') {
+    return `Localização GPS (${item.completedLat.toFixed(3)}, ${item.completedLng.toFixed(3)})`;
+  }
+  return 'Google Maps';
 };
 
 export const FunerariaSection: React.FC = () => {
@@ -262,6 +238,9 @@ export const FunerariaSection: React.FC = () => {
   const [osToDelete, setOsToDelete] = useState<{ id: string; osNumber: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Accordion toggle state for Form Data in detail view
+  const [showFormDataDetails, setShowFormDataDetails] = useState(true);
+
   // GPS permission / modal trigger state
   const [gpsModalInfo, setGpsModalInfo] = useState<{
     isOpen: boolean;
@@ -288,7 +267,14 @@ export const FunerariaSection: React.FC = () => {
 
   const [previewPhotoModal, setPreviewPhotoModal] = useState<string | null>(null);
 
-  // Live timer for "Nova Ordem de Serviço" screen
+  // Logged in agent display name
+  const loggedInAgentName = (
+    profile?.name || 
+    user?.displayName || 
+    (user?.email ? user.email.split('@')[0] : 'Agente Funerário')
+  ).trim();
+
+  // Live timer
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -315,13 +301,18 @@ export const FunerariaSection: React.FC = () => {
             id: docSnap.id,
             osNumber: data.osNumber || 'OS-000000',
             seqNumber: data.seqNumber || 0,
-            status: data.status || 'Em Andamento',
-            responsavelName: data.responsavelName || 'Agente Funerário',
+            status: data.status || 'Aberto',
+            prioridade: data.prioridade || 'Normal',
+            responsavelName: data.responsavelName || 'Aguardando Agente',
             responsavelEmail: data.responsavelEmail || '',
             responsavelUid: data.responsavelUid || '',
+            atendenteName: data.atendenteName || '',
+            unidadeAtendimento: data.unidadeAtendimento || '',
+            agentesAcompanhamento: Array.isArray(data.agentesAcompanhamento) ? data.agentesAcompanhamento : [],
             createdAtISO: data.createdAtISO || new Date().toISOString(),
             dateFormatted: data.dateFormatted || '',
             timeFormatted: data.timeFormatted || '',
+            formData: data.formData || undefined,
             checklist: Array.isArray(data.checklist) 
               ? data.checklist.map((c: any) => ({
                   id: c.id || '',
@@ -336,11 +327,14 @@ export const FunerariaSection: React.FC = () => {
                   photoUrl: c.photoUrl || undefined,
                 })) 
               : [],
+            photos: Array.isArray(data.photos) ? data.photos : [],
+            audioMemos: Array.isArray(data.audioMemos) ? data.audioMemos : [],
+            timeline: Array.isArray(data.timeline) ? data.timeline : [],
             updatedAtISO: data.updatedAtISO,
             updatedDateFormatted: data.updatedDateFormatted || data.dateFormatted || '',
             updatedTimeFormatted: data.updatedTimeFormatted || data.timeFormatted || '',
-            serviceAddress: data.serviceAddress || '',
-            serviceLocationName: data.serviceLocationName || '',
+            serviceAddress: data.serviceAddress || data.formData?.enderecoRemocao || '',
+            serviceLocationName: data.serviceLocationName || data.formData?.nomeFalecido || '',
             serviceLat: typeof data.serviceLat === 'number' ? data.serviceLat : undefined,
             serviceLng: typeof data.serviceLng === 'number' ? data.serviceLng : undefined
           };
@@ -361,23 +355,19 @@ export const FunerariaSection: React.FC = () => {
     setFeedbackMsg(msg);
     setTimeout(() => {
       setFeedbackMsg(null);
-    }, 3000);
+    }, 3500);
   };
 
-  // Logged in agent display name
-  const loggedInAgentName = (
-    profile?.name || 
-    user?.displayName || 
-    (user?.email ? user.email.split('@')[0] : 'Agente Funerário')
-  ).trim();
-
-  // Handle "Iniciar Ordem de Serviço" creation
-  const handleStartNewOS = async () => {
+  // Submit new Funeral Service Order with 14-section form
+  const handleStartNewOSWithForm = async (
+    formData: OpeningFormData,
+    photos: AttachmentPhoto[],
+    audioMemos: AttachmentAudio[]
+  ) => {
     if (isCreating) return;
     setIsCreating(true);
 
     try {
-      // 1. Compute next sequential OS number (e.g. OS-000001) using efficient limit(1) query
       const osRef = collection(db, 'funeraria_os');
       const osQuery = query(osRef, orderBy('seqNumber', 'desc'), limit(1));
       const snapshot = await getDocs(osQuery);
@@ -394,9 +384,9 @@ export const FunerariaSection: React.FC = () => {
 
       const now = new Date();
       const dateFormatted = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      // Build initial checklist items (16 items)
+      // Initial 16 operational checklist items
       const initialChecklist: ChecklistItemData[] = CHECKLIST_ITEMS.map((label, index) => ({
         id: `item-${index + 1}`,
         label,
@@ -405,36 +395,303 @@ export const FunerariaSection: React.FC = () => {
         completedBy: ''
       }));
 
+      // Initial timeline entry
+      const initialTimeline: TimelineEntry[] = [
+        {
+          id: `time-${Date.now()}`,
+          timestampISO: now.toISOString(),
+          dateFormatted,
+          timeFormatted,
+          userName: formData.nomeAtendente || loggedInAgentName,
+          action: `Atendimento aberto no sistema (${formData.tipoAtendimento})`,
+          type: 'system'
+        }
+      ];
+
       const newOsData = {
         osNumber,
         seqNumber: nextSeq,
-        status: 'Em Andamento' as const,
-        responsavelName: loggedInAgentName,
-        responsavelEmail: profile?.email || user?.email || '',
-        responsavelUid: profile?.uid || user?.uid || 'guest',
+        status: 'Aberto' as const,
+        prioridade: formData.prioridade || 'Normal',
+        responsavelName: 'Aguardando Agente',
+        responsavelEmail: '',
+        responsavelUid: '',
+        atendenteName: formData.nomeAtendente || loggedInAgentName,
+        unidadeAtendimento: formData.unidadeAtendimento || '',
         createdAtISO: now.toISOString(),
         dateFormatted,
         timeFormatted,
+        formData: cleanFirestoreObject(formData),
         checklist: initialChecklist,
+        photos: cleanFirestoreObject(photos),
+        audioMemos: cleanFirestoreObject(audioMemos),
+        timeline: initialTimeline,
         updatedAtISO: now.toISOString(),
         updatedDateFormatted: dateFormatted,
-        updatedTimeFormatted: timeFormatted
+        updatedTimeFormatted: timeFormatted,
+        serviceAddress: formData.enderecoRemocao || '',
+        serviceLocationName: formData.nomeFalecido ? `Atendimento: ${formData.nomeFalecido}` : ''
       };
 
       const docRef = await addDoc(osRef, newOsData);
 
-      showToast(`Ordem de Serviço ${osNumber} iniciada com sucesso!`);
+      showToast(`Ordem de Serviço ${osNumber} criada com sucesso! Aguardando agente.`);
       setSelectedOsId(docRef.id);
       setView('detail');
     } catch (err) {
       console.error("Erro ao criar Ordem de Serviço:", err);
-      alert("Ocorreu um erro ao criar a Ordem de Serviço. Por favor, tente novamente.");
+      alert("Ocorreu um erro ao registrar o formulário da Ordem de Serviço.");
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Open observation / completion modal for a checklist item
+  // Agent Pickup Handler ("Iniciar Atendimento" pelo Agente Principal)
+  const handlePickupOS = async (osId: string) => {
+    const targetOS = orders.find((o) => o.id === osId);
+    if (!targetOS) return;
+
+    try {
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const newTimelineEntry: TimelineEntry = {
+        id: `time-${Date.now()}`,
+        timestampISO: now.toISOString(),
+        dateFormatted,
+        timeFormatted,
+        userName: loggedInAgentName,
+        action: `Atendimento iniciado pelo Agente Principal ${loggedInAgentName}`,
+        type: 'pickup'
+      };
+
+      const existingTimeline = targetOS.timeline || [];
+      const updatedTimeline = [...existingTimeline, newTimelineEntry];
+
+      const osDocRef = doc(db, 'funeraria_os', osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        responsavelName: loggedInAgentName,
+        responsavelEmail: profile?.email || user?.email || '',
+        responsavelUid: profile?.uid || user?.uid || 'guest',
+        status: targetOS.status === 'Aberto' ? 'Em remoção' : targetOS.status,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString(),
+        updatedDateFormatted: dateFormatted,
+        updatedTimeFormatted: timeFormatted
+      }));
+
+      showToast(`⚡ Você iniciou o atendimento da Ordem de Serviço ${targetOS.osNumber} como Agente Principal!`);
+    } catch (err) {
+      console.error("Erro ao iniciar atendimento:", err);
+      showToast("Não foi possível iniciar o atendimento.");
+    }
+  };
+
+  // Agent Accompany Handler ("Acompanhar / Adicionar Suporte do Agente 2")
+  const handleAccompanyOS = async (osId: string) => {
+    const targetOS = orders.find((o) => o.id === osId);
+    if (!targetOS) return;
+
+    try {
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const existingAcompanhamento = targetOS.agentesAcompanhamento || [];
+      const alreadyInList = existingAcompanhamento.some(
+        a => a.name.toLowerCase() === loggedInAgentName.toLowerCase()
+      );
+
+      if (alreadyInList) {
+        showToast(`Você já está registrado como agente de acompanhamento desta OS.`);
+        return;
+      }
+
+      const newAgentEntry: AgenteAcompanhamento = {
+        name: loggedInAgentName,
+        email: profile?.email || user?.email || '',
+        uid: profile?.uid || user?.uid || 'guest',
+        addedAtFormatted: `${dateFormatted} às ${timeFormatted}`,
+        addedAtISO: now.toISOString()
+      };
+
+      const updatedAcompanhamento = [...existingAcompanhamento, newAgentEntry];
+
+      const newTimelineEntry: TimelineEntry = {
+        id: `time-${Date.now()}`,
+        timestampISO: now.toISOString(),
+        dateFormatted,
+        timeFormatted,
+        userName: loggedInAgentName,
+        action: `Agente ${loggedInAgentName} entrou para acompanhamento e suporte do atendimento`,
+        type: 'pickup'
+      };
+
+      const existingTimeline = targetOS.timeline || [];
+      const updatedTimeline = [...existingTimeline, newTimelineEntry];
+
+      const osDocRef = doc(db, 'funeraria_os', osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        agentesAcompanhamento: updatedAcompanhamento,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString(),
+        updatedDateFormatted: dateFormatted,
+        updatedTimeFormatted: timeFormatted
+      }));
+
+      showToast(`🤝 Você foi registrado como agente de acompanhamento na OS ${targetOS.osNumber}!`);
+    } catch (err) {
+      console.error("Erro ao registrar acompanhamento:", err);
+      showToast("Não foi possível registrar o acompanhamento.");
+    }
+  };
+
+  // Update Status Handler
+  const handleUpdateOSStatus = async (osId: string, newStatus: FunerariaOS['status']) => {
+    const targetOS = orders.find((o) => o.id === osId);
+    if (!targetOS) return;
+
+    try {
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const newTimelineEntry: TimelineEntry = {
+        id: `time-${Date.now()}`,
+        timestampISO: now.toISOString(),
+        dateFormatted,
+        timeFormatted,
+        userName: loggedInAgentName,
+        action: `Status alterado para "${newStatus}"`,
+        type: 'status'
+      };
+
+      const existingTimeline = targetOS.timeline || [];
+      const updatedTimeline = [...existingTimeline, newTimelineEntry];
+
+      const osDocRef = doc(db, 'funeraria_os', osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        status: newStatus,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString(),
+        updatedDateFormatted: dateFormatted,
+        updatedTimeFormatted: timeFormatted
+      }));
+
+      showToast(`Status da OS ${targetOS.osNumber} atualizado para "${newStatus}"`);
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
+      showToast("Erro ao atualizar status do atendimento.");
+    }
+  };
+
+  // Toggle checklist item
+  const handleToggleCheckitem = async (osId: string, itemId: string, customObs?: string, customPhoto?: string) => {
+    const currentOS = orders.find((o) => o.id === osId);
+    if (!currentOS) return;
+
+    const targetItem = currentOS.checklist.find((i) => i.id === itemId);
+    const wasCompleted = targetItem?.completed || false;
+
+    const now = new Date();
+    const timeShortStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const readableLocationStr = 
+      currentOS.formData?.enderecoRemocao 
+      || currentOS.serviceLocationName 
+      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : '');
+
+    const updatedChecklist = currentOS.checklist.map((item) => {
+      if (item.id === itemId) {
+        const newCompleted = !item.completed;
+        const newItem: any = {
+          ...item,
+          completed: newCompleted,
+          completedAt: newCompleted ? timeShortStr : '',
+          completedBy: newCompleted ? (loggedInAgentName || 'Agente') : '',
+          completedLocation: newCompleted ? (readableLocationStr || '') : ''
+        };
+
+        if (newCompleted) {
+          if (customObs && customObs.trim()) {
+            newItem.observations = customObs.trim();
+          } else if (item.observations) {
+            newItem.observations = item.observations;
+          }
+          if (customPhoto) {
+            newItem.photoUrl = customPhoto;
+          } else if (item.photoUrl) {
+            newItem.photoUrl = item.photoUrl;
+          }
+        } else {
+          delete newItem.observations;
+          delete newItem.photoUrl;
+        }
+
+        if (newCompleted && typeof currentOS.serviceLat === 'number') {
+          newItem.completedLat = currentOS.serviceLat;
+        } else {
+          delete newItem.completedLat;
+        }
+
+        if (newCompleted && typeof currentOS.serviceLng === 'number') {
+          newItem.completedLng = currentOS.serviceLng;
+        } else {
+          delete newItem.completedLng;
+        }
+
+        return newItem;
+      }
+      return item;
+    });
+
+    // Check if last step 'Serviço encerrado' was completed
+    const isLastStepTarget = targetItem?.label === 'Serviço encerrado';
+    let newOsStatus = currentOS.status;
+    if (isLastStepTarget && !wasCompleted) {
+      newOsStatus = 'Finalizado';
+    }
+
+    const newTimelineEntry: TimelineEntry = {
+      id: `time-${Date.now()}`,
+      timestampISO: now.toISOString(),
+      dateFormatted: dateStr,
+      timeFormatted: timeShortStr,
+      userName: loggedInAgentName,
+      action: !wasCompleted 
+        ? `Etapa "${targetItem?.label}" concluída` 
+        : `Etapa "${targetItem?.label}" desmarcada`,
+      type: 'checklist'
+    };
+
+    const existingTimeline = currentOS.timeline || [];
+    const updatedTimeline = [...existingTimeline, newTimelineEntry];
+
+    try {
+      const osDocRef = doc(db, 'funeraria_os', osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        checklist: cleanFirestoreObject(updatedChecklist),
+        status: newOsStatus,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString(),
+        updatedDateFormatted: dateStr,
+        updatedTimeFormatted: timeShortStr
+      }));
+
+      if (!wasCompleted) {
+        showToast(`✓ Etapa "${targetItem?.label}" concluída!`);
+      } else {
+        showToast(`Etapa "${targetItem?.label}" desmarcada.`);
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar checklist:", err);
+      showToast("Erro ao salvar etapa do checklist.");
+    }
+  };
+
+  // Open observation modal
   const openCheckitemModal = (osId: string, itemId: string, isReadOnly: boolean = false) => {
     const currentOS = orders.find((o) => o.id === osId);
     if (!currentOS) return;
@@ -494,185 +751,12 @@ export const FunerariaSection: React.FC = () => {
     }
   };
 
-  // Toggle checklist item status and save automatically to Firestore (with GPS & Google Maps location recording)
-  const handleToggleCheckitem = async (osId: string, itemId: string, customObs?: string, customPhoto?: string) => {
-    const currentOS = orders.find((o) => o.id === osId);
-    if (!currentOS) return;
-
-    const targetItem = currentOS.checklist.find((i) => i.id === itemId);
-    const wasCompleted = targetItem?.completed || false;
-
-    const now = new Date();
-    const timeShortStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    const readableLocationStr = 
-      currentOS.serviceLocationName 
-      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : '');
-
-    const updatedChecklist = currentOS.checklist.map((item) => {
-      if (item.id === itemId) {
-        const newCompleted = !item.completed;
-        const newItem: any = {
-          ...item,
-          completed: newCompleted,
-          completedAt: newCompleted ? timeShortStr : '',
-          completedBy: newCompleted ? (loggedInAgentName || 'Agente') : '',
-          completedLocation: newCompleted ? (readableLocationStr || '') : ''
-        };
-
-        if (newCompleted) {
-          if (customObs && customObs.trim()) {
-            newItem.observations = customObs.trim();
-          } else if (item.observations) {
-            newItem.observations = item.observations;
-          }
-          if (customPhoto) {
-            newItem.photoUrl = customPhoto;
-          } else if (item.photoUrl) {
-            newItem.photoUrl = item.photoUrl;
-          }
-        } else {
-          delete newItem.observations;
-          delete newItem.photoUrl;
-        }
-
-        if (newCompleted && typeof currentOS.serviceLat === 'number') {
-          newItem.completedLat = currentOS.serviceLat;
-        } else {
-          delete newItem.completedLat;
-        }
-
-        if (newCompleted && typeof currentOS.serviceLng === 'number') {
-          newItem.completedLng = currentOS.serviceLng;
-        } else {
-          delete newItem.completedLng;
-        }
-
-        return newItem;
-      }
-      return item;
-    });
-
-    const sanitizedChecklist = cleanFirestoreObject(updatedChecklist);
-
-    // Determine status: If the item "Serviço encerrado" is marked completed -> "Finalizada"
-    const isServiceFinishedChecked = sanitizedChecklist.find((i: any) => i.label === 'Serviço encerrado')?.completed || false;
-    const newStatus: 'Em Andamento' | 'Finalizada' = isServiceFinishedChecked ? 'Finalizada' : 'Em Andamento';
-
-    try {
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      const updateDataRaw: any = {
-        checklist: sanitizedChecklist,
-        status: newStatus,
-        responsavelName: loggedInAgentName || 'Agente',
-        responsavelEmail: profile?.email || user?.email || '',
-        responsavelUid: profile?.uid || user?.uid || 'guest',
-        updatedAtISO: now.toISOString(),
-        updatedDateFormatted: dateStr,
-        updatedTimeFormatted: timeShortStr
-      };
-
-      const updateData = cleanFirestoreObject(updateDataRaw);
-
-      await updateDoc(osDocRef, updateData);
-
-      if (wasCompleted) {
-        if ((currentOS.status === 'Finalizada' || currentOS.status === 'Serviço Encerrado') && newStatus === 'Em Andamento') {
-          showToast("Etapa desmarcada! Ordem de Serviço reaberta como Em Andamento.");
-        } else {
-          showToast(`Etapa "${targetItem?.label}" desmarcada!`);
-        }
-      } else {
-        if (isServiceFinishedChecked) {
-          showToast("Serviço Encerrado! Ordem de Serviço alterada para Finalizada.");
-        } else {
-          showToast(`Etapa "${targetItem?.label}" concluída!`);
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao atualizar checklist:", err);
-      showToast("Erro ao salvar etapa. Tente novamente.");
-    }
-  };
-
-  const handleModalLoadGps = async () => {
-    if (!gpsModalInfo) return;
-    const currentOS = orders.find((o) => o.id === gpsModalInfo.osId);
-    if (!currentOS) {
-      setGpsModalInfo(null);
-      return;
-    }
-
-    const readableLocationStr = 
-      currentOS.serviceLocationName 
-      || (currentOS.serviceAddress && !currentOS.serviceAddress.startsWith('http') ? currentOS.serviceAddress : 'Sede Bahia Prev');
-
-    const updatedChecklist = currentOS.checklist.map((item) => {
-      if (item.id === gpsModalInfo.itemId) {
-        return {
-          ...item,
-          completedLocation: readableLocationStr
-        };
-      }
-      return item;
-    });
-
-    try {
-      const osDocRef = doc(db, 'funeraria_os', gpsModalInfo.osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
-        checklist: cleanFirestoreObject(updatedChecklist)
-      }));
-      showToast(`Localização vinculada: ${readableLocationStr}`);
-    } catch (e) {
-      console.error("Erro ao vincular localização:", e);
-      showToast("Não foi possível atualizar a localização.");
-    } finally {
-      setGpsModalInfo(null);
-    }
-  };
-
-  // Save address for OS in Google Maps
-  const handleSaveOsAddress = async (
-    osId: string,
-    address: string,
-    locationName?: string,
-    lat?: number,
-    lng?: number
-  ) => {
-    try {
-      const now = new Date();
-      const timeShortStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      const updatePayload: any = {
-        serviceAddress: address,
-        serviceLocationName: locationName || '',
-        updatedAtISO: now.toISOString(),
-        updatedDateFormatted: dateStr,
-        updatedTimeFormatted: timeShortStr
-      };
-      if (typeof lat === 'number') updatePayload.serviceLat = lat;
-      if (typeof lng === 'number') updatePayload.serviceLng = lng;
-
-      await updateDoc(osDocRef, updatePayload);
-      showToast("Endereço do atendimento salvo no Google Maps!");
-    } catch (err) {
-      console.error("Erro ao salvar endereço:", err);
-      showToast("Erro ao salvar endereço do atendimento.");
-    }
-  };
-
-  // Request delete (opens confirmation popup modal)
+  // Delete OS Modal triggers
   const handleDeleteOS = (osId: string, osNumber: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     setOsToDelete({ id: osId, osNumber });
   };
 
-  // Execute delete after confirmation
   const executeDeleteOS = async () => {
     if (!osToDelete) return;
     setIsDeleting(true);
@@ -686,7 +770,7 @@ export const FunerariaSection: React.FC = () => {
       setOsToDelete(null);
     } catch (err) {
       console.error("Erro ao excluir Ordem de Serviço:", err);
-      showToast("Erro ao excluir a Ordem de Serviço. Tente novamente.");
+      showToast("Erro ao excluir a Ordem de Serviço.");
     } finally {
       setIsDeleting(false);
     }
@@ -703,9 +787,9 @@ export const FunerariaSection: React.FC = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-purple-500/40 flex items-center gap-3 text-xs font-semibold"
+            className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-purple-500/40 flex items-center gap-3 text-xs font-semibold"
           >
-            <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-purple-400 shrink-0" />
             <span>{feedbackMsg}</span>
           </motion.div>
         )}
@@ -765,10 +849,9 @@ export const FunerariaSection: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Portal Main Grid View (When inside Gestão Funerária portal) */}
+      {/* Portal Main Grid View */}
       {subModule === 'portal' && (
         <div className="space-y-8">
-          {/* Main Header Banner */}
           <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 rounded-3xl p-6 sm:p-10 text-white border border-slate-800 shadow-2xl">
             <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -784,7 +867,7 @@ export const FunerariaSection: React.FC = () => {
               </h1>
 
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-                Selecione o módulo operacional desejado para gerenciar ordens de serviço ou realizar pesquisas de satisfação e avaliação do atendimento com os familiares Bahia Prev.
+                Selecione o módulo operacional para gerenciar ordens de serviço ou realizar pesquisas de satisfação e avaliação do atendimento com os familiares Bahia Prev.
               </p>
 
               <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
@@ -794,16 +877,13 @@ export const FunerariaSection: React.FC = () => {
                 </span>
                 <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
                   <User className="h-3.5 w-3.5 text-blue-400" />
-                  Agente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
+                  Agente / Atendente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Module Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Card 1: Ordem de Serviço */}
             <motion.div
               whileHover={{ y: -4 }}
               onClick={() => setSubModule('os')}
@@ -824,7 +904,7 @@ export const FunerariaSection: React.FC = () => {
                     Ordem de Serviço
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                    Acompanhamento em tempo real das ordens de serviço funerárias, checklist operacional de 16 etapas com foto e registro de geolocalização dos agentes.
+                    Abertura de formulário de atendimento interno, fila para agentes assumirem a OS, botões rápidos de Ligação, WhatsApp e Rota no Google Maps, fotos/áudios e checklist de 16 etapas.
                   </p>
                 </div>
               </div>
@@ -835,7 +915,6 @@ export const FunerariaSection: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Card 2: Pesquisa de Satisfação */}
             <motion.div
               whileHover={{ y: -4 }}
               onClick={() => setSubModule('satisfaction')}
@@ -856,7 +935,7 @@ export const FunerariaSection: React.FC = () => {
                     Pesquisa de Satisfação
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                    Pesquisa completa de avaliação do atendimento prestado às famílias, indicadores IQAF, controle de qualidade e alertas de ocorrências críticas.
+                    Pesquisa completa de avaliação do atendimento prestado às famílias, indicadores IQAF e NPS com cálculos matemáticos em tempo real.
                   </p>
                 </div>
               </div>
@@ -866,7 +945,6 @@ export const FunerariaSection: React.FC = () => {
                 <ChevronRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
               </div>
             </motion.div>
-
           </div>
         </div>
       )}
@@ -879,7 +957,6 @@ export const FunerariaSection: React.FC = () => {
       {/* Sub-module 1: Ordem de Serviço */}
       {subModule === 'os' && (
         <>
-          {/* Back to Funeraria Modules Portal button */}
           <div className="mb-4">
             <button
               onClick={() => setSubModule('portal')}
@@ -899,7 +976,7 @@ export const FunerariaSection: React.FC = () => {
               <div className="space-y-3 max-w-3xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold uppercase tracking-wider">
                   <span className="text-base">⚰️</span>
-                  <span>Módulo Operacional</span>
+                  <span>Módulo Operacional – Bahia Prev</span>
                 </div>
 
                 <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
@@ -907,7 +984,7 @@ export const FunerariaSection: React.FC = () => {
                 </h1>
 
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-                  Gerencie ordens de serviço, acompanhe atendimentos, registre etapas operacionais e monitore as ocorrências funerárias da equipe.
+                  Abertura de chamados pelos atendentes, disponibilização para agentes assumirem os serviços, gerenciamento das 14 seções do atendimento, botões diretos de ligação/WhatsApp e acompanhamento de etapas.
                 </p>
 
                 <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
@@ -917,7 +994,7 @@ export const FunerariaSection: React.FC = () => {
                   </span>
                   <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
                     <User className="h-3.5 w-3.5 text-blue-400" />
-                    Agente: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
+                    Usuário Logado: <strong className="text-white ml-0.5">{loggedInAgentName}</strong>
                   </span>
                 </div>
               </div>
@@ -939,1277 +1016,848 @@ export const FunerariaSection: React.FC = () => {
                     className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    <span>Voltar para Lista de OS</span>
+                    <span>Voltar à Lista de OS</span>
                   </button>
                 )}
               </div>
             </div>
           </div>
 
-      {/* VIEW 1: NEW ORDER FORM ("Nova Ordem de Serviço") */}
-      {view === 'new' && (
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-10 shadow-sm max-w-3xl mx-auto"
-        >
-          <div className="flex items-center gap-3 pb-6 border-b border-slate-100 mb-6">
-            <button
-              onClick={() => setView('list')}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
-              title="Voltar"
+          {/* VIEW 1: NEW OS (Formulário de Abertura de Atendimento) */}
+          {view === 'new' && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
             >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold border border-purple-100 mb-1">
-                <FileText className="h-3 w-3" />
-                <span>Nova Ocorrência</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Nova Ordem de Serviço
-              </h2>
-            </div>
-          </div>
+              <NewFuneralOrderForm
+                initialAgentName={loggedInAgentName}
+                onCancel={() => setView('list')}
+                onSubmit={handleStartNewOSWithForm}
+                isSubmitting={isCreating}
+              />
+            </motion.div>
+          )}
 
-          <div className="space-y-5">
-            {/* Responsavel Field */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Responsável Atual
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {loggedInAgentName}
-                  </span>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-lg shrink-0">
-                Preenchido Automático
-              </span>
-            </div>
-
-            {/* Date and Time Fields Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Data de Abertura
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {currentRealTimeDate || 'Carregando data...'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Hora de Abertura
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {currentRealTimeClock || 'Carregando hora...'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Info Callout */}
-            <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-xs text-purple-900 flex items-start gap-3">
-              <AlertCircle className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">
-                Ao iniciar, o sistema gerará automaticamente o número sequencial da Ordem de Serviço (ex: <strong>OS-000001</strong>), salvará no banco de dados com status <strong>"Em Andamento"</strong> e abrirá o checklist operacional.
-              </p>
-            </div>
-
-            {/* CTA Button "Iniciar Ordem de Serviço" */}
-            <div className="pt-4">
-              <button
-                onClick={handleStartNewOS}
-                disabled={isCreating}
-                className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white font-bold text-base rounded-2xl shadow-xl shadow-purple-600/20 border border-purple-400/30 flex items-center justify-center gap-3 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:opacity-50"
-              >
-                {isCreating ? (
-                  <>
-                    <RefreshCw className="h-5 w-5 animate-spin" />
-                    <span>Iniciando Ordem de Serviço...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-5 w-5 fill-current" />
-                    <span>Iniciar Ordem de Serviço</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* VIEW 2: OS DETAIL & CHECKLIST ("Página da Ordem de Serviço") */}
-      {view === 'detail' && selectedOS && (
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6 max-w-4xl mx-auto"
-        >
-          {/* Top Bar Navigation */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <button
-              onClick={() => setView('list')}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
+          {/* VIEW 2: OS DETAIL & OPERATIONAL CHECKLIST */}
+          {view === 'detail' && selectedOS && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6 max-w-5xl mx-auto"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Lista de Ordens</span>
-            </button>
+              {/* Top Navigation */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <button
+                  onClick={() => setView('list')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Lista de Ordens</span>
+                </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setView('track')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
-                title="Acompanhar Atendimento (Painel do Gerente Funerário)"
-              >
-                <Eye className="h-4 w-4" />
-                <span>Acompanhar Ordem</span>
-              </button>
-
-              <button
-                onClick={(e) => handleDeleteOS(selectedOS.id, selectedOS.osNumber, e)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
-                title="Excluir esta Ordem de Serviço"
-              >
-                <Trash2 className="h-4 w-4 text-rose-600" />
-                <span>Excluir Ordem</span>
-              </button>
-            </div>
-          </div>
-
-          {/* OS Main Info Card */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-purple-600 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full">
-                    Ordem de Serviço Registrada
-                  </span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {selectedOS.osNumber}
-                </h2>
-              </div>
-
-              {/* Status Badge */}
-              <div className="shrink-0">
-                {selectedOS.status === 'Serviço Encerrado' ? (
-                  <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs shadow-sm">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    Serviço Encerrado
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shadow-sm">
-                    <Activity className="h-4 w-4 text-amber-600 animate-pulse" />
-                    Em Andamento
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Info Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Responsável Atual
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {selectedOS.responsavelName}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Data e Hora de Criação
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {selectedOS.dateFormatted} às {selectedOS.timeFormatted}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Checklist Completion Progress Bar */}
-            {(() => {
-              const total = selectedOS.checklist.length;
-              const completedCount = selectedOS.checklist.filter(i => i.completed).length;
-              const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-
-              return (
-                <div className="mt-6 pt-6 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                    <span className="flex items-center gap-1.5">
-                      <CheckSquare className="h-4 w-4 text-purple-600" />
-                      Progresso das Etapas
-                    </span>
-                    <span className="text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-                      {completedCount} de {total} concluídos ({pct}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200/80">
-                    <div 
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full transition-all duration-500 rounded-full"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* CHECKLIST OPERACIONAL SECTION */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm">
-            <div className="mb-6">
-              <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <CheckSquare className="h-5 w-5 text-purple-600" />
-                <span>Checklist Operacional</span>
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Marque ou desmarque cada etapa conforme o andamento do atendimento. Se houver alguma marcação incorreta, basta clicar novamente na etapa para desmarcá-la. As alterações e localizações GPS são salvas automaticamente no banco de dados.
-              </p>
-            </div>
-
-            {/* 16 Checklist Items Grid */}
-            <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
-              {selectedOS.checklist.map((item, idx) => {
-                const isLastItem = item.label === 'Serviço encerrado';
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => openCheckitemModal(selectedOS.id, item.id)}
-                    title={item.completed ? "Clique para ver ou editar observações desta etapa" : "Clique para registrar observações e concluir esta etapa"}
-                    className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer select-none ${
-                      item.completed 
-                        ? 'bg-purple-50/40 hover:bg-purple-100/60' 
-                        : 'hover:bg-slate-50/80 bg-white'
-                    } ${isLastItem ? 'bg-amber-50/30' : ''}`}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setView('track')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                    title="Acompanhar Atendimento"
                   >
-                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                      <div className="shrink-0 mt-0.5">
-                        {item.completed ? (
-                          <div className="h-6 w-6 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-sm">
-                            <CheckSquare className="h-4 w-4" />
-                          </div>
-                        ) : (
-                          <div className="h-6 w-6 rounded-lg border-2 border-slate-300 text-slate-300 hover:border-purple-400 flex items-center justify-center">
-                            <Square className="h-4 w-4 opacity-0" />
-                          </div>
+                    <Eye className="h-4 w-4" />
+                    <span>Acompanhar Ordem</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => handleDeleteOS(selectedOS.id, selectedOS.osNumber, e)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 text-rose-600" />
+                    <span>Excluir</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Header OS Main Card */}
+              {(() => {
+                const isFinished = selectedOS.status === 'Finalizado' || selectedOS.status === 'Finalizada' || selectedOS.status === 'Serviço Encerrado';
+                const isOpenAndWaiting = selectedOS.status === 'Aberto' || selectedOS.responsavelName === 'Aguardando Agente';
+
+                return (
+                  <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-purple-600 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full">
+                            Ordem de Serviço #{selectedOS.osNumber}
+                          </span>
+
+                          {selectedOS.prioridade && (
+                            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                              selectedOS.prioridade === 'Emergencial'
+                                ? 'bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
+                                : selectedOS.prioridade === 'Urgente'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-blue-50 text-blue-800 border-blue-200'
+                            }`}>
+                              Prioridade: {selectedOS.prioridade}
+                            </span>
+                          )}
+                        </div>
+
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                          {selectedOS.formData?.nomeFalecido || selectedOS.osNumber}
+                        </h2>
+
+                        {selectedOS.formData?.nomeFamiliar && (
+                          <p className="text-xs text-slate-600 font-medium">
+                            Familiar Responsável: <strong className="text-slate-900">{selectedOS.formData.nomeFamiliar}</strong> ({selectedOS.formData.parentesco || 'Responsável'})
+                          </p>
                         )}
                       </div>
 
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <span className={`text-sm font-bold block ${
-                          item.completed ? 'text-slate-900 line-through text-slate-500' : 'text-slate-800'
-                        } ${isLastItem ? 'text-purple-950 font-black' : ''}`}>
-                          <span className="text-slate-400 font-semibold mr-2">{idx + 1}.</span>
-                          {item.label}
-                        </span>
-
-                        {/* Display Observations & Photo if present */}
-                        {item.completed && (item.observations || item.photoUrl) && (
-                          <div className="mt-2 p-2.5 bg-purple-50/80 border border-purple-100 rounded-xl space-y-1.5 text-xs text-slate-700">
-                            {item.observations && (
-                              <div className="flex items-start gap-1.5">
-                                <MessageSquare className="h-3.5 w-3.5 text-purple-600 shrink-0 mt-0.5" />
-                                <p className="whitespace-pre-wrap leading-relaxed text-slate-800 font-medium">{item.observations}</p>
-                              </div>
-                            )}
-                            {item.photoUrl && (
-                              <div className="flex items-center gap-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPreviewPhotoModal(item.photoUrl!);
-                                  }}
-                                  className="group relative rounded-lg overflow-hidden border border-purple-200 shadow-xs hover:ring-2 hover:ring-purple-400 transition-all cursor-pointer"
-                                >
-                                  <img src={item.photoUrl} alt="Foto da etapa" className="h-12 w-16 object-cover" />
-                                  <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </div>
-                                </button>
-                                <span className="text-[11px] font-semibold text-purple-800 flex items-center gap-1">
-                                  <Camera className="h-3 w-3" />
-                                  Foto anexada
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                      {/* Status Dropdown & Picker */}
+                      <div className="shrink-0 space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status Atual do Serviço:</label>
+                        <select
+                          value={selectedOS.status}
+                          onChange={(e) => handleUpdateOSStatus(selectedOS.id, e.target.value as any)}
+                          className="px-3.5 py-2 rounded-2xl bg-slate-900 text-white font-bold text-xs border border-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer shadow-sm"
+                        >
+                          <option value="Aberto">🟢 Aberto (Aguardando Agente)</option>
+                          <option value="Em remoção">🚑 Em Remoção</option>
+                          <option value="Em preparação">🧼 Em Preparação</option>
+                          <option value="Em velório">🕯️ Em Velório</option>
+                          <option value="Em sepultamento/cremação">⚰️ Em Sepultamento / Cremação</option>
+                          <option value="Finalizado">✅ Finalizado / Encerrado</option>
+                        </select>
                       </div>
                     </div>
 
-                    <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
-                      {item.completed && (item.completedLocation || (item.completedLat && item.completedLng) || selectedOS.serviceAddress) && (
+                    {/* Banners for Start Service or Accompany Service */}
+                    {isOpenAndWaiting ? (
+                      <div className="p-4 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border-2 border-amber-400/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-bounce">
+                            <Zap className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900">Atendimento Aberto pelo Atendente ({selectedOS.atendenteName || 'Atendente'})</h4>
+                            <p className="text-xs text-slate-600">
+                              Clique no botão para iniciar o atendimento. Seu nome será registrado como o Agente Principal (Agente 1).
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handlePickupOS(selectedOS.id)}
+                          className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer shrink-0"
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          <span>⚡ Iniciar Atendimento</span>
+                        </button>
+                      </div>
+                    ) : !isFinished ? (
+                      <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <UserCheck className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">Atendimento em Andamento pelo Agente 1 ({selectedOS.responsavelName})</h4>
+                            <p className="text-xs text-slate-600">
+                              {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())
+                                ? `Você (${loggedInAgentName}) está registrado no acompanhamento deste atendimento.`
+                                : selectedOS.responsavelName.toLowerCase() === loggedInAgentName.toLowerCase()
+                                ? `Você é o Agente Principal responsável por esta ordem.`
+                                : `Outro agente pode se registrar para dar acompanhamento e suporte conjunto.`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {selectedOS.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() &&
+                         !(selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())) && (
+                          <button
+                            onClick={() => handleAccompanyOS(selectedOS.id)}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
+                          >
+                            <UserCheck className="h-4 w-4" />
+                            <span>🤝 Adicionar Meu Acompanhamento (Agente 2)</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Contact Quick Action Bar (Call, WhatsApp, Maps Route) */}
+                    {selectedOS.formData && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+                        {/* Call Phone */}
                         <a
-                          href={getLocationHref(item, selectedOS)}
+                          href={`tel:${selectedOS.formData.telefoneFamiliar || selectedOS.formData.whatsappFamiliar}`}
+                          className="py-2.5 px-3 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200/80 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs hover:shadow-xs"
+                        >
+                          <Phone className="h-4 w-4 text-blue-600" />
+                          <span>Ligar ({selectedOS.formData.telefoneFamiliar || 'Sem fone'})</span>
+                        </a>
+
+                        {/* WhatsApp */}
+                        {selectedOS.formData.whatsappFamiliar ? (
+                          <a
+                            href={`https://wa.me/55${selectedOS.formData.whatsappFamiliar.replace(/\D/g, '')}?text=${encodeURIComponent(
+                              `Olá ${selectedOS.formData.nomeFamiliar}, me chamo ${loggedInAgentName} e sou da equipe Bahia Prev responsável pelo atendimento de ${selectedOS.formData.nomeFalecido}. Estou à disposição!`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs hover:shadow-md"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            <span>Abrir WhatsApp</span>
+                          </a>
+                        ) : (
+                          <button disabled className="py-2.5 px-3 bg-slate-100 text-slate-400 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-not-allowed">
+                            <MessageCircle className="h-4 w-4" />
+                            <span>Sem WhatsApp</span>
+                          </button>
+                        )}
+
+                        {/* Maps Route */}
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                            selectedOS.formData.enderecoRemocao || selectedOS.formData.localVelorio || 'Salvador BA'
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md transition-colors cursor-pointer max-w-[180px] sm:max-w-[260px]"
-                          title="Abrir no Google Maps a localização onde esta etapa foi concluída"
+                          className="py-2.5 px-3 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200/80 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs hover:shadow-xs"
                         >
-                          <MapPin className="h-3 w-3 text-indigo-600 shrink-0" />
-                          <span className="truncate">{getLocationText(item, selectedOS)}</span>
-                          <ExternalLink className="h-2.5 w-2.5 opacity-70 shrink-0" />
+                          <MapPin className="h-4 w-4 text-purple-600" />
+                          <span>Rota no Google Maps</span>
                         </a>
-                      )}
-                      {item.completed && item.completedAt && (
-                        <span className="text-[10px] font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-md border border-purple-200">
-                          {item.completedAt}
-                        </span>
-                      )}
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-xl border ${
-                        item.completed
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}>
-                        {item.completed ? 'Concluído' : 'Pendente'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Sincronização em tempo real via Firestore ativada.
-              </span>
-              <span className="font-bold text-slate-700">Bahia Prev Hub</span>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* VIEW 3: ACOMPANHAR OS (PAINEL DO GERENTE FUNERÁRIO) */}
-      {view === 'track' && selectedOS && (() => {
-        const totalSteps = selectedOS.checklist.length;
-        const completedItems = selectedOS.checklist.filter(i => i.completed);
-        const completedCount = completedItems.length;
-        const pct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
-        const isFinished = selectedOS.status === 'Finalizada' || selectedOS.status === 'Serviço Encerrado';
-
-        // Extract list of all agents who worked on this OS
-        const agentsMap = new Map<string, { count: number; lastTime?: string }>();
-        
-        // Initial opening agent
-        if (selectedOS.responsavelName) {
-          agentsMap.set(selectedOS.responsavelName, { count: 0, lastTime: selectedOS.timeFormatted });
-        }
-
-        selectedOS.checklist.forEach(item => {
-          if (item.completed) {
-            const agentName = item.completedBy || selectedOS.responsavelName || 'Agente Registrado';
-            const current = agentsMap.get(agentName) || { count: 0, lastTime: item.completedAt };
-            agentsMap.set(agentName, {
-              count: current.count + 1,
-              lastTime: item.completedAt || current.lastTime
-            });
-          }
-        });
-
-        const involvedAgentsList = Array.from(agentsMap.entries()).map(([name, data]) => ({
-          name,
-          stepsCount: data.count,
-          lastTime: data.lastTime
-        }));
-
-        // Current stage logic
-        const nextPendingIndex = selectedOS.checklist.findIndex(i => !i.completed);
-        const lastCompletedItem = completedItems.length > 0 ? completedItems[completedItems.length - 1] : null;
-        const currentActiveStep = nextPendingIndex !== -1 ? selectedOS.checklist[nextPendingIndex] : null;
-
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6 max-w-4xl mx-auto"
-          >
-            {/* Top Bar Navigation */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <button
-                onClick={() => setView('list')}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Voltar para Lista</span>
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setView('detail')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
-                >
-                  <CheckSquare className="h-4 w-4" />
-                  <span>Checklist Operacional</span>
-                </button>
-
-                <button
-                  onClick={(e) => handleDeleteOS(selectedOS.id, selectedOS.osNumber, e)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
-                  title="Excluir esta Ordem de Serviço"
-                >
-                  <Trash2 className="h-4 w-4 text-rose-600" />
-                  <span>Excluir</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Manager Tracking Header Banner */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 rounded-3xl p-6 sm:p-8 text-white border border-indigo-800/60 shadow-xl relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-800/60 pb-6">
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 text-xs font-bold mb-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Acompanhamento Gerencial (Apenas Leitura)</span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
-                    {selectedOS.osNumber}
-                  </h2>
-                </div>
-
-                <div>
-                  {isFinished ? (
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold text-xs">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      Atendimento Finalizado
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-400/40 font-bold text-xs">
-                      <Activity className="h-4 w-4 text-amber-400 animate-pulse" />
-                      Em Andamento
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Etapa Atual Highlight Card */}
-              <div className="mt-6 p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Activity className="h-4 w-4 text-amber-400" />
-                    Etapa Atual em Execução
-                  </span>
-                  <span className="text-xs font-mono text-indigo-200 bg-indigo-900/60 border border-indigo-500/30 px-2.5 py-0.5 rounded-full">
-                    {currentActiveStep ? `Etapa ${nextPendingIndex + 1} de ${totalSteps}` : 'Todas Etapas Concluídas'}
-                  </span>
-                </div>
-
-                <div className="text-base sm:text-lg font-black text-white">
-                  {currentActiveStep ? currentActiveStep.label : 'Serviço Concluído na Íntegra 🎉'}
-                </div>
-
-                {lastCompletedItem && (
-                  <p className="text-xs text-indigo-200 border-t border-white/10 pt-2.5 mt-1 flex items-center gap-1.5 flex-wrap">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                    <span>Última etapa concluída: <strong>{lastCompletedItem.label}</strong></span>
-                    {lastCompletedItem.completedAt && (
-                      <span className="text-indigo-300 font-mono">({lastCompletedItem.completedAt})</span>
+                      </div>
                     )}
-                    {lastCompletedItem.completedBy && (
-                      <span className="text-emerald-300 font-semibold">— por {lastCompletedItem.completedBy}</span>
-                    )}
-                  </p>
-                )}
-              </div>
 
-              {/* Progress Summary inside Banner */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between text-xs font-bold mb-2">
-                  <span className="text-indigo-200 flex items-center gap-1.5">
-                    <Activity className="h-4 w-4 text-indigo-400" />
-                    Progresso Geral do Checklist Operacional
-                  </span>
-                  <span className="text-white font-mono text-sm">{completedCount} de {totalSteps} ({pct}%)</span>
-                </div>
-                <div className="w-full h-3 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/60 p-0.5">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      isFinished 
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400' 
-                        : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-400'
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Grid 1: Agentes & Continuidade do Atendimento */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <Users className="h-5 w-5 text-indigo-600" />
-                    <span>Equipe de Agentes e Continuidade</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Relação dos agentes funerários que iniciaram e deram andamento a este atendimento.
-                  </p>
-                </div>
-                <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-full">
-                  {involvedAgentsList.length} {involvedAgentsList.length === 1 ? 'Agente' : 'Agentes'} Envolvidos
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {involvedAgentsList.map((ag, idx) => {
-                  const isOpener = ag.name === selectedOS.responsavelName;
-                  return (
-                    <div 
-                      key={idx}
-                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between space-y-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 font-bold">
-                          <User className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-slate-900 block truncate" title={ag.name}>
-                            {ag.name}
-                          </span>
-                          <span className="text-[10px] text-slate-500 block">
-                            {ag.stepsCount > 0 ? `${ag.stepsCount} ${ag.stepsCount === 1 ? 'etapa marcada' : 'etapas marcadas'}` : 'Iniciou a OS'}
-                          </span>
-                        </div>
+                    {/* Info Card Summary (Atendente, Agente 1, Agente 2) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                      <div className="p-3.5 bg-purple-50/70 rounded-2xl border border-purple-100/80">
+                        <span className="text-purple-700 font-bold uppercase text-[10px] block">1. Atendente (Abertura OS)</span>
+                        <span className="font-extrabold text-slate-900 text-sm block">{selectedOS.atendenteName || 'Atendente'}</span>
+                        <span className="text-[10px] text-slate-500 block">Unidade: {selectedOS.unidadeAtendimento || 'Sede'}</span>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400 font-semibold uppercase text-[9px]">Função / Status:</span>
-                        <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
-                          {isOpener ? 'Responsável Atual' : 'Colaborador'}
+                      <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-100/80">
+                        <span className="text-amber-800 font-bold uppercase text-[10px] block">2. Agente Principal (Iniciou OS)</span>
+                        <span className="font-extrabold text-slate-900 text-sm block">{selectedOS.responsavelName}</span>
+                        <span className="text-[10px] text-slate-500 block">{selectedOS.status === 'Aberto' ? 'Aguardando Início' : 'Atendimento Ativo'}</span>
+                      </div>
+
+                      <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100/80">
+                        <span className="text-indigo-700 font-bold uppercase text-[10px] block">3. Agente(s) Acompanhamento</span>
+                        <span className="font-extrabold text-slate-900 text-sm block">
+                          {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.length > 0
+                            ? selectedOS.agentesAcompanhamento.map(a => a.name).join(', ')
+                            : 'Nenhum outro agente'}
                         </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-purple-600 shrink-0" />
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 block">
-                      Abertura da OS
-                    </span>
-                    <span className="text-xs font-bold text-slate-900">
-                      {selectedOS.dateFormatted} às {selectedOS.timeFormatted}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-100 flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-amber-600 shrink-0" />
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">
-                      Última Modificação Registrada
-                    </span>
-                    <span className="text-xs font-bold text-slate-900">
-                      {selectedOS.updatedDateFormatted || selectedOS.dateFormatted} às {selectedOS.updatedTimeFormatted || selectedOS.timeFormatted}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Grid 2: Linha do Tempo e Checklist Detalhado com Horários e Agentes */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-indigo-600" />
-                  <span>Auditoria e Linha do Tempo do Checklist</span>
-                  <span className="text-[10px] uppercase font-extrabold tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-300 px-2.5 py-0.5 rounded-full ml-auto sm:ml-2">
-                    Apenas Leitura
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Painel de acompanhamento: apenas visualização do progresso, ocorrências registradas pelos agentes, horários e localizações GPS.
-                </p>
-              </div>
-
-              {/* Destaque para Ocorrências Registradas pelos Agentes */}
-              {(() => {
-                const itemsWithOccurrences = selectedOS.checklist.filter(i => i.observations && i.observations.trim() !== '');
-                if (itemsWithOccurrences.length === 0) return null;
-
-                return (
-                  <div className="bg-amber-50/90 border border-amber-300/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                        <MessageSquare className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-extrabold text-amber-950">
-                          Ocorrências Registradas pelos Agentes ({itemsWithOccurrences.length})
-                        </h4>
-                        <p className="text-[11px] text-amber-800">
-                          Resumo de todas as observações e apontamentos inseridos durante as etapas do checklist
-                        </p>
+                        <span className="text-[10px] text-indigo-600 font-medium block">Suporte Conjunto</span>
                       </div>
                     </div>
 
-                    <div className="space-y-2.5 pt-1">
-                      {itemsWithOccurrences.map((item) => (
-                        <div 
-                          key={item.id} 
-                          onClick={() => openCheckitemModal(selectedOS.id, item.id, true)}
-                          className="bg-white border border-amber-200/90 rounded-xl p-3 text-xs shadow-2xs hover:border-amber-400 hover:shadow-xs cursor-pointer transition-all"
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                              <span className="h-2 w-2 rounded-full bg-amber-500 inline-block shrink-0" />
-                              <span>{item.label}</span>
-                            </span>
-                            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
-                              {item.completedAt || selectedOS.timeFormatted}
-                            </span>
-                          </div>
-                          <p className="text-slate-800 font-medium whitespace-pre-wrap pl-3 border-l-2 border-amber-500 text-xs leading-relaxed">
-                            {item.observations}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+                    {/* Progress bar */}
+                    {(() => {
+                      const total = selectedOS.checklist.length;
+                      const completedCount = selectedOS.checklist.filter(i => i.completed).length;
+                      const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
-              <div className="space-y-3">
-                {selectedOS.checklist.map((item, index) => {
-                  const agentWhoCompleted = item.completedBy || selectedOS.responsavelName || 'Agente Funerário';
-                  const isLastItem = index === selectedOS.checklist.length - 1;
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => openCheckitemModal(selectedOS.id, item.id, true)}
-                      title="Clique para visualizar detalhes e ocorrências desta etapa"
-                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:border-indigo-300 hover:shadow-xs ${
-                        item.completed 
-                          ? 'bg-purple-50/40 border-purple-200/80 hover:bg-purple-100/50' 
-                          : 'bg-slate-50/60 border-slate-200/70 hover:bg-slate-100/80'
-                      } ${isLastItem && item.completed ? 'bg-amber-50/50 border-amber-200' : ''}`}
-                    >
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <div className="shrink-0 mt-0.5">
-                          {item.completed ? (
-                            <div className="h-8 w-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
-                              <CheckCircle2 className="h-5 w-5" />
-                            </div>
-                          ) : (
-                            <div className="h-8 w-8 rounded-xl bg-white border border-slate-300 text-slate-400 flex items-center justify-center">
-                              <Square className="h-5 w-5" />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <span className={`text-xs sm:text-sm font-bold block ${
-                            item.completed ? 'text-slate-900' : 'text-slate-600'
-                          }`}>
-                            {index + 1}. {item.label}
-                          </span>
-                          
-                          {item.completed && (
-                            <span className="text-[11px] text-purple-700 font-semibold flex items-center gap-1.5 flex-wrap">
-                              <User className="h-3 w-3" />
-                              <span>Concluído por: <strong>{agentWhoCompleted}</strong></span>
-                              {(item.completedLocation || (item.completedLat && item.completedLng) || selectedOS.serviceAddress) && (
-                                <a
-                                  href={getLocationHref(item, selectedOS)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md ml-1 transition-colors cursor-pointer max-w-[200px] sm:max-w-[320px]"
-                                  title="Abrir localização no Google Maps"
-                                >
-                                  <MapPin className="h-3 w-3 text-indigo-600 shrink-0" />
-                                  <span className="truncate">{getLocationText(item, selectedOS)}</span>
-                                  <ExternalLink className="h-2.5 w-2.5 opacity-70 shrink-0" />
-                                </a>
-                              )}
-                            </span>
-                          )}
-
-                          {!item.completed && !item.observations && (
-                            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-                              Etapa pendente na sequência de atendimento
-                            </span>
-                          )}
-
-                          {/* Observations & Photos in Timeline */}
-                          {(item.observations || item.photoUrl) && (
-                            <div className="mt-2 p-2.5 bg-amber-50/90 border border-amber-200/80 rounded-xl space-y-1.5 text-xs text-slate-700 shadow-2xs">
-                              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-900">
-                                <MessageSquare className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                                <span>Ocorrência Registrada pelo Agente:</span>
-                              </div>
-                              {item.observations && (
-                                <p className="whitespace-pre-wrap leading-relaxed text-slate-800 font-medium pl-5">{item.observations}</p>
-                              )}
-                              {item.photoUrl && (
-                                <div className="flex items-center gap-2 pt-1 pl-5">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPreviewPhotoModal(item.photoUrl!);
-                                    }}
-                                    className="group relative rounded-lg overflow-hidden border border-amber-300 shadow-xs hover:ring-2 hover:ring-amber-500 transition-all cursor-pointer"
-                                  >
-                                    <img src={item.photoUrl} alt="Foto da etapa" className="h-12 w-16 object-cover" />
-                                    <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                      <Eye className="h-3.5 w-3.5" />
-                                    </div>
-                                  </button>
-                                  <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
-                                    <Camera className="h-3 w-3" />
-                                    Foto anexada (clique para expandir)
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
-                        {item.completed ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs shadow-xs" title="Etapa concluída">
-                            <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>{item.completedAt || selectedOS.timeFormatted}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-200/70 text-slate-600 font-semibold text-[11px]">
-                            Pendente
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
-        );
-      })()}
-
-      {/* VIEW 4: ORDERS LIST / OVERVIEW ("Ordens em Andamento" & Filter tabs) */}
-      {view === 'list' && (
-        <div className="space-y-6">
-          {/* Bar with Sub-Tabs for Filtering */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <Activity className="h-5 w-5 text-purple-600" />
-                <span>Gestão de Ordens de Serviço</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Acompanhamento em tempo real das ocorrências da equipe funerária
-              </p>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/80 self-start sm:self-auto overflow-x-auto max-w-full">
-              <button
-                onClick={() => setListTab('em_andamento')}
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                  listTab === 'em_andamento'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <Activity className="h-3.5 w-3.5" />
-                <span>Ordens em Andamento</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
-                  listTab === 'em_andamento' ? 'bg-purple-700 text-purple-100' : 'bg-slate-200 text-slate-700'
-                }`}>
-                  {orders.filter(o => o.status === 'Em Andamento').length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setListTab('finalizadas')}
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                  listTab === 'finalizadas'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Finalizadas</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
-                  listTab === 'finalizadas' ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-200 text-slate-700'
-                }`}>
-                  {orders.filter(o => o.status === 'Finalizada' || o.status === 'Serviço Encerrado').length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setListTab('todas')}
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                  listTab === 'todas'
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>Todas</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
-                  listTab === 'todas' ? 'bg-slate-900 text-slate-200' : 'bg-slate-200 text-slate-700'
-                }`}>
-                  {orders.length}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Loading state */}
-          {loadingOrders ? (
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center">
-              <RefreshCw className="h-8 w-8 text-purple-600 animate-spin mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-700">Carregando ordens de serviço...</p>
-            </div>
-          ) : (() => {
-            const filteredOrders = orders.filter(os => {
-              if (listTab === 'em_andamento') return os.status === 'Em Andamento';
-              if (listTab === 'finalizadas') return os.status === 'Finalizada' || os.status === 'Serviço Encerrado';
-              return true;
-            });
-
-            if (filteredOrders.length === 0) {
-              return (
-                /* Empty State */
-                <div className="bg-white border border-slate-200/80 rounded-3xl p-10 sm:p-14 text-center max-w-xl mx-auto shadow-sm">
-                  <div className="h-16 w-16 rounded-3xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-4">
-                    <Cross className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">
-                    {listTab === 'em_andamento' && 'Nenhuma Ordem em Andamento'}
-                    {listTab === 'finalizadas' && 'Nenhuma Ordem Finalizada'}
-                    {listTab === 'todas' && 'Nenhuma Ordem de Serviço registrada'}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                    {listTab === 'em_andamento' 
-                      ? 'No momento não existem ordens de serviço com atendimento ativo. Clique em "Nova Ordem de Serviço" para iniciar um novo atendimento.'
-                      : 'Utilize o botão "Nova Ordem de Serviço" no topo da página para iniciar a primeira ocorrência.'}
-                  </p>
-                </div>
-              );
-            }
-
-            return (
-              /* Grid of Service Orders */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredOrders.map((os) => {
-                  const totalChecklist = os.checklist.length;
-                  const completedItems = os.checklist.filter(i => i.completed);
-                  const completedCount = completedItems.length;
-                  const pct = totalChecklist > 0 ? Math.round((completedCount / totalChecklist) * 100) : 0;
-                  const isFinished = os.status === 'Finalizada' || os.status === 'Serviço Encerrado';
-
-                  // Last completed step label & next pending active step
-                  const lastCompletedStepLabel = completedCount > 0 
-                    ? completedItems[completedCount - 1].label 
-                    : 'Nenhuma etapa concluída ainda';
-
-                  const nextPendingStep = os.checklist.find(i => !i.completed);
-                  const activeStageLabel = isFinished 
-                    ? 'Finalizado' 
-                    : nextPendingStep 
-                      ? nextPendingStep.label 
-                      : 'Todas concluídas';
-
-                  const lastUpdateDate = os.updatedDateFormatted || os.dateFormatted;
-                  const lastUpdateTime = os.updatedTimeFormatted || os.timeFormatted;
-
-                  return (
-                    <motion.div
-                      key={os.id}
-                      whileHover={{ y: -2 }}
-                      className="bg-white border border-slate-200/80 hover:border-purple-300 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
-                    >
-                      <div>
-                        {/* OS Top Header */}
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <span className="text-lg font-black text-slate-900 group-hover:text-purple-600 transition-colors">
-                            {os.osNumber}
-                          </span>
-
-                          {isFinished ? (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[11px] inline-flex items-center gap-1">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                              Finalizada
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] inline-flex items-center gap-1">
-                              <Activity className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
-                              Em Andamento
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Info lines */}
-                        <div className="space-y-2.5 text-xs text-slate-600 mb-4 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-slate-400 font-bold uppercase text-[10px]">Responsável Atual:</span>
-                            <span className="font-bold text-slate-900 truncate">
-                              {os.responsavelName}
-                            </span>
-                          </div>
-
-                          <div className="flex items-start justify-between gap-2 border-t border-slate-200/60 pt-2">
-                            <span className="text-amber-700 font-bold uppercase text-[10px] shrink-0">Etapa Atual:</span>
-                            <span className="font-extrabold text-amber-800 text-right truncate max-w-[170px]" title={activeStageLabel}>
-                              {activeStageLabel}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 pt-2">
-                            <span className="text-slate-400 font-bold uppercase text-[10px]">Última Atualização:</span>
-                            <span className="font-bold text-slate-800">
-                              {lastUpdateDate} às {lastUpdateTime}
-                            </span>
-                          </div>
-
-                          <div className="flex items-start justify-between gap-2 border-t border-slate-200/60 pt-2">
-                            <span className="text-slate-400 font-bold uppercase text-[10px] shrink-0">Última Concluída:</span>
-                            <span className="font-medium text-slate-700 text-right truncate max-w-[170px]" title={lastCompletedStepLabel}>
-                              {lastCompletedStepLabel}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progress bar */}
+                      return (
                         <div className="pt-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
-                            <span>Etapas Concluídas</span>
-                            <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 text-[11px]">
-                              {completedCount} de {totalChecklist} ({pct}%)
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
+                            <span className="flex items-center gap-1.5">
+                              <CheckSquare className="h-4 w-4 text-purple-600" />
+                              Progresso do Checklist Operacional
+                            </span>
+                            <span className="text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                              {completedCount} de {total} concluídos ({pct}%)
                             </span>
                           </div>
-                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/80">
+                          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200/80">
                             <div 
-                              className={`h-full transition-all duration-300 rounded-full ${
-                                isFinished ? 'bg-emerald-600' : 'bg-gradient-to-r from-purple-600 to-indigo-600'
-                              }`}
+                              className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full transition-all duration-500 rounded-full"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
+
+              {/* FORM DATA ACCORDION / EXPANDABLE DETAILS */}
+              {selectedOS.formData && (
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+                  <button
+                    onClick={() => setShowFormDataDetails(!showFormDataDetails)}
+                    className="w-full flex items-center justify-between gap-2 pb-3 border-b border-slate-100 text-left cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                          Dados Completos do Formulário de Abertura (14 Seções)
+                        </h3>
+                        <p className="text-xs text-slate-500">Clique para expandir ou ocultar os detalhes preenchidos pelo atendente</p>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-slate-100 group-hover:bg-purple-100 rounded-xl transition-colors">
+                      {showFormDataDetails ? <ChevronUp className="h-5 w-5 text-purple-700" /> : <ChevronDown className="h-5 w-5 text-slate-600" />}
+                    </div>
+                  </button>
+
+                  {showFormDataDetails && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+                      {/* 1. Falecido */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-purple-900 text-xs block border-b pb-1 mb-2">1. FALECIDO</span>
+                        <p><strong>Nome:</strong> {selectedOS.formData.nomeFalecido}</p>
+                        <p><strong>Idade / Nasc:</strong> {selectedOS.formData.idade} ({selectedOS.formData.dataNascimento || 'N/A'})</p>
+                        <p><strong>Óbito:</strong> {selectedOS.formData.dataFalecimento} às {selectedOS.formData.horarioFalecimento}</p>
+                        <p><strong>Local:</strong> {selectedOS.formData.localFalecimentoType} - {selectedOS.formData.nomeLocalFalecimento} ({selectedOS.formData.cidadeFalecimento})</p>
+                        <p><strong>Causa:</strong> {selectedOS.formData.causaFalecimento}</p>
+                        {selectedOS.formData.observacoesFalecido && <p className="italic text-slate-600 pt-1">"{selectedOS.formData.observacoesFalecido}"</p>}
                       </div>
 
-                      {/* CTA Buttons: Preencher/Continuar, Acompanhar, Excluir */}
-                      <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedOsId(os.id);
-                            setView('detail');
-                          }}
-                          className={`flex-1 py-2.5 px-3 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-                            isFinished
-                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                              : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20 hover:shadow-md'
-                          }`}
-                        >
-                          <span>Checklist Operacional</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setSelectedOsId(os.id);
-                            setView('track');
-                          }}
-                          className="flex-1 py-2.5 px-3 font-bold text-xs rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                          title="Acompanhar Atendimento (Painel Gerencial)"
-                        >
-                          <Eye className="h-4 w-4 text-indigo-600 shrink-0" />
-                          <span>Acompanhar</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => handleDeleteOS(os.id, os.osNumber, e)}
-                          className="p-2.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 border border-slate-200/80 hover:border-rose-200 rounded-xl transition-all cursor-pointer shrink-0 flex items-center justify-center"
-                          title="Excluir esta Ordem de Serviço"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      {/* 2. Familiar */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-indigo-900 text-xs block border-b pb-1 mb-2">2. FAMILIAR RESPONSÁVEL</span>
+                        <p><strong>Nome:</strong> {selectedOS.formData.nomeFamiliar}</p>
+                        <p><strong>Parentesco:</strong> {selectedOS.formData.parentesco}</p>
+                        <p><strong>Telefone / WhatsApp:</strong> {selectedOS.formData.telefoneFamiliar} / {selectedOS.formData.whatsappFamiliar}</p>
+                        <p><strong>Decisor Principal:</strong> {selectedOS.formData.responsavelDecisoes}</p>
+                        {selectedOS.formData.observacoesFamiliar && <p className="italic text-slate-600 pt-1">"{selectedOS.formData.observacoesFamiliar}"</p>}
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-        </>
-      )}
 
-      {/* MODAL PERMISSÃO / REGISTRO GPS */}
-      {gpsModalInfo?.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 text-center space-y-5">
-            <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <Compass className={`h-7 w-7 ${isCapturingModalGps ? 'animate-spin' : ''}`} />
-            </div>
+                      {/* 3 & 4. Serviço e Remoção */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-blue-900 text-xs block border-b pb-1 mb-2">3 & 4. SERVIÇO E REMOÇÃO</span>
+                        <p><strong>Tipo:</strong> {selectedOS.formData.tipoAtendimento} ({selectedOS.formData.numeroContrato || 'Sem contrato'})</p>
+                        <p><strong>Endereço Remoção:</strong> {selectedOS.formData.enderecoRemocao}, {selectedOS.formData.cidadeRemocao}</p>
+                        <p><strong>Corpo Liberado?</strong> {selectedOS.formData.corpoLiberado} | <strong>Horário:</strong> {selectedOS.formData.horarioPrevistoRemocao}</p>
+                        {selectedOS.formData.observacoesRemocao && <p className="italic text-slate-600 pt-1">"{selectedOS.formData.observacoesRemocao}"</p>}
+                      </div>
 
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-slate-900">
-                Permissão de Localização GPS
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                A etapa <strong className="text-indigo-600">"{gpsModalInfo.itemLabel}"</strong> foi salva com sucesso, mas a sua localização GPS atual não pôde ser obtida automaticamente.
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Deseja permitir a localização no seu navegador para vincular o mapa exato a esta etapa?
-              </p>
-            </div>
+                      {/* 5 & 6. Velório e Sepultamento */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-emerald-900 text-xs block border-b pb-1 mb-2">5 & 6. VELÓRIO E DESTINO FINAL</span>
+                        <p><strong>Haverá Velório?</strong> {selectedOS.formData.haveraVelorio} ({selectedOS.formData.localVelorio || 'N/A'})</p>
+                        <p><strong>Data/Horário Velório:</strong> {selectedOS.formData.dataVelorio} às {selectedOS.formData.horarioVelorio}</p>
+                        <p><strong>Destino Final:</strong> {selectedOS.formData.opcaoFinal} no {selectedOS.formData.localSepultamento}</p>
+                        <p><strong>Horário Sepultamento:</strong> {selectedOS.formData.dataSepultamento} às {selectedOS.formData.horarioSepultamento}</p>
+                      </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={handleModalLoadGps}
-                disabled={isCapturingModalGps}
-                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <MapPin className="h-4 w-4" />
-                <span>{isCapturingModalGps ? 'Obtendo GPS...' : 'Carregar Localização GPS'}</span>
-              </button>
+                      {/* 7 & 8. Preparação e Urna */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-rose-900 text-xs block border-b pb-1 mb-2">7 & 8. PREPARAÇÃO E URNA</span>
+                        <p><strong>Procedimentos:</strong> Tanato ({selectedOS.formData.tanatopraxia}), Maquiagem ({selectedOS.formData.maquiagem}), Higienização ({selectedOS.formData.higienizacao})</p>
+                        <p><strong>Roupa Família?</strong> {selectedOS.formData.roupaFamilia} ({selectedOS.formData.descricaoRoupa || 'Padrão'})</p>
+                        <p><strong>Urna:</strong> Plano ({selectedOS.formData.urnaPlano}) | Upgrade ({selectedOS.formData.trocaUrna} {selectedOS.formData.modeloUrna})</p>
+                      </div>
 
-              <button
-                type="button"
-                onClick={() => setGpsModalInfo(null)}
-                disabled={isCapturingModalGps}
-                className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Manter Apenas Horário
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CONCLUIR / EDITAR OBSERVAÇÕES DA ETAPA DO CHECKLIST */}
-      {checkitemModal?.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                  checkitemModal.isReadOnly 
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : (checkitemModal.isCompleted ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700')
-                }`}>
-                  <CheckSquare className="h-5 w-5" />
+                      {/* 9, 10, 11, 12, 13, 14. Outros */}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+                        <span className="font-extrabold text-amber-900 text-xs block border-b pb-1 mb-2">9 A 14. ORNAMENTAÇÃO & OBSERVAÇÕES</span>
+                        <p><strong>Flores / Coroa:</strong> {selectedOS.formData.arranjosFlorais === 'Sim' ? `${selectedOS.formData.qtdArranjos} arranjos` : 'Sem flores'} | Coroa: {selectedOS.formData.coroaFlores}</p>
+                        <p><strong>Faixa de Homenagem:</strong> "{selectedOS.formData.mensagemFaixa}"</p>
+                        <p><strong>Translado:</strong> {selectedOS.formData.necessitaTranslado === 'Sim' ? `${selectedOS.formData.cidadeOrigemTranslado} -> ${selectedOS.formData.cidadeDestinoTranslado}` : 'Não necessita'}</p>
+                        {selectedOS.formData.observacoesImportantes && <p className="font-bold text-amber-900 bg-amber-100 p-2 rounded-lg mt-1">Obs Importante: "{selectedOS.formData.observacoesImportantes}"</p>}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
+              )}
+
+              {/* PHOTOS & AUDIOS GALLERY */}
+              {((selectedOS.photos && selectedOS.photos.length > 0) || (selectedOS.audioMemos && selectedOS.audioMemos.length > 0)) && (
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span>
-                      {checkitemModal.isReadOnly 
-                        ? 'Detalhes & Ocorrências da Etapa' 
-                        : (checkitemModal.isCompleted ? 'Observações da Etapa' : 'Concluir Etapa')}
-                    </span>
-                    {checkitemModal.isReadOnly && (
-                      <span className="text-[10px] uppercase font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-md">
-                        Apenas Leitura
-                      </span>
-                    )}
+                    <Paperclip className="h-5 w-5 text-purple-600" />
+                    <span>Anexos do Atendimento (Fotos e Áudios da Família)</span>
                   </h3>
-                  <p className="text-xs font-semibold text-purple-800">
-                    {checkitemModal.itemLabel}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Photos */}
+                    {selectedOS.photos && selectedOS.photos.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="text-xs font-bold text-slate-700 block">Fotos Anexadas:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedOS.photos.map((ph) => (
+                            <div
+                              key={ph.id}
+                              onClick={() => setPreviewPhotoModal(ph.photoUrl)}
+                              className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 cursor-pointer shadow-2xs hover:shadow-md transition-all"
+                            >
+                              <img src={ph.photoUrl} alt={ph.title} className="h-24 w-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="p-1.5 bg-slate-950/80 text-white text-[10px] font-bold truncate">
+                                {ph.category}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Audios */}
+                    {selectedOS.audioMemos && selectedOS.audioMemos.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="text-xs font-bold text-slate-700 block">Áudios e Mensagens da Família:</span>
+                        <div className="space-y-2">
+                          {selectedOS.audioMemos.map((au) => (
+                            <div key={au.id} className="p-3 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-1">
+                              <span className="text-xs font-bold text-indigo-950 block">{au.title}</span>
+                              <audio controls src={au.audioUrl} className="w-full h-8" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* CHECKLIST OPERACIONAL SECTION */}
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <CheckSquare className="h-5 w-5 text-purple-600" />
+                    <span>Checklist Operacional de 16 Etapas</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    Marque cada etapa conforme o andamento do serviço. As alterações e horários são salvos em tempo real.
                   </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCheckitemModal(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            {checkitemModal.isReadOnly ? (
-              /* MODO APENAS LEITURA (ACOMPANHAMENTO DO GERENTE) */
-              <div className="space-y-4">
-                {/* Status bar */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-slate-500 block font-semibold">Status do item:</span>
-                    <span className={`font-bold ${checkitemModal.isCompleted ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {checkitemModal.isCompleted ? '✓ Etapa Concluída' : '⏳ Etapa Pendente'}
-                    </span>
-                  </div>
-                  {checkitemModal.isCompleted && (
-                    <div className="text-right">
-                      <span className="text-slate-500 block font-semibold">Agente responsável:</span>
-                      <span className="font-bold text-slate-900">{checkitemModal.completedBy}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Seção Ocorrências & Observações Registradas pelo Agente */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <MessageSquare className="h-4 w-4 text-amber-600" />
-                    <span>Ocorrência / Observação Registrada pelo Agente:</span>
-                  </label>
-
-                  {checkitemModal.observations ? (
-                    <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-1">
-                      <p className="text-xs text-slate-900 font-medium leading-relaxed whitespace-pre-wrap">
-                        {checkitemModal.observations}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-500 italic">
-                      Nenhuma ocorrência ou observação foi registrada pelo agente nesta etapa.
-                    </div>
-                  )}
-                </div>
-
-                {/* Seção Fotos (se existir foto antiga) */}
-                {checkitemModal.photoUrl && (
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Camera className="h-4 w-4 text-purple-600" />
-                      <span>Foto Anexada:</span>
-                    </label>
-
-                    <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-2xl flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <img src={checkitemModal.photoUrl} alt="Foto da etapa" className="h-16 w-20 object-cover rounded-xl border border-purple-300 shadow-xs" />
-                        <span className="text-xs font-bold text-purple-900">Foto registrada no atendimento</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewPhotoModal(checkitemModal.photoUrl)}
-                        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+                  {selectedOS.checklist.map((item, idx) => {
+                    const isLastItem = item.label === 'Serviço encerrado';
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => openCheckitemModal(selectedOS.id, item.id)}
+                        className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer select-none ${
+                          item.completed 
+                            ? 'bg-purple-50/40 hover:bg-purple-100/60' 
+                            : 'hover:bg-slate-50/80 bg-white'
+                        } ${isLastItem ? 'bg-amber-50/30' : ''}`}
                       >
-                        <Eye className="h-4 w-4" />
-                        <span>Expandir</span>
-                      </button>
+                        <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                          <div className="shrink-0 mt-0.5">
+                            {item.completed ? (
+                              <div className="h-6 w-6 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                                <CheckSquare className="h-4 w-4" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-lg border-2 border-slate-300 text-slate-300 hover:border-purple-400 flex items-center justify-center">
+                                <Square className="h-4 w-4 opacity-0" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <span className={`text-sm font-bold block ${
+                              item.completed ? 'text-slate-900 line-through text-slate-500' : 'text-slate-800'
+                            } ${isLastItem ? 'text-purple-950 font-black' : ''}`}>
+                              <span className="text-slate-400 font-semibold mr-2">{idx + 1}.</span>
+                              {item.label}
+                            </span>
+
+                            {item.completed && (item.observations || item.photoUrl) && (
+                              <div className="mt-2 p-2.5 bg-purple-50/80 border border-purple-100 rounded-xl space-y-1.5 text-xs text-slate-700">
+                                {item.observations && (
+                                  <div className="flex items-start gap-1.5">
+                                    <MessageSquare className="h-3.5 w-3.5 text-purple-600 shrink-0 mt-0.5" />
+                                    <p className="whitespace-pre-wrap leading-relaxed text-slate-800 font-medium">{item.observations}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
+                          {item.completed ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200">
+                              <Clock className="h-3.5 w-3.5 text-purple-600" />
+                              <span>{item.completedAt}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-500 font-semibold text-[11px]">
+                              Pendente
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* VIEW 3: TRACKING VIEW (PAINEL GERENCIAL) */}
+          {view === 'track' && selectedOS && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6 max-w-4xl mx-auto"
+            >
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <button
+                  onClick={() => setView('list')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Voltar para Lista</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setView('detail')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <CheckSquare className="h-4 w-4" />
+                    <span>Checklist Operacional</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 rounded-3xl p-6 sm:p-8 text-white border border-indigo-800/60 shadow-xl relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-800/60 pb-6">
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 text-xs font-bold mb-2">
+                      <ShieldCheck className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>Painel de Acompanhamento em Tempo Real</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+                      {selectedOS.formData?.nomeFalecido || selectedOS.osNumber}
+                    </h2>
+                  </div>
+
+                  <span className="px-4 py-2 rounded-2xl bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 font-bold text-xs">
+                    Status: {selectedOS.status}
+                  </span>
+                </div>
+
+                {/* Timeline History Log */}
+                {selectedOS.timeline && selectedOS.timeline.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <span className="text-xs font-bold text-indigo-200 uppercase tracking-wider block">Histórico do Atendimento</span>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                      {selectedOS.timeline.map((log) => (
+                        <div key={log.id} className="p-3 bg-white/10 rounded-xl border border-white/10 text-xs flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-white block">{log.action}</span>
+                            <span className="text-[10px] text-indigo-300">por {log.userName}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-indigo-200 bg-indigo-900/60 px-2 py-0.5 rounded-md shrink-0">
+                            {log.dateFormatted} {log.timeFormatted}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          )}
 
-                {/* Action buttons */}
-                <div className="pt-3 border-t border-slate-100 flex justify-end">
+          {/* VIEW 4: ORDERS LIST / OVERVIEW */}
+          {view === 'list' && (
+            <div className="space-y-6">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-purple-600" />
+                    <span>Gestão de Ordens de Serviço Funerárias</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Fila de atendimentos abertos e em andamento com a equipe Bahia Prev
+                  </p>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/80 self-start sm:self-auto overflow-x-auto max-w-full">
                   <button
-                    type="button"
-                    onClick={() => setCheckitemModal(null)}
-                    className="w-full sm:w-auto px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    onClick={() => setListTab('em_andamento')}
+                    className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                      listTab === 'em_andamento'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
                   >
-                    Fechar Visualização
+                    <Activity className="h-3.5 w-3.5" />
+                    <span>Em Andamento / Abertos</span>
+                    <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
+                      listTab === 'em_andamento' ? 'bg-purple-700 text-purple-100' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {orders.filter(o => o.status !== 'Finalizado' && o.status !== 'Finalizada' && o.status !== 'Serviço Encerrado').length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setListTab('finalizadas')}
+                    className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                      listTab === 'finalizadas'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Finalizadas</span>
+                    <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
+                      listTab === 'finalizadas' ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {orders.filter(o => o.status === 'Finalizado' || o.status === 'Finalizada' || o.status === 'Serviço Encerrado').length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setListTab('todas')}
+                    className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                      listTab === 'todas'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Todas</span>
+                    <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
+                      listTab === 'todas' ? 'bg-slate-900 text-slate-200' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {orders.length}
+                    </span>
                   </button>
                 </div>
               </div>
-            ) : (
-              /* MODO EDIÇÃO (PARA AGENTES) */
-              <>
-                {/* Observações (campo opcional) */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-800">
-                    Observações (campo opcional)
-                  </label>
 
-                  {/* Badges com opções de preenchimento */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
-                    <span className="flex items-center gap-1 font-medium">📌 Ocorrências</span>
-                    <span className="flex items-center gap-1 font-medium">⏳ Pendências</span>
-                    <span className="flex items-center gap-1 font-medium">📝 Observações</span>
+              {loadingOrders ? (
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center">
+                  <RefreshCw className="h-8 w-8 text-purple-600 animate-spin mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-700">Carregando ordens de serviço...</p>
+                </div>
+              ) : (() => {
+                const filteredOrders = orders.filter(os => {
+                  if (listTab === 'em_andamento') return os.status !== 'Finalizado' && os.status !== 'Finalizada' && os.status !== 'Serviço Encerrado';
+                  if (listTab === 'finalizadas') return os.status === 'Finalizado' || os.status === 'Finalizada' || os.status === 'Serviço Encerrado';
+                  return true;
+                });
+
+                if (filteredOrders.length === 0) {
+                  return (
+                    <div className="bg-white border border-slate-200/80 rounded-3xl p-10 sm:p-14 text-center max-w-xl mx-auto shadow-xs">
+                      <div className="h-16 w-16 rounded-3xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-4">
+                        <Cross className="h-8 w-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-2">
+                        {listTab === 'em_andamento' && 'Nenhuma Ordem em Andamento'}
+                        {listTab === 'finalizadas' && 'Nenhuma Ordem Finalizada'}
+                        {listTab === 'todas' && 'Nenhuma Ordem de Serviço registrada'}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-4">
+                        Clique em "Nova Ordem de Serviço" para abrir um novo atendimento funerário.
+                      </p>
+                      <button
+                        onClick={() => setView('new')}
+                        className="px-5 py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl shadow-md hover:bg-purple-700 transition-colors cursor-pointer inline-flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Nova Ordem de Serviço</span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filteredOrders.map((os) => {
+                      const totalChecklist = os.checklist.length;
+                      const completedItems = os.checklist.filter(i => i.completed);
+                      const completedCount = completedItems.length;
+                      const pct = totalChecklist > 0 ? Math.round((completedCount / totalChecklist) * 100) : 0;
+                      const isFinished = os.status === 'Finalizado' || os.status === 'Finalizada' || os.status === 'Serviço Encerrado';
+                      const isOpenAndWaiting = os.status === 'Aberto' || os.responsavelName === 'Aguardando Agente';
+
+                      return (
+                        <motion.div
+                          key={os.id}
+                          whileHover={{ y: -2 }}
+                          className={`bg-white border rounded-3xl p-6 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group ${
+                            isOpenAndWaiting ? 'border-amber-300 ring-2 ring-amber-400/20' : 'border-slate-200/80 hover:border-purple-300'
+                          }`}
+                        >
+                          <div>
+                            {/* OS Top Header */}
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <span className="text-lg font-black text-slate-900 group-hover:text-purple-600 transition-colors">
+                                {os.osNumber}
+                              </span>
+
+                              {isOpenAndWaiting ? (
+                                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] inline-flex items-center gap-1 animate-pulse">
+                                  <Zap className="h-3.5 w-3.5 text-amber-600" />
+                                  Aguardando Agente
+                                </span>
+                              ) : isFinished ? (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[11px] inline-flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                  Finalizada
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[11px] inline-flex items-center gap-1">
+                                  <Activity className="h-3.5 w-3.5 text-purple-600" />
+                                  {os.status}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Falecido, Familiar, Atendente & Agentes info */}
+                            <div className="space-y-2 text-xs text-slate-600 mb-4 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
+                              <div>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 block">Falecido:</span>
+                                <span className="font-extrabold text-slate-900 text-sm block truncate">
+                                  {os.formData?.nomeFalecido || 'Não informado'}
+                                </span>
+                              </div>
+
+                              {os.formData?.nomeFamiliar && (
+                                <div className="border-t border-slate-200/60 pt-1.5">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Familiar:</span>
+                                  <span className="font-bold text-slate-800 truncate block">
+                                    {os.formData.nomeFamiliar} ({os.formData.telefoneFamiliar || 'Sem fone'})
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="border-t border-slate-200/60 pt-1.5 space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-500 font-semibold">Atendente:</span>
+                                  <span className="font-bold text-slate-800 truncate max-w-[150px]">
+                                    {os.atendenteName || 'Atendente'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-500 font-semibold">Agente 1 (Iniciou):</span>
+                                  <span className={`font-bold truncate max-w-[150px] ${isOpenAndWaiting ? 'text-amber-800 font-extrabold' : 'text-slate-900'}`}>
+                                    {os.responsavelName}
+                                  </span>
+                                </div>
+
+                                {os.agentesAcompanhamento && os.agentesAcompanhamento.length > 0 && (
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="text-indigo-600 font-semibold">Agente 2 (Acompanha):</span>
+                                    <span className="font-bold text-indigo-950 truncate max-w-[150px]">
+                                      {os.agentesAcompanhamento.map(a => a.name).join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Quick Action Contact Buttons if phone */}
+                            {os.formData?.telefoneFamiliar && (
+                              <div className="flex items-center gap-1.5 mb-3">
+                                <a
+                                  href={`tel:${os.formData.telefoneFamiliar}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
+                                  title="Ligar para o Familiar"
+                                >
+                                  <Phone className="h-3.5 w-3.5 text-blue-600" />
+                                  <span>Ligar</span>
+                                </a>
+
+                                {os.formData.whatsappFamiliar && (
+                                  <a
+                                    href={`https://wa.me/55${os.formData.whatsappFamiliar.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex-1 py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
+                                    title="WhatsApp"
+                                  >
+                                    <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span>Whats</span>
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Progress bar */}
+                            <div className="pt-1">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
+                                <span>Checklist</span>
+                                <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 text-[10px]">
+                                  {completedCount}/{totalChecklist} ({pct}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/80">
+                                <div 
+                                  className={`h-full transition-all duration-300 rounded-full ${
+                                    isFinished ? 'bg-emerald-600' : 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* CTA Pickup / Open / Accompany buttons */}
+                          <div className="mt-5 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                            {isOpenAndWaiting ? (
+                              <button
+                                onClick={() => handlePickupOS(os.id)}
+                                className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white font-black text-xs rounded-xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <Zap className="h-4 w-4" />
+                                <span>⚡ Iniciar Atendimento</span>
+                              </button>
+                            ) : !isFinished && os.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() && !(os.agentesAcompanhamento && os.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())) ? (
+                              <button
+                                onClick={() => handleAccompanyOS(os.id)}
+                                className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <UserCheck className="h-4 w-4" />
+                                <span>🤝 Registrar Meu Acompanhamento</span>
+                              </button>
+                            ) : null}
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedOsId(os.id);
+                                  setView('detail');
+                                }}
+                                className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs"
+                              >
+                                <span>Ver Atendimento</span>
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={(e) => handleDeleteOS(os.id, os.osNumber, e)}
+                                className="p-2 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 border border-slate-200 rounded-xl transition-all cursor-pointer shrink-0"
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-
-                  <SpellCheckTextarea
-                    rows={4}
-                    value={checkitemModal.observations}
-                    onChangeValue={(val) => setCheckitemModal((prev) => prev ? { ...prev, observations: val } : null)}
-                    placeholder="Digite ocorrências durante o atendimento, pendências, observações relevantes..."
-                  />
-                </div>
-
-                {/* Modal Actions */}
-                <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setCheckitemModal(null)}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-
-                  {checkitemModal.isCompleted ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const { osId, itemId } = checkitemModal;
-                          setCheckitemModal(null);
-                          await handleToggleCheckitem(osId, itemId);
-                        }}
-                        className="w-full sm:w-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-                      >
-                        Desmarcar Etapa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveItemObservationsOnly}
-                        disabled={checkitemModal.isSaving}
-                        className="w-full sm:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {checkitemModal.isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const { osId, itemId, observations, photoUrl } = checkitemModal;
-                        setCheckitemModal(null);
-                        await handleToggleCheckitem(osId, itemId, observations, photoUrl);
-                      }}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                    >
-                      Confirmar e Concluir Etapa
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                );
+              })()}
+            </div>
+          )}
+        </>
       )}
 
       {/* MODAL FULLSCREEN PREVIEW DE FOTO */}

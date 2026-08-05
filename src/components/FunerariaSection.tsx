@@ -45,7 +45,8 @@ import {
   ChevronUp,
   Paperclip,
   Sparkles,
-  UserCheck
+  UserCheck,
+  UserMinus
 } from 'lucide-react';
 import { SatisfactionSurveySection } from './SatisfactionSurveySection';
 import { NewFuneralOrderForm, OpeningFormData, AttachmentPhoto, AttachmentAudio } from './NewFuneralOrderForm';
@@ -547,9 +548,71 @@ export const FunerariaSection: React.FC = () => {
       }));
 
       showToast(`🤝 Você foi registrado como agente de acompanhamento na OS ${targetOS.osNumber}!`);
+      
+      // Sync to Supabase if configured
+      supabaseService.saveOrder({
+        ...targetOS,
+        agentesAcompanhamento: updatedAcompanhamento,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString()
+      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
     } catch (err) {
       console.error("Erro ao registrar acompanhamento:", err);
       showToast("Não foi possível registrar o acompanhamento.");
+    }
+  };
+
+  // Agent Accompany Removal Handler ("Retirar do Acompanhamento")
+  const handleRemoveAccompanyOS = async (osId: string, agentNameToRemove?: string) => {
+    const targetOS = orders.find((o) => o.id === osId);
+    if (!targetOS) return;
+
+    const nameToRemove = agentNameToRemove || loggedInAgentName;
+
+    try {
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const existingAcompanhamento = targetOS.agentesAcompanhamento || [];
+      const updatedAcompanhamento = existingAcompanhamento.filter(
+        a => a.name.toLowerCase() !== nameToRemove.toLowerCase()
+      );
+
+      const newTimelineEntry: TimelineEntry = {
+        id: `time-${Date.now()}`,
+        timestampISO: now.toISOString(),
+        dateFormatted,
+        timeFormatted,
+        userName: loggedInAgentName,
+        action: `Agente ${nameToRemove} foi removido do acompanhamento da OS`,
+        type: 'status'
+      };
+
+      const existingTimeline = targetOS.timeline || [];
+      const updatedTimeline = [...existingTimeline, newTimelineEntry];
+
+      const osDocRef = doc(db, 'funeraria_os', osId);
+      await updateDoc(osDocRef, cleanFirestoreObject({
+        agentesAcompanhamento: updatedAcompanhamento,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString(),
+        updatedDateFormatted: dateFormatted,
+        updatedTimeFormatted: timeFormatted
+      }));
+
+      // Sync to Supabase if configured
+      supabaseService.saveOrder({
+        ...targetOS,
+        agentesAcompanhamento: updatedAcompanhamento,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString()
+      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+
+      showToast(`🚪 ${nameToRemove} foi removido do acompanhamento da OS ${targetOS.osNumber}!`);
+    } catch (err) {
+      console.error("Erro ao remover acompanhamento:", err);
+      showToast("Não foi possível remover o acompanhamento.");
     }
   };
 
@@ -686,8 +749,17 @@ export const FunerariaSection: React.FC = () => {
         updatedTimeFormatted: timeShortStr
       }));
 
+      // Sync to Supabase if configured
+      supabaseService.saveOrder({
+        ...currentOS,
+        checklist: updatedChecklist,
+        status: newOsStatus,
+        timeline: updatedTimeline,
+        updatedAtISO: now.toISOString()
+      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+
       if (!wasCompleted) {
-        showToast(`✓ Etapa "${targetItem?.label}" concluída!`);
+        showToast(`✓ Etapa "${targetItem?.label}" concluída por ${loggedInAgentName || 'Agente'}!`);
       } else {
         showToast(`Etapa "${targetItem?.label}" desmarcada.`);
       }
@@ -748,6 +820,14 @@ export const FunerariaSection: React.FC = () => {
     try {
       const osDocRef = doc(db, 'funeraria_os', osId);
       await updateDoc(osDocRef, cleanFirestoreObject({ checklist: updatedChecklist }));
+
+      // Sync to Supabase if configured
+      supabaseService.saveOrder({
+        ...currentOS,
+        checklist: updatedChecklist,
+        updatedAtISO: new Date().toISOString()
+      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+
       showToast("Observações atualizadas com sucesso!");
     } catch (err) {
       console.error("Erro ao salvar observações:", err);
@@ -1118,23 +1198,6 @@ export const FunerariaSection: React.FC = () => {
                           </p>
                         )}
                       </div>
-
-                      {/* Status Dropdown & Picker */}
-                      <div className="shrink-0 space-y-2">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status Atual do Serviço:</label>
-                        <select
-                          value={selectedOS.status}
-                          onChange={(e) => handleUpdateOSStatus(selectedOS.id, e.target.value as any)}
-                          className="px-3.5 py-2 rounded-2xl bg-slate-900 text-white font-bold text-xs border border-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer shadow-sm"
-                        >
-                          <option value="Aberto">🟢 Aberto (Aguardando Agente)</option>
-                          <option value="Em remoção">🚑 Em Remoção</option>
-                          <option value="Em preparação">🧼 Em Preparação</option>
-                          <option value="Em velório">🕯️ Em Velório</option>
-                          <option value="Em sepultamento/cremação">⚰️ Em Sepultamento / Cremação</option>
-                          <option value="Finalizado">✅ Finalizado / Encerrado</option>
-                        </select>
-                      </div>
                     </div>
 
                     {/* Banners for Start Service or Accompany Service */}
@@ -1178,15 +1241,25 @@ export const FunerariaSection: React.FC = () => {
                           </div>
                         </div>
 
-                        {selectedOS.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() &&
-                         !(selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())) && (
-                          <button
-                            onClick={() => handleAccompanyOS(selectedOS.id)}
-                            className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                            <span>🤝 Adicionar Meu Acompanhamento (Agente 2)</span>
-                          </button>
+                        {selectedOS.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() && (
+                          selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase()) ? (
+                            <button
+                              onClick={() => handleRemoveAccompanyOS(selectedOS.id, loggedInAgentName)}
+                              className="w-full sm:w-auto px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 shadow-2xs"
+                              title="Retirar meu nome do acompanhamento desta OS"
+                            >
+                              <UserMinus className="h-4 w-4 text-rose-600" />
+                              <span>🚪 Retirar Meu Acompanhamento</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAccompanyOS(selectedOS.id)}
+                              className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                              <span>🤝 Adicionar Meu Acompanhamento (Agente 2)</span>
+                            </button>
+                          )
                         )}
                       </div>
                     ) : null}
@@ -1253,13 +1326,27 @@ export const FunerariaSection: React.FC = () => {
                       </div>
 
                       <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100/80">
-                        <span className="text-indigo-700 font-bold uppercase text-[10px] block">3. Agente(s) Acompanhamento</span>
-                        <span className="font-extrabold text-slate-900 text-sm block">
-                          {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.length > 0
-                            ? selectedOS.agentesAcompanhamento.map(a => a.name).join(', ')
-                            : 'Nenhum outro agente'}
-                        </span>
-                        <span className="text-[10px] text-indigo-600 font-medium block">Suporte Conjunto</span>
+                        <span className="text-indigo-700 font-bold uppercase text-[10px] block mb-1">3. Agente(s) Acompanhamento</span>
+                        {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.length > 0 ? (
+                          <div className="space-y-1">
+                            {selectedOS.agentesAcompanhamento.map((agente, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs bg-white/80 px-2 py-1 rounded-lg border border-indigo-100/80">
+                                <span className="font-extrabold text-indigo-950 truncate max-w-[120px]">{agente.name}</span>
+                                <button
+                                  onClick={() => handleRemoveAccompanyOS(selectedOS.id, agente.name)}
+                                  className="text-rose-600 hover:text-rose-800 hover:bg-rose-100/70 px-1.5 py-0.5 rounded transition-colors text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                  title={`Retirar ${agente.name} do acompanhamento`}
+                                >
+                                  <UserMinus className="h-3 w-3" />
+                                  <span>Retirar</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="font-extrabold text-slate-500 text-sm block">Nenhum outro agente</span>
+                        )}
+                        <span className="text-[10px] text-indigo-600 font-medium block mt-1">Suporte Conjunto</span>
                       </div>
                     </div>
 
@@ -1445,7 +1532,7 @@ export const FunerariaSection: React.FC = () => {
                     return (
                       <div
                         key={item.id}
-                        onClick={() => openCheckitemModal(selectedOS.id, item.id)}
+                        onClick={() => handleToggleCheckitem(selectedOS.id, item.id)}
                         className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer select-none ${
                           item.completed 
                             ? 'bg-purple-50/40 hover:bg-purple-100/60' 
@@ -1455,7 +1542,7 @@ export const FunerariaSection: React.FC = () => {
                         <div className="flex items-start gap-3.5 min-w-0 flex-1">
                           <div className="shrink-0 mt-0.5">
                             {item.completed ? (
-                              <div className="h-6 w-6 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                              <div className="h-6 w-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
                                 <CheckSquare className="h-4 w-4" />
                               </div>
                             ) : (
@@ -1467,11 +1554,26 @@ export const FunerariaSection: React.FC = () => {
 
                           <div className="min-w-0 flex-1 space-y-1">
                             <span className={`text-sm font-bold block ${
-                              item.completed ? 'text-slate-900 line-through text-slate-500' : 'text-slate-800'
+                              item.completed ? 'text-slate-900 font-extrabold' : 'text-slate-800'
                             } ${isLastItem ? 'text-purple-950 font-black' : ''}`}>
                               <span className="text-slate-400 font-semibold mr-2">{idx + 1}.</span>
                               {item.label}
                             </span>
+
+                            {item.completed && (
+                              <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-950 border border-emerald-200/90 font-bold">
+                                  <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                                  <span>Concluído por: <strong className="font-black text-emerald-950">{item.completedBy || loggedInAgentName || 'Agente'}</strong></span>
+                                </span>
+                                {item.completedAt && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200/70">
+                                    <Clock className="h-3 w-3 text-slate-500" />
+                                    <span>{item.completedAt}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
 
                             {item.completed && (item.observations || item.photoUrl) && (
                               <div className="mt-2 p-2.5 bg-purple-50/80 border border-purple-100 rounded-xl space-y-1.5 text-xs text-slate-700">
@@ -1487,16 +1589,18 @@ export const FunerariaSection: React.FC = () => {
                         </div>
 
                         <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
-                          {item.completed ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200">
-                              <Clock className="h-3.5 w-3.5 text-purple-600" />
-                              <span>{item.completedAt}</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-500 font-semibold text-[11px]">
-                              Pendente
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCheckitemModal(selectedOS.id, item.id);
+                            }}
+                            className="p-2 text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            title="Adicionar / Editar observações ou fotos desta etapa"
+                          >
+                            <MessageSquare className="h-4 w-4 text-purple-600" />
+                            <span className="hidden sm:inline">Obs / Foto</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -1756,11 +1860,29 @@ export const FunerariaSection: React.FC = () => {
                                 </div>
 
                                 {os.agentesAcompanhamento && os.agentesAcompanhamento.length > 0 && (
-                                  <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-indigo-600 font-semibold">Agente 2 (Acompanha):</span>
-                                    <span className="font-bold text-indigo-950 truncate max-w-[150px]">
-                                      {os.agentesAcompanhamento.map(a => a.name).join(', ')}
-                                    </span>
+                                  <div className="flex items-center justify-between text-[11px] gap-1 pt-0.5">
+                                    <span className="text-indigo-600 font-semibold shrink-0">Agente 2 (Acompanha):</span>
+                                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                                      {os.agentesAcompanhamento.map((agente, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-950 border border-indigo-200/80 rounded-md font-bold text-[10px]"
+                                        >
+                                          <span className="truncate max-w-[100px]">{agente.name}</span>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRemoveAccompanyOS(os.id, agente.name);
+                                            }}
+                                            className="text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded p-0.5 transition-colors cursor-pointer"
+                                            title={`Retirar ${agente.name} do acompanhamento`}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -1881,6 +2003,86 @@ export const FunerariaSection: React.FC = () => {
               <X className="h-5 w-5" />
             </button>
             <img src={previewPhotoModal} alt="Foto expandida" className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE OBSERVAÇÃO / FOTO DO CHECKLIST */}
+      {checkitemModal && checkitemModal.isOpen && (
+        <div 
+          onClick={() => setCheckitemModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in"
+        >
+          <div 
+            className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 border border-slate-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-purple-600 block">Observação da Etapa</span>
+                <h3 className="text-lg font-black text-slate-900">{checkitemModal.itemLabel}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckitemModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {checkitemModal.completedBy && (
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-xs flex items-center justify-between text-emerald-900 font-semibold">
+                <span>Concluído por: <strong className="font-extrabold text-emerald-950">{checkitemModal.completedBy}</strong></span>
+                {checkitemModal.completedAt && <span className="text-emerald-700">às {checkitemModal.completedAt}</span>}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Observações ou Anotações da Etapa:
+                </label>
+                <textarea
+                  value={checkitemModal.observations}
+                  onChange={(e) => setCheckitemModal(prev => prev ? { ...prev, observations: e.target.value } : null)}
+                  placeholder="Ex: Documentação entregue no cartório, ornamentação concluída com flores brancas..."
+                  rows={3}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  URL ou Link da Foto (opcional):
+                </label>
+                <input
+                  type="text"
+                  value={checkitemModal.photoUrl}
+                  onChange={(e) => setCheckitemModal(prev => prev ? { ...prev, photoUrl: e.target.value } : null)}
+                  placeholder="https://exemplo.com/foto.jpg"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCheckitemModal(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveItemObservationsOnly}
+                disabled={checkitemModal.isSaving}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                {checkitemModal.isSaving ? 'Salvando...' : 'Salvar Observação'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -220,6 +220,7 @@ export const FunerariaSection: React.FC = () => {
   // Navigation state inside OS: 'list' | 'new' | 'detail' | 'track'
   const [view, setView] = useState<'list' | 'new' | 'detail' | 'track'>('list');
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
+  const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
 
   // Sub-tab filter in list view: 'em_andamento' | 'todas' | 'finalizadas'
   const [listTab, setListTab] = useState<'em_andamento' | 'todas' | 'finalizadas'>('em_andamento');
@@ -531,7 +532,7 @@ export const FunerariaSection: React.FC = () => {
         dateFormatted,
         timeFormatted,
         userName: loggedInAgentName,
-        action: `Agente ${loggedInAgentName} entrou para acompanhamento e suporte do atendimento`,
+        action: `Agente ${loggedInAgentName} entrou para dar continuidade e acompanhamento ao atendimento`,
         type: 'pickup'
       };
 
@@ -547,7 +548,7 @@ export const FunerariaSection: React.FC = () => {
         updatedTimeFormatted: timeFormatted
       }));
 
-      showToast(`🤝 Você foi registrado como agente de acompanhamento na OS ${targetOS.osNumber}!`);
+      showToast(`🤝 Você entrou para dar continuidade e acompanhamento na OS ${targetOS.osNumber}!`);
       
       // Sync to Supabase if configured
       supabaseService.saveOrder({
@@ -657,6 +658,10 @@ export const FunerariaSection: React.FC = () => {
 
   // Toggle checklist item
   const handleToggleCheckitem = async (osId: string, itemId: string, customObs?: string, customPhoto?: string) => {
+    if (isReadOnlyView) {
+      showToast("🔒 Esta ordem está em modo de apenas visualização.");
+      return;
+    }
     const currentOS = orders.find((o) => o.id === osId);
     if (!currentOS) return;
 
@@ -793,6 +798,11 @@ export const FunerariaSection: React.FC = () => {
 
   const handleSaveItemObservationsOnly = async () => {
     if (!checkitemModal) return;
+    if (checkitemModal.isReadOnly) {
+      showToast("🔒 Modo de apenas visualização ativo.");
+      setCheckitemModal(null);
+      return;
+    }
     const { osId, itemId, observations, photoUrl } = checkitemModal;
     const currentOS = orders.find((o) => o.id === osId);
     if (!currentOS) return;
@@ -1132,32 +1142,48 @@ export const FunerariaSection: React.FC = () => {
               className="space-y-6 max-w-5xl mx-auto"
             >
               {/* Top Navigation */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <button
-                  onClick={() => setView('list')}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Lista de Ordens</span>
-                </button>
+              <div className="space-y-3">
+                {isReadOnlyView && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-center gap-3 text-amber-950 shadow-2xs">
+                    <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold shadow-2xs">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-800 block">Modo Apenas Visualização</span>
+                      <p className="text-xs font-medium text-amber-900">Você está visualizando esta Ordem de Serviço em modo de leitura. Nenhuma alteração pode ser realizada nesta ordem.</p>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <button
-                    onClick={() => setView('track')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                    title="Acompanhar Atendimento"
+                    onClick={() => setView('list')}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
-                    <Eye className="h-4 w-4" />
-                    <span>Acompanhar Ordem</span>
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Lista de Ordens</span>
                   </button>
 
-                  <button
-                    onClick={(e) => handleDeleteOS(selectedOS.id, selectedOS.osNumber, e)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4 text-rose-600" />
-                    <span>Excluir</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setView('track')}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                      title="Acompanhar Atendimento"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>Acompanhar Ordem</span>
+                    </button>
+
+                    {!isReadOnlyView && (
+                      <button
+                        onClick={(e) => handleDeleteOS(selectedOS.id, selectedOS.osNumber, e)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4 text-rose-600" />
+                        <span>Excluir</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1174,6 +1200,13 @@ export const FunerariaSection: React.FC = () => {
                           <span className="text-xs font-bold text-purple-600 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full">
                             Ordem de Serviço #{selectedOS.osNumber}
                           </span>
+
+                          {isReadOnlyView && (
+                            <span className="text-xs font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <Lock className="h-3.5 w-3.5 text-amber-700" />
+                              Apenas Leitura
+                            </span>
+                          )}
 
                           {selectedOS.prioridade && (
                             <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
@@ -1201,68 +1234,70 @@ export const FunerariaSection: React.FC = () => {
                     </div>
 
                     {/* Banners for Start Service or Accompany Service */}
-                    {isOpenAndWaiting ? (
-                      <div className="p-4 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border-2 border-amber-400/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-bounce">
-                            <Zap className="h-5 w-5" />
+                    {!isReadOnlyView && (
+                      isOpenAndWaiting ? (
+                        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border-2 border-amber-400/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-bounce">
+                              <Zap className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-slate-900">Atendimento Aberto pelo Atendente ({selectedOS.atendenteName || 'Atendente'})</h4>
+                              <p className="text-xs text-slate-600">
+                                Clique no botão para iniciar o atendimento. Seu nome será registrado como o Agente Principal (Agente 1).
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-black text-slate-900">Atendimento Aberto pelo Atendente ({selectedOS.atendenteName || 'Atendente'})</h4>
-                            <p className="text-xs text-slate-600">
-                              Clique no botão para iniciar o atendimento. Seu nome será registrado como o Agente Principal (Agente 1).
-                            </p>
-                          </div>
-                        </div>
 
-                        <button
-                          onClick={() => handlePickupOS(selectedOS.id)}
-                          className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer shrink-0"
-                        >
-                          <UserCheck className="h-4 w-4" />
-                          <span>⚡ Iniciar Atendimento</span>
-                        </button>
-                      </div>
-                    ) : !isFinished ? (
-                      <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <UserCheck className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900">Atendimento em Andamento pelo Agente 1 ({selectedOS.responsavelName})</h4>
-                            <p className="text-xs text-slate-600">
-                              {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())
-                                ? `Você (${loggedInAgentName}) está registrado no acompanhamento deste atendimento.`
-                                : selectedOS.responsavelName.toLowerCase() === loggedInAgentName.toLowerCase()
-                                ? `Você é o Agente Principal responsável por esta ordem.`
-                                : `Outro agente pode se registrar para dar acompanhamento e suporte conjunto.`}
-                            </p>
-                          </div>
+                          <button
+                            onClick={() => handlePickupOS(selectedOS.id)}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer shrink-0"
+                          >
+                            <UserCheck className="h-4 w-4" />
+                            <span>⚡ Iniciar Atendimento</span>
+                          </button>
                         </div>
+                      ) : !isFinished ? (
+                        <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                              <UserCheck className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900">Atendimento em Andamento por {selectedOS.responsavelName}</h4>
+                              <p className="text-xs text-slate-600">
+                                {selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase())
+                                  ? `Você (${loggedInAgentName}) está registrado no acompanhamento deste atendimento.`
+                                  : selectedOS.responsavelName.toLowerCase() === loggedInAgentName.toLowerCase()
+                                  ? `Você é o Agente Principal responsável por esta ordem.`
+                                  : `Clique no botão ao lado para dar continuidade ao atendimento e prestar suporte em equipe.`}
+                              </p>
+                            </div>
+                          </div>
 
-                        {selectedOS.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() && (
-                          selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase()) ? (
-                            <button
-                              onClick={() => handleRemoveAccompanyOS(selectedOS.id, loggedInAgentName)}
-                              className="w-full sm:w-auto px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 shadow-2xs"
-                              title="Retirar meu nome do acompanhamento desta OS"
-                            >
-                              <UserMinus className="h-4 w-4 text-rose-600" />
-                              <span>🚪 Retirar Meu Acompanhamento</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleAccompanyOS(selectedOS.id)}
-                              className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
-                            >
-                              <UserCheck className="h-4 w-4" />
-                              <span>🤝 Adicionar Meu Acompanhamento (Agente 2)</span>
-                            </button>
-                          )
-                        )}
-                      </div>
-                    ) : null}
+                          {selectedOS.responsavelName.toLowerCase() !== loggedInAgentName.toLowerCase() && (
+                            selectedOS.agentesAcompanhamento && selectedOS.agentesAcompanhamento.some(a => a.name.toLowerCase() === loggedInAgentName.toLowerCase()) ? (
+                              <button
+                                onClick={() => handleRemoveAccompanyOS(selectedOS.id, loggedInAgentName)}
+                                className="w-full sm:w-auto px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 shadow-2xs"
+                                title="Retirar meu nome do acompanhamento desta OS"
+                              >
+                                <UserMinus className="h-4 w-4 text-rose-600" />
+                                <span>🚪 Sair do Acompanhamento</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleAccompanyOS(selectedOS.id)}
+                                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
+                              >
+                                <UserCheck className="h-4 w-4" />
+                                <span>🤝 Dar Continuidade ao Atendimento</span>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      ) : null
+                    )}
 
                     {/* Contact Quick Action Bar (Call, WhatsApp, Maps Route) */}
                     {selectedOS.formData && (
@@ -1355,18 +1390,43 @@ export const FunerariaSection: React.FC = () => {
                       const total = selectedOS.checklist.length;
                       const completedCount = selectedOS.checklist.filter(i => i.completed).length;
                       const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+                      const pendingIndex = selectedOS.checklist.findIndex(i => !i.completed);
+                      const currentStep = pendingIndex !== -1 ? selectedOS.checklist[pendingIndex] : null;
 
                       return (
-                        <div className="pt-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
+                        <div className="pt-2 space-y-3">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
                             <span className="flex items-center gap-1.5">
                               <CheckSquare className="h-4 w-4 text-purple-600" />
                               Progresso do Checklist Operacional
                             </span>
-                            <span className="text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                            <span className="text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200 font-extrabold">
                               {completedCount} de {total} concluídos ({pct}%)
                             </span>
                           </div>
+
+                          {!isFinished && !isOpenAndWaiting && (
+                            <div className="p-4 bg-gradient-to-r from-purple-50 via-indigo-50/70 to-purple-50 border border-purple-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                                  {pendingIndex >= 0 ? pendingIndex + 1 : total}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 block">
+                                    Status Atual: Em Andamento • Etapa {pendingIndex >= 0 ? pendingIndex + 1 : total} de {total}
+                                  </span>
+                                  <span className="font-extrabold text-slate-900 text-sm block truncate">
+                                    {currentStep ? currentStep.label : 'Todas as etapas concluídas'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="px-3.5 py-1.5 bg-purple-600 text-white rounded-xl text-xs font-black shrink-0 shadow-xs flex items-center justify-center gap-1.5">
+                                <Activity className="h-4 w-4 animate-pulse" />
+                                <span>Em Andamento</span>
+                              </span>
+                            </div>
+                          )}
+
                           <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200/80">
                             <div 
                               className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full transition-all duration-500 rounded-full"
@@ -1529,13 +1589,20 @@ export const FunerariaSection: React.FC = () => {
                 <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
                   {selectedOS.checklist.map((item, idx) => {
                     const isLastItem = item.label === 'Serviço encerrado';
+                    const isOSFinished = selectedOS.status === 'Finalizado' || selectedOS.status === 'Finalizada' || selectedOS.status === 'Serviço Encerrado';
+                    const isOSOpenAndWaiting = selectedOS.status === 'Aberto' || selectedOS.responsavelName === 'Aguardando Agente';
+                    const pendingIndex = selectedOS.checklist.findIndex(i => !i.completed);
+                    const isCurrentActiveStep = !isOSFinished && !isOSOpenAndWaiting && !item.completed && idx === pendingIndex;
+
                     return (
                       <div
                         key={item.id}
                         onClick={() => handleToggleCheckitem(selectedOS.id, item.id)}
-                        className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer select-none ${
+                        className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all cursor-pointer select-none ${
                           item.completed 
                             ? 'bg-purple-50/40 hover:bg-purple-100/60' 
+                            : isCurrentActiveStep
+                            ? 'bg-purple-100/40 hover:bg-purple-100/80 border-l-4 border-l-purple-600 ring-1 ring-purple-300/80 shadow-2xs'
                             : 'hover:bg-slate-50/80 bg-white'
                         } ${isLastItem ? 'bg-amber-50/30' : ''}`}
                       >
@@ -1545,6 +1612,10 @@ export const FunerariaSection: React.FC = () => {
                               <div className="h-6 w-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
                                 <CheckSquare className="h-4 w-4" />
                               </div>
+                            ) : isCurrentActiveStep ? (
+                              <div className="h-6 w-6 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs animate-pulse">
+                                <Activity className="h-3.5 w-3.5" />
+                              </div>
                             ) : (
                               <div className="h-6 w-6 rounded-lg border-2 border-slate-300 text-slate-300 hover:border-purple-400 flex items-center justify-center">
                                 <Square className="h-4 w-4 opacity-0" />
@@ -1553,12 +1624,21 @@ export const FunerariaSection: React.FC = () => {
                           </div>
 
                           <div className="min-w-0 flex-1 space-y-1">
-                            <span className={`text-sm font-bold block ${
-                              item.completed ? 'text-slate-900 font-extrabold' : 'text-slate-800'
-                            } ${isLastItem ? 'text-purple-950 font-black' : ''}`}>
-                              <span className="text-slate-400 font-semibold mr-2">{idx + 1}.</span>
-                              {item.label}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-sm font-bold block ${
+                                item.completed ? 'text-slate-900 font-extrabold' : isCurrentActiveStep ? 'text-purple-950 font-black' : 'text-slate-800'
+                              } ${isLastItem ? 'text-purple-950 font-black' : ''}`}>
+                                <span className="text-slate-400 font-semibold mr-2">{idx + 1}.</span>
+                                {item.label}
+                              </span>
+
+                              {isCurrentActiveStep && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-600 text-white font-black text-[10px] animate-pulse shadow-2xs">
+                                  <Activity className="h-3 w-3" />
+                                  Etapa Atual (Em Andamento)
+                                </span>
+                              )}
+                            </div>
 
                             {item.completed && (
                               <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
@@ -1593,7 +1673,7 @@ export const FunerariaSection: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openCheckitemModal(selectedOS.id, item.id);
+                              openCheckitemModal(selectedOS.id, item.id, isReadOnlyView);
                             }}
                             className="p-2 text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
                             title="Adicionar / Editar observações ou fotos desta etapa"
@@ -1792,6 +1872,8 @@ export const FunerariaSection: React.FC = () => {
                       const pct = totalChecklist > 0 ? Math.round((completedCount / totalChecklist) * 100) : 0;
                       const isFinished = os.status === 'Finalizado' || os.status === 'Finalizada' || os.status === 'Serviço Encerrado';
                       const isOpenAndWaiting = os.status === 'Aberto' || os.responsavelName === 'Aguardando Agente';
+                      const pendingIndex = os.checklist.findIndex(i => !i.completed);
+                      const currentStepItem = pendingIndex !== -1 ? os.checklist[pendingIndex] : null;
 
                       return (
                         <motion.div
@@ -1819,12 +1901,31 @@ export const FunerariaSection: React.FC = () => {
                                   Finalizada
                                 </span>
                               ) : (
-                                <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[11px] inline-flex items-center gap-1">
-                                  <Activity className="h-3.5 w-3.5 text-purple-600" />
-                                  {os.status}
+                                <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-950 border border-purple-300 font-bold text-[11px] inline-flex items-center gap-1 shadow-2xs">
+                                  <Activity className="h-3.5 w-3.5 text-purple-600 animate-pulse" />
+                                  Em Andamento
                                 </span>
                               )}
                             </div>
+
+                            {/* Status "Em Andamento" and Current Step Banner */}
+                            {!isOpenAndWaiting && !isFinished && (
+                              <div className="p-2.5 bg-purple-50/90 border border-purple-200/90 rounded-2xl mb-3 space-y-1">
+                                <div className="flex items-center justify-between text-[10px] font-black uppercase text-purple-700 tracking-wider">
+                                  <span className="flex items-center gap-1">
+                                    <Activity className="h-3 w-3 text-purple-600 animate-pulse" />
+                                    Em Andamento
+                                  </span>
+                                  <span className="bg-purple-200/80 text-purple-950 px-1.5 py-0.5 rounded-md font-extrabold">
+                                    Etapa {pendingIndex >= 0 ? pendingIndex + 1 : totalChecklist} de {totalChecklist}
+                                  </span>
+                                </div>
+                                <div className="text-xs font-extrabold text-slate-900 truncate flex items-center gap-1.5 pt-0.5">
+                                  <span className="h-2 w-2 rounded-full bg-purple-600 animate-ping shrink-0" />
+                                  <span className="truncate">{currentStepItem ? currentStepItem.label : 'Checklist concluído'}</span>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Falecido, Familiar, Atendente & Agentes info */}
                             <div className="space-y-2 text-xs text-slate-600 mb-4 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
@@ -1952,20 +2053,35 @@ export const FunerariaSection: React.FC = () => {
                                 className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                               >
                                 <UserCheck className="h-4 w-4" />
-                                <span>🤝 Registrar Meu Acompanhamento</span>
+                                <span>🤝 Dar Continuidade ao Atendimento</span>
                               </button>
                             ) : null}
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                               <button
                                 onClick={() => {
                                   setSelectedOsId(os.id);
+                                  setIsReadOnlyView(false);
                                   setView('detail');
                                 }}
-                                className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs"
+                                className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs min-w-[110px]"
+                                title="Abrir ordem para gerenciamento e edição"
                               >
                                 <span>Ver Atendimento</span>
                                 <ChevronRight className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedOsId(os.id);
+                                  setIsReadOnlyView(true);
+                                  setView('detail');
+                                }}
+                                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+                                title="Apenas visualizar a ordem sem permissão de alterar nada"
+                              >
+                                <Lock className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Apenas Visualizar</span>
                               </button>
 
                               <button
@@ -2046,9 +2162,10 @@ export const FunerariaSection: React.FC = () => {
                 <textarea
                   value={checkitemModal.observations}
                   onChange={(e) => setCheckitemModal(prev => prev ? { ...prev, observations: e.target.value } : null)}
+                  disabled={checkitemModal.isReadOnly}
                   placeholder="Ex: Documentação entregue no cartório, ornamentação concluída com flores brancas..."
                   rows={3}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium disabled:opacity-80 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -2060,28 +2177,42 @@ export const FunerariaSection: React.FC = () => {
                   type="text"
                   value={checkitemModal.photoUrl}
                   onChange={(e) => setCheckitemModal(prev => prev ? { ...prev, photoUrl: e.target.value } : null)}
+                  disabled={checkitemModal.isReadOnly}
                   placeholder="https://exemplo.com/foto.jpg"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium disabled:opacity-80 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setCheckitemModal(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveItemObservationsOnly}
-                disabled={checkitemModal.isSaving}
-                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                {checkitemModal.isSaving ? 'Salvando...' : 'Salvar Observação'}
-              </button>
+              {checkitemModal.isReadOnly ? (
+                <button
+                  type="button"
+                  onClick={() => setCheckitemModal(null)}
+                  className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Lock className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Fechar (Modo Leitura)</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCheckitemModal(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveItemObservationsOnly}
+                    disabled={checkitemModal.isSaving}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    {checkitemModal.isSaving ? 'Salvando...' : 'Salvar Observação'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

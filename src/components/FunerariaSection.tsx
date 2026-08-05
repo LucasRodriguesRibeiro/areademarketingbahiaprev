@@ -80,6 +80,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
+import { supabaseService } from '../lib/supabaseService';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 
 const GOOGLE_MAPS_API_KEY =
@@ -434,6 +435,11 @@ export const FunerariaSection: React.FC = () => {
       };
 
       const docRef = await addDoc(osRef, newOsData);
+
+      // Sync with Supabase if configured
+      supabaseService.saveOrder({ id: docRef.id, ...newOsData }).catch(err => {
+        console.warn("Supabase dual-write:", err);
+      });
 
       showToast(`Ordem de Serviço ${osNumber} criada com sucesso! Aguardando agente.`);
       setSelectedOsId(docRef.id);

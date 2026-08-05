@@ -27,6 +27,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
+import { SupabaseMigrationModal } from './components/SupabaseMigrationModal';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -34,6 +35,7 @@ function MainAppContent() {
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
@@ -243,6 +245,11 @@ function MainAppContent() {
       <InstallPwaModal 
         isOpen={isInstallModalOpen} 
         onClose={() => setIsInstallModalOpen(false)} 
+      />
+
+      <SupabaseMigrationModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
       />
     </div>
   );

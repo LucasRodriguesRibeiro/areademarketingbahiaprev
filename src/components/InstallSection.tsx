@@ -13,13 +13,16 @@ import {
   Download,
   Globe,
   Compass,
-  Laptop
+  Laptop,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 import logoAplicativo from '../assets/images/logoaplicativo.png';
 
 export const InstallSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ios' | 'android'>('ios');
+  const { canInstallNatively, triggerInstall, isInstalled } = usePwaInstall();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
@@ -54,6 +57,27 @@ export const InstallSection: React.FC = () => {
           <p className="text-sm sm:text-base text-slate-300 mt-3 leading-relaxed">
             Siga o passo a passo simples abaixo para adicionar o ícone do aplicativo diretamente na tela inicial do seu iPhone ou celular Android. Funciona como um aplicativo nativo, sem ocupar espaço na memória.
           </p>
+
+          {canInstallNatively && (
+            <div className="mt-5 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl border border-blue-400/40 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Zap className="h-5 w-5 text-yellow-300 fill-yellow-300" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white">Instalar Diretamente em 1 Clique</h3>
+                  <p className="text-xs text-blue-100">Seu dispositivo permite instalação direta agora!</p>
+                </div>
+              </div>
+              <button
+                onClick={triggerInstall}
+                className="w-full sm:w-auto px-6 py-3 bg-white text-blue-950 font-black text-xs sm:text-sm rounded-xl shadow-lg hover:bg-blue-50 transition-all cursor-pointer flex items-center justify-center gap-2 border border-white/60 active:scale-95 shrink-0"
+              >
+                <Download className="h-4 w-4 text-blue-600" />
+                <span>Instalar Aplicativo Agora</span>
+              </button>
+            </div>
+          )}
 
           {/* Quick Platform Switcher Tabs */}
           <div className="mt-8 inline-flex p-1.5 bg-slate-800/90 rounded-2xl border border-slate-700/80 shadow-lg gap-2">

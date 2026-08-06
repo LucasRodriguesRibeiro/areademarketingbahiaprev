@@ -9,9 +9,12 @@ import {
   ChevronRight,
   Info,
   Apple,
-  Download
+  Download,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 import logoAplicativo from '../assets/images/logoaplicativo.png';
 
 interface InstallPwaModalProps {
@@ -21,8 +24,16 @@ interface InstallPwaModalProps {
 
 export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClose }) => {
   const [activePlatform, setActivePlatform] = useState<'ios' | 'android'>('ios');
+  const { canInstallNatively, triggerInstall, isInstalled } = usePwaInstall();
 
   if (!isOpen) return null;
+
+  const handleNativeInstall = async () => {
+    const ok = await triggerInstall();
+    if (ok) {
+      onClose();
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -77,6 +88,28 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ isOpen, onClos
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Instant 1-Click Native Install Callout */}
+          {canInstallNatively && (
+            <div className="mt-5 p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl border border-blue-400/40 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3 text-left">
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Zap className="h-5 w-5 text-yellow-300 fill-yellow-300" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-white">Instalação Direta Disponível!</h4>
+                  <p className="text-[11px] text-blue-100">Seu navegador permite instalar o app com 1 clique.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleNativeInstall}
+                className="w-full sm:w-auto px-5 py-2.5 bg-white text-blue-900 font-black text-xs rounded-xl shadow-lg hover:bg-blue-50 transition-all cursor-pointer shrink-0 flex items-center justify-center gap-2 border border-white/60 active:scale-95"
+              >
+                <Download className="h-4 w-4 text-blue-700" />
+                <span>Instalar Agora em 1 Clique</span>
+              </button>
+            </div>
+          )}
 
           {/* Platform Switcher Tabs */}
           <div className="flex rounded-2xl bg-slate-800/80 p-1 my-5 border border-slate-700/60">

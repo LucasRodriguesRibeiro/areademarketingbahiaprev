@@ -27,6 +27,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
+import { PwaInstallBanner } from './components/PwaInstallBanner';
 import { SupabaseMigrationModal } from './components/SupabaseMigrationModal';
 
 function MainAppContent() {
@@ -245,6 +246,11 @@ function MainAppContent() {
       <InstallPwaModal 
         isOpen={isInstallModalOpen} 
         onClose={() => setIsInstallModalOpen(false)} 
+      />
+
+      {/* Automatic First-Visit Mobile PWA Install Banner */}
+      <PwaInstallBanner 
+        onOpenInstallModal={() => setIsInstallModalOpen(true)} 
       />
 
       <SupabaseMigrationModal

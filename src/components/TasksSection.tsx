@@ -741,6 +741,24 @@ export const TasksSection: React.FC = () => {
     }
   };
 
+  // Helper function to recursively remove undefined values for Firestore
+  const cleanFirestorePayload = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) {
+      return obj.map(cleanFirestorePayload);
+    }
+    if (typeof obj === 'object' && !(obj instanceof Date) && obj.constructor?.name !== 'FieldValue') {
+      const cleaned: Record<string, any> = {};
+      for (const [key, val] of Object.entries(obj)) {
+        if (val !== undefined) {
+          cleaned[key] = cleanFirestorePayload(val);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   // Handle Toggle Status (Marcar como Concluída ou Reabrir)
   const handleToggleStatus = async (task: Task) => {
     let nextStatus: 'pendente' | 'em_andamento' | 'concluida';
@@ -758,17 +776,25 @@ export const TasksSection: React.FC = () => {
       localPayload = {
         status: 'concluida',
         completedAt: now,
-        completedByEmail: userEmail,
-        completedByName: userName,
+        completedByEmail: userEmail || '',
+        completedByName: userName || 'Colaborador',
       };
-      firestorePayload = {
-        status: 'concluida',
-        completedAt: now,
-        completedByEmail: userEmail,
-        completedByName: userName,
-      };
+
+      if (completionAttachmentFiles.length > 0) {
+        localPayload.completionAttachments = completionAttachmentFiles;
+        localPayload.completionAttachmentName = completionAttachmentFiles[0]?.name || '';
+        localPayload.completionAttachmentUrl = completionAttachmentFiles[0]?.url || '';
+        localPayload.completionAttachmentType = completionAttachmentFiles[0]?.type || '';
+      }
+      if (completionNoteText.trim()) {
+        localPayload.completionNote = completionNoteText.trim();
+      }
+
+      firestorePayload = { ...localPayload };
       playNotificationSound('task_complete');
-      triggerCompletionToast(task.title, userName);
+      triggerCompletionToast(task.title, userName || 'Colaborador');
+      setCompletionAttachmentFiles([]);
+      setCompletionNoteText('');
     } else {
       // Reopening task (reset completion fields)
       localPayload = {
@@ -807,7 +833,7 @@ export const TasksSection: React.FC = () => {
 
     try {
       if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), firestorePayload);
+        await updateDoc(doc(db, 'user_tasks', task.id), cleanFirestorePayload(firestorePayload));
       } else {
         // Save default/local task to Firestore as a permanent document
         const fullTaskData: Record<string, any> = {
@@ -818,13 +844,7 @@ export const TasksSection: React.FC = () => {
           createdByName: task.createdByName || userName,
           createdAt: serverTimestamp(),
         };
-        // Remove undefined keys before calling addDoc
-        Object.keys(fullTaskData).forEach((key) => {
-          if (fullTaskData[key] === undefined || fullTaskData[key] === null) {
-            delete fullTaskData[key];
-          }
-        });
-        const docRef = await addDoc(collection(db, 'user_tasks'), fullTaskData);
+        const docRef = await addDoc(collection(db, 'user_tasks'), cleanFirestorePayload(fullTaskData));
         const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload, id: docRef.id } : t);
         setTasks(remapped);
         saveTasksLocally(remapped);
@@ -839,11 +859,11 @@ export const TasksSection: React.FC = () => {
     const updatePayload: Partial<Task> = {
       status: 'concluida',
       completedAt: new Date().toISOString(),
-      completedByEmail: userEmail,
-      completedByName: userName,
+      completedByEmail: userEmail || '',
+      completedByName: userName || 'Colaborador',
     };
     playNotificationSound('task_complete');
-    triggerCompletionToast(task.title, userName);
+    triggerCompletionToast(task.title, userName || 'Colaborador');
 
     updatePayload.completionAttachments = completionAttachmentFiles;
     if (completionAttachmentFiles.length > 0) {
@@ -870,7 +890,7 @@ export const TasksSection: React.FC = () => {
 
     try {
       if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
+        await updateDoc(doc(db, 'user_tasks', task.id), cleanFirestorePayload(updatePayload));
       } else {
         const fullTaskData = {
           ...task,
@@ -880,7 +900,7 @@ export const TasksSection: React.FC = () => {
           createdByName: task.createdByName || userName,
           createdAt: serverTimestamp(),
         };
-        const docRef = await addDoc(collection(db, 'user_tasks'), fullTaskData);
+        const docRef = await addDoc(collection(db, 'user_tasks'), cleanFirestorePayload(fullTaskData));
         const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload, id: docRef.id } : t);
         setTasks(remapped);
         saveTasksLocally(remapped);
@@ -3135,16 +3155,18 @@ export const TasksSection: React.FC = () => {
                           rows={2}
                         />
 
-                        {(completionAttachmentFiles.length > 0 || completionNoteText) && (
-                          <button
-                            type="button"
-                            onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>Enviar Anexo de Entrega & Concluir Tarefa</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSaveCompletionDelivery(selectedTaskForView)}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>
+                            {completionAttachmentFiles.length > 0 || completionNoteText.trim()
+                              ? 'Enviar Anexo / Observação e Concluir Tarefa'
+                              : 'Concluir Tarefa Agora'}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   )}

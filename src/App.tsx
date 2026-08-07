@@ -28,6 +28,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
 import { SupabaseMigrationModal } from './components/SupabaseMigrationModal';
+import { checkFunerariaAccess } from './utils/permissions';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -39,13 +40,17 @@ function MainAppContent() {
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+  const hasFunerariaAccess = checkFunerariaAccess(profile, user?.email);
 
-  // Redirect Financeiro or CPD users away from restricted modules
+  // Redirect users away from restricted modules
   useEffect(() => {
-    if (isFinanceiroOrCpd && (activeTab === 'funeraria' || activeTab === 'admin')) {
+    if (!hasFunerariaAccess && activeTab === 'funeraria') {
       setActiveTab('home');
     }
-  }, [isFinanceiroOrCpd, activeTab]);
+    if (isFinanceiroOrCpd && activeTab === 'admin') {
+      setActiveTab('home');
+    }
+  }, [hasFunerariaAccess, isFinanceiroOrCpd, activeTab]);
 
   useEffect(() => {
     try {
@@ -208,7 +213,7 @@ function MainAppContent() {
               {activeTab === 'tasks' && <TasksSection />}
               {activeTab === 'pops' && <PopsSection />}
               {activeTab === 'marketing' && <PartnerSection onSelectPartner={(partner) => setSelectedPartner(partner)} />}
-              {activeTab === 'funeraria' && !isFinanceiroOrCpd && <FunerariaSection />}
+              {activeTab === 'funeraria' && hasFunerariaAccess && <FunerariaSection />}
               {activeTab === 'about' && <AboutCompanySection />}
               {activeTab === 'install' && <InstallSection />}
               {activeTab === 'admin' && !isFinanceiroOrCpd && <UserAdminSection />}

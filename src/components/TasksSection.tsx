@@ -36,7 +36,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit, deleteField } from 'firebase/firestore';
 
 export interface AttachmentItem {
   id?: string;
@@ -711,44 +711,79 @@ export const TasksSection: React.FC = () => {
       nextStatus = 'pendente';
     }
 
-    const updatePayload: Partial<Task> = {
-      status: nextStatus,
-    };
+    let localPayload: Partial<Task>;
+    let firestorePayload: Record<string, any>;
 
     if (nextStatus === 'concluida') {
-      updatePayload.completedAt = new Date().toISOString();
-      updatePayload.completedByEmail = userEmail;
-      updatePayload.completedByName = userName;
+      const now = new Date().toISOString();
+      localPayload = {
+        status: 'concluida',
+        completedAt: now,
+        completedByEmail: userEmail,
+        completedByName: userName,
+      };
+      firestorePayload = {
+        status: 'concluida',
+        completedAt: now,
+        completedByEmail: userEmail,
+        completedByName: userName,
+      };
       playNotificationSound('task_complete');
       triggerCompletionToast(task.title, userName);
     } else {
-      updatePayload.completedAt = undefined;
-      updatePayload.completedByEmail = undefined;
-      updatePayload.completedByName = undefined;
+      // Reopening task (reset completion fields)
+      localPayload = {
+        status: 'pendente',
+        completedAt: undefined,
+        completedByEmail: undefined,
+        completedByName: undefined,
+        completionNote: undefined,
+        completionAttachmentName: undefined,
+        completionAttachmentUrl: undefined,
+        completionAttachmentType: undefined,
+        completionAttachments: undefined,
+      };
+      firestorePayload = {
+        status: 'pendente',
+        completedAt: deleteField(),
+        completedByEmail: deleteField(),
+        completedByName: deleteField(),
+        completionNote: deleteField(),
+        completionAttachmentName: deleteField(),
+        completionAttachmentUrl: deleteField(),
+        completionAttachmentType: deleteField(),
+        completionAttachments: deleteField(),
+      };
     }
 
-    const updated = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload } : t);
+    const updated = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload } : t);
     saveTasksLocally(updated);
 
     if (selectedTaskForView?.id === task.id) {
-      setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
+      setSelectedTaskForView({ ...selectedTaskForView, ...localPayload });
     }
 
     try {
       if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
+        await updateDoc(doc(db, 'user_tasks', task.id), firestorePayload);
       } else {
         // Save default/local task to Firestore as a permanent document
-        const fullTaskData = {
+        const fullTaskData: Record<string, any> = {
           ...task,
-          ...updatePayload,
+          ...localPayload,
           userId: task.userId || userId,
           userEmail: task.userEmail || userEmail,
           createdByName: task.createdByName || userName,
           createdAt: serverTimestamp(),
         };
+        // Remove undefined keys before calling addDoc
+        Object.keys(fullTaskData).forEach((key) => {
+          if (fullTaskData[key] === undefined || fullTaskData[key] === null) {
+            delete fullTaskData[key];
+          }
+        });
         const docRef = await addDoc(collection(db, 'user_tasks'), fullTaskData);
-        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload, id: docRef.id } : t);
+        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload, id: docRef.id } : t);
         setTasks(remapped);
         saveTasksLocally(remapped);
       }
@@ -999,18 +1034,48 @@ export const TasksSection: React.FC = () => {
       assignedToEmail: assignedEmail,
     };
 
+    const firestorePayload: Record<string, any> = { ...updatePayload };
+
     if (editStatus === 'concluida' && selectedTaskForView.status !== 'concluida') {
-      updatePayload.completedAt = new Date().toISOString();
+      const now = new Date().toISOString();
+      updatePayload.completedAt = now;
       updatePayload.completedByEmail = userEmail;
       updatePayload.completedByName = userName;
+      firestorePayload.completedAt = now;
+      firestorePayload.completedByEmail = userEmail;
+      firestorePayload.completedByName = userName;
       playNotificationSound('task_complete');
       triggerCompletionToast(editTitle, userName);
+    } else if (editStatus !== 'concluida' && selectedTaskForView.status === 'concluida') {
+      // Reopening task via Edit Modal
+      updatePayload.completedAt = undefined;
+      updatePayload.completedByEmail = undefined;
+      updatePayload.completedByName = undefined;
+      updatePayload.completionNote = undefined;
+      updatePayload.completionAttachmentName = undefined;
+      updatePayload.completionAttachmentUrl = undefined;
+      updatePayload.completionAttachmentType = undefined;
+      updatePayload.completionAttachments = undefined;
+
+      firestorePayload.completedAt = deleteField();
+      firestorePayload.completedByEmail = deleteField();
+      firestorePayload.completedByName = deleteField();
+      firestorePayload.completionNote = deleteField();
+      firestorePayload.completionAttachmentName = deleteField();
+      firestorePayload.completionAttachmentUrl = deleteField();
+      firestorePayload.completionAttachmentType = deleteField();
+      firestorePayload.completionAttachments = deleteField();
     }
 
     updatePayload.attachments = editAttachmentFiles;
     updatePayload.attachmentName = editAttachmentFiles[0]?.name || '';
     updatePayload.attachmentUrl = editAttachmentFiles[0]?.url || '';
     updatePayload.attachmentType = editAttachmentFiles[0]?.type || '';
+
+    firestorePayload.attachments = editAttachmentFiles;
+    firestorePayload.attachmentName = editAttachmentFiles[0]?.name || '';
+    firestorePayload.attachmentUrl = editAttachmentFiles[0]?.url || '';
+    firestorePayload.attachmentType = editAttachmentFiles[0]?.type || '';
 
     const updatedTask: Task = {
       ...selectedTaskForView,
@@ -1023,7 +1088,7 @@ export const TasksSection: React.FC = () => {
 
     if (!selectedTaskForView.id.startsWith('def-') && !selectedTaskForView.id.startsWith('local-')) {
       try {
-        await updateDoc(doc(db, 'user_tasks', selectedTaskForView.id), updatePayload);
+        await updateDoc(doc(db, 'user_tasks', selectedTaskForView.id), firestorePayload);
       } catch (err) {
         console.warn('Error updating task in Firestore:', err);
       }

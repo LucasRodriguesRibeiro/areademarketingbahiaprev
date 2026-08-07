@@ -18,6 +18,7 @@ import {
 import { TabType } from './Header';
 import { useAuth } from './AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 interface MobileBottomNavProps {
   activeTab: TabType;
@@ -31,6 +32,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+  const hasFunerariaAccess = checkFunerariaAccess(profile, user?.email);
 
   const isLucas = Boolean(
     !isFinanceiroOrCpd && (
@@ -55,19 +57,19 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
     }
   };
 
-  const navItems: { id: TabType; label: string; icon: React.ElementType; color: string }[] = isFinanceiroOrCpd 
+  const navItems: { id: TabType; label: string; icon: React.ElementType; color: string }[] = hasFunerariaAccess
     ? [
         { id: 'home', label: 'Início', icon: Home, color: 'text-blue-400' },
         { id: 'feed', label: 'Feed', icon: Radio, color: 'text-red-400' },
         { id: 'tasks', label: 'Tarefas', icon: ListTodo, color: 'text-emerald-400' },
-        { id: 'marketing', label: 'Marketing', icon: Handshake, color: 'text-purple-400' },
+        { id: 'funeraria', label: 'Funerária', icon: Cross, color: 'text-purple-400' },
         { id: 'pops', label: 'POP', icon: BookOpen, color: 'text-cyan-400' },
       ]
     : [
         { id: 'home', label: 'Início', icon: Home, color: 'text-blue-400' },
         { id: 'feed', label: 'Feed', icon: Radio, color: 'text-red-400' },
         { id: 'tasks', label: 'Tarefas', icon: ListTodo, color: 'text-emerald-400' },
-        { id: 'funeraria', label: 'Funerária', icon: Cross, color: 'text-purple-400' },
+        { id: 'marketing', label: 'Marketing', icon: Handshake, color: 'text-purple-400' },
         { id: 'pops', label: 'POP', icon: BookOpen, color: 'text-cyan-400' },
       ];
 
@@ -94,9 +96,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onS
     });
   }
 
-  const allModules = isFinanceiroOrCpd 
-    ? rawModules.filter(m => m.id !== 'funeraria' && m.id !== 'admin')
-    : rawModules;
+  const allModules = rawModules.filter(m => {
+    if (m.id === 'funeraria' && !hasFunerariaAccess) return false;
+    if (m.id === 'admin' && isFinanceiroOrCpd) return false;
+    return true;
+  });
 
   return (
     <>

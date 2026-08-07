@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Sparkles, Megaphone, Handshake, Users, Radio, BookOpen, ListTodo, ArrowLeft, Home, Layers, ShieldCheck, Cross, Smartphone } from 'lucide-react';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 import { useAuth } from './AuthContext';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin' | 'install';
 
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
   const { profile, user } = useAuth();
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+  const hasFunerariaAccess = checkFunerariaAccess(profile, user?.email);
 
   const isLucas = Boolean(
     !isFinanceiroOrCpd && (
@@ -142,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onOpenIn
             <span>Marketing</span>
           </button>
 
-          {!isFinanceiroOrCpd && (
+          {hasFunerariaAccess && (
             <button
               onClick={() => handleTabSelect('funeraria')}
               className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${

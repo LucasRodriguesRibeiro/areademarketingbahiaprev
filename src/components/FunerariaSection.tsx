@@ -83,6 +83,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { supabaseService } from '../lib/supabaseService';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 const GOOGLE_MAPS_API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
@@ -213,6 +214,7 @@ const getLocationText = (item: ChecklistItemData, os?: FunerariaOS): string => {
 
 export const FunerariaSection: React.FC = () => {
   const { user, profile } = useAuth();
+  const hasAccess = checkFunerariaAccess(profile, user?.email);
 
   // Sub-module level inside Gestão Funerária: 'portal' | 'os' | 'satisfaction'
   const [subModule, setSubModule] = useState<'portal' | 'os' | 'satisfaction'>('portal');
@@ -276,6 +278,25 @@ export const FunerariaSection: React.FC = () => {
     user?.displayName || 
     (user?.email ? user.email.split('@')[0] : 'Agente Funerário')
   ).trim();
+
+  if (!hasAccess) {
+    return (
+      <div className="max-w-4xl mx-auto my-12 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center text-white shadow-2xl space-y-4">
+        <div className="h-16 w-16 bg-purple-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mx-auto text-purple-400 shadow-inner">
+          <Cross className="h-8 w-8" />
+        </div>
+        <h2 className="text-2xl font-black text-white">Acesso Restrito - Gestão Funerária</h2>
+        <p className="text-slate-300 text-xs sm:text-sm max-w-lg mx-auto leading-relaxed">
+          Este módulo é de acesso exclusivo para os cargos de <strong>Atendimento e Recepção</strong>, <strong>Diretor e Presidente</strong>, <strong>Gerente Funerário</strong>, <strong>Analista de Marketing</strong> e <strong>Agente Funerário</strong>.
+        </p>
+        <div className="pt-2">
+          <span className="text-xs font-bold text-slate-400 bg-slate-800 px-3.5 py-1.5 rounded-full border border-slate-700 inline-block">
+            Seu cargo atual: <strong className="text-purple-300 font-semibold">{profile?.role || 'Colaborador'}</strong>
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // Live timer
   useEffect(() => {

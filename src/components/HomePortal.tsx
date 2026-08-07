@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin' | 'install';
 
@@ -174,10 +175,14 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
+  const hasFunerariaAccess = checkFunerariaAccess(profile, user?.email);
 
   let activeModules = isAdmin ? [...MODULES, adminModule] : MODULES;
+  if (!hasFunerariaAccess) {
+    activeModules = activeModules.filter(m => m.id !== 'funeraria');
+  }
   if (isFinanceiroOrCpd) {
-    activeModules = activeModules.filter(m => m.id !== 'funeraria' && m.id !== 'admin');
+    activeModules = activeModules.filter(m => m.id !== 'admin');
   }
 
   return (

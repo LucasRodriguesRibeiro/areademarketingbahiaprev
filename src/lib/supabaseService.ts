@@ -116,9 +116,28 @@ export const supabaseService = {
 
     try {
       const { data, error } = await supabase.from('user_tasks').select('*').order('created_at_iso', { ascending: false });
-      if (error) return null;
-      return data || [];
-    } catch {
+      if (error) {
+        console.warn('Erro ao buscar tarefas no Supabase:', error.message);
+        return null;
+      }
+      return (data || []).map((row: any) => {
+        if (row.data_json && typeof row.data_json === 'object') {
+          return { id: row.id, ...row.data_json, status: row.status || row.data_json.status || 'pendente' };
+        }
+        return {
+          id: row.id,
+          title: row.title,
+          description: row.description || '',
+          category: row.category || '',
+          priority: row.priority || 'media',
+          status: row.status || 'pendente',
+          dueDate: row.due_date || '',
+          assignedTo: row.assigned_to || '',
+          createdAt: row.created_at_iso,
+        };
+      });
+    } catch (err) {
+      console.warn('Falha na consulta de tarefas no Supabase:', err);
       return null;
     }
   },
@@ -133,17 +152,40 @@ export const supabaseService = {
         title: task.title,
         description: task.description || '',
         category: task.category || '',
-        assigned_to: task.assignedTo || '',
-        priority: task.priority || 'Media',
+        assigned_to: task.assignedToName || task.assignedToEmail || task.assignedTo || '',
+        priority: task.priority || 'media',
         status: task.status || 'pendente',
         due_date: task.dueDate || '',
-        completed: !!task.completed,
-        created_by: task.createdBy || '',
-        created_at_iso: task.createdAtISO || new Date().toISOString()
+        completed: task.status === 'concluida',
+        created_by: task.createdByName || task.userEmail || task.userId || '',
+        data_json: task,
+        created_at_iso: task.createdAt || new Date().toISOString()
       }, { onConflict: 'id' });
 
-      return !error;
-    } catch {
+      if (error) {
+        console.error('Erro ao salvar tarefa no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Falha ao salvar tarefa no Supabase:', err);
+      return false;
+    }
+  },
+
+  async deleteTask(taskId: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase.from('user_tasks').delete().eq('id', taskId);
+      if (error) {
+        console.error('Erro ao excluir tarefa no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Falha ao excluir tarefa no Supabase:', err);
       return false;
     }
   },

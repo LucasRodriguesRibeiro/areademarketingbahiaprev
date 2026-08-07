@@ -142,6 +142,7 @@ CREATE TABLE IF NOT EXISTS public.user_tasks (
   due_date TEXT,
   completed BOOLEAN DEFAULT FALSE,
   created_by TEXT,
+  data_json JSONB,
   created_at_iso TIMESTAMPTZ DEFAULT NOW()
 );
 

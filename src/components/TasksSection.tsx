@@ -36,6 +36,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { db } from '../lib/firebase';
+import { supabaseService } from '../lib/supabaseService';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit, deleteField } from 'firebase/firestore';
 
 export interface AttachmentItem {
@@ -365,7 +366,10 @@ export const TasksSection: React.FC = () => {
 
   // Helper to check if a task should be visible to the current user (Strict confidentiality rule)
   const isTargetedToUser = useCallback((task: Task) => {
-    // Tasks are strictly confidential: visible ONLY to the creator/leader and the assigned user (or if assigned to all)
+    // Admins and leaders see all tasks to manage and oversee team operations
+    if (isAdmin) {
+      return true;
+    }
 
     const myEmail = (userEmail || '').toLowerCase().trim();
     const myName = (userName || '').toLowerCase().trim();
@@ -439,7 +443,7 @@ export const TasksSection: React.FC = () => {
     }
 
     return false;
-  }, [userEmail, userName, userId]);
+  }, [userEmail, userName, userId, isAdmin]);
 
   // Default initial tasks (returns empty array to keep system completely clean when cleared)
   const getDefaultTasks = useCallback((): Task[] => {
@@ -453,7 +457,7 @@ export const TasksSection: React.FC = () => {
 
     try {
       const tasksRef = collection(db, 'user_tasks');
-      const qTasks = query(tasksRef, limit(50));
+      const qTasks = query(tasksRef, limit(300));
 
       unsubscribe = onSnapshot(
         qTasks,
@@ -508,6 +512,32 @@ export const TasksSection: React.FC = () => {
               }
             }
 
+            // Safe parsing for createdAt timestamp
+            const rawCreatedAt = data.createdAt;
+            let parsedCreatedAt = new Date().toISOString();
+            if (rawCreatedAt) {
+              if (typeof rawCreatedAt.toDate === 'function') {
+                parsedCreatedAt = rawCreatedAt.toDate().toISOString();
+              } else if (typeof rawCreatedAt.seconds === 'number') {
+                parsedCreatedAt = new Date(rawCreatedAt.seconds * 1000).toISOString();
+              } else if (typeof rawCreatedAt === 'string' && rawCreatedAt.trim()) {
+                parsedCreatedAt = rawCreatedAt;
+              }
+            }
+
+            // Safe parsing for completedAt timestamp
+            const rawCompletedAt = data.completedAt;
+            let parsedCompletedAt: string | undefined = undefined;
+            if (rawCompletedAt) {
+              if (typeof rawCompletedAt.toDate === 'function') {
+                parsedCompletedAt = rawCompletedAt.toDate().toISOString();
+              } else if (typeof rawCompletedAt.seconds === 'number') {
+                parsedCompletedAt = new Date(rawCompletedAt.seconds * 1000).toISOString();
+              } else if (typeof rawCompletedAt === 'string' && rawCompletedAt.trim()) {
+                parsedCompletedAt = rawCompletedAt;
+              }
+            }
+
             const taskCandidate: Task = {
               id: docSnap.id,
               userId: data.userId || '',
@@ -532,15 +562,22 @@ export const TasksSection: React.FC = () => {
               completionAttachmentType: data.completionAttachmentType || undefined,
               completionAttachments: Array.isArray(data.completionAttachments) ? data.completionAttachments : (data.completionAttachmentUrl ? [{ name: data.completionAttachmentName || 'Documento de Entrega', url: data.completionAttachmentUrl, type: data.completionAttachmentType }] : undefined),
               completionNote: data.completionNote || undefined,
-              completedAt: data.completedAt || undefined,
+              completedAt: parsedCompletedAt,
               completedByEmail: data.completedByEmail || undefined,
               completedByName: data.completedByName || undefined,
-              createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+              createdAt: parsedCreatedAt,
             };
 
             if (isTargetedToUser(taskCandidate)) {
               loaded.push(taskCandidate);
             }
+          });
+
+          // Sort tasks by createdAt descending (most recent first)
+          loaded.sort((a, b) => {
+            const timeA = new Date(a.createdAt || 0).getTime();
+            const timeB = new Date(b.createdAt || 0).getTime();
+            return timeB - timeA;
           });
 
           // Sound notification check for new tasks or completed tasks arriving in real time
@@ -682,14 +719,16 @@ export const TasksSection: React.FC = () => {
         id: docRef.id,
       };
       saveTasksLocally([createdTask, ...tasks]);
+      supabaseService.saveTask(createdTask).catch((err) => console.warn('Error saving task to Supabase:', err));
       playNotificationSound('task');
     } catch (err) {
-      console.warn('Could not save to Firestore, saving locally:', err);
+      console.warn('Could not save to Firestore, saving locally and on Supabase:', err);
       const offlineTask: Task = {
         ...newTaskData,
         id: 'local-' + Date.now(),
       };
       saveTasksLocally([offlineTask, ...tasks]);
+      supabaseService.saveTask(offlineTask).catch((err) => console.warn('Error saving offline task to Supabase:', err));
       playNotificationSound('task');
     } finally {
       setSubmitting(false);
@@ -759,6 +798,9 @@ export const TasksSection: React.FC = () => {
     const updated = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload } : t);
     saveTasksLocally(updated);
 
+    const fullUpdatedTask = updated.find((t) => t.id === task.id) || { ...task, ...localPayload };
+    supabaseService.saveTask(fullUpdatedTask).catch((err) => console.warn('Error syncing task toggle status to Supabase:', err));
+
     if (selectedTaskForView?.id === task.id) {
       setSelectedTaskForView({ ...selectedTaskForView, ...localPayload });
     }
@@ -815,6 +857,9 @@ export const TasksSection: React.FC = () => {
 
     const updatedTasks = tasks.map((t) => (t.id === task.id ? { ...t, ...updatePayload } : t));
     saveTasksLocally(updatedTasks);
+
+    const completedTaskToSync = updatedTasks.find(t => t.id === task.id) || { ...task, ...updatePayload };
+    supabaseService.saveTask(completedTaskToSync).catch((err) => console.warn('Error syncing completion to Supabase:', err));
 
     if (selectedTaskForView?.id === task.id) {
       setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
@@ -881,6 +926,7 @@ export const TasksSection: React.FC = () => {
 
     const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t));
     saveTasksLocally(updatedTasks);
+    supabaseService.saveTask(updatedTask).catch((err) => console.warn('Error syncing updated completion to Supabase:', err));
 
     if (selectedTaskForView?.id === task.id) {
       setSelectedTaskForView(updatedTask);
@@ -1085,6 +1131,7 @@ export const TasksSection: React.FC = () => {
     const updatedTasksList = tasks.map(t => t.id === selectedTaskForView.id ? updatedTask : t);
     saveTasksLocally(updatedTasksList);
     setSelectedTaskForView(updatedTask);
+    supabaseService.saveTask(updatedTask).catch((err) => console.warn('Error syncing task edit to Supabase:', err));
 
     if (!selectedTaskForView.id.startsWith('def-') && !selectedTaskForView.id.startsWith('local-')) {
       try {
@@ -1102,6 +1149,7 @@ export const TasksSection: React.FC = () => {
   const handleDeleteTask = async (taskId: string) => {
     const updated = tasks.filter((t) => t.id !== taskId);
     saveTasksLocally(updated);
+    supabaseService.deleteTask(taskId).catch((err) => console.warn('Error deleting task in Supabase:', err));
 
     if (!taskId.startsWith('def-') && !taskId.startsWith('local-')) {
       try {

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { supabaseService } from '../lib/supabaseService';
 import { Users, Mail, CheckCircle2, Search, Briefcase, Camera, Edit3, Shield, Check, X, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from './AuthContext';
@@ -54,13 +53,12 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     setSavingRole(true);
     const updatedRole = newRoleInput.trim();
     try {
-      const userRef = doc(db, 'users', editingMember.uid);
-      await setDoc(userRef, {
+      await supabaseService.saveUserProfile({
         uid: editingMember.uid,
         name: editingMember.name,
         email: editingMember.email,
         role: updatedRole
-      }, { merge: true });
+      });
 
       const isCurrentUser = user && (
         editingMember.uid === user.uid || 
@@ -70,14 +68,6 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       );
 
       if (isCurrentUser) {
-        if (user.uid !== editingMember.uid) {
-          await setDoc(doc(db, 'users', user.uid), {
-            uid: user.uid,
-            name: editingMember.name,
-            email: user.email || editingMember.email,
-            role: updatedRole
-          }, { merge: true });
-        }
         await updateUserProfile({ role: updatedRole });
       }
 
@@ -104,7 +94,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     }
 
     try {
-      await deleteDoc(doc(db, 'users', member.uid));
+      await supabaseService.deleteUserProfile(member.uid);
       setToastMsg(`Usuário ${member.name} foi excluído do sistema com sucesso.`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
@@ -133,6 +123,30 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       name: 'Cauan',
       email: 'cauan@bahiaprev.com.br',
       role: 'Designer Gráfico'
+    },
+    {
+      uid: 'm-nilton',
+      name: 'Nilton',
+      email: 'nilton@bahiaprev.com.br',
+      role: 'Colaborador'
+    },
+    {
+      uid: 'm-thayan',
+      name: 'Thayan',
+      email: 'thayan@bahiaprev.com.br',
+      role: 'Colaborador'
+    },
+    {
+      uid: 'm-vitor',
+      name: 'Vitor',
+      email: 'vitor@bahiaprev.com.br',
+      role: 'Colaborador'
+    },
+    {
+      uid: 'm-paulo',
+      name: 'Paulo',
+      email: 'paulo@bahiaprev.com.br',
+      role: 'Colaborador'
     }
   ];
 
@@ -157,6 +171,34 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
         name: 'Cauan',
         email: 'cauan@bahiaprev.com.br',
         role: profile?.email === 'cauan@bahiaprev.com.br' ? (profile?.role || 'Designer Gráfico') : 'Designer Gráfico',
+        avatarUrl: undefined
+      },
+      'nilton': {
+        uid: 'm-nilton',
+        name: 'Nilton',
+        email: 'nilton@bahiaprev.com.br',
+        role: 'Colaborador',
+        avatarUrl: undefined
+      },
+      'thayan': {
+        uid: 'm-thayan',
+        name: 'Thayan',
+        email: 'thayan@bahiaprev.com.br',
+        role: 'Colaborador',
+        avatarUrl: undefined
+      },
+      'vitor': {
+        uid: 'm-vitor',
+        name: 'Vitor',
+        email: 'vitor@bahiaprev.com.br',
+        role: 'Colaborador',
+        avatarUrl: undefined
+      },
+      'paulo': {
+        uid: 'm-paulo',
+        name: 'Paulo',
+        email: 'paulo@bahiaprev.com.br',
+        role: 'Colaborador',
         avatarUrl: undefined
       }
     };
@@ -214,6 +256,54 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
           isOnline: isUserDoc ? true : Boolean(docIsOnline),
           lastSeen: uData.lastSeen
         };
+      } else if (email.includes('nilton') || name.includes('nilton')) {
+        const isUserDoc = user && uData.uid === user.uid;
+        mergedMap['nilton'] = {
+          uid: isUserDoc ? user.uid : (mergedMap['nilton'].uid || uData.uid),
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Nilton',
+          email: uData.email || 'nilton@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['nilton'].avatarUrl),
+          createdAt: uData.createdAt,
+          isOnline: isUserDoc ? true : Boolean(docIsOnline),
+          lastSeen: uData.lastSeen
+        };
+      } else if (email.includes('thay') || name.includes('thay')) {
+        const isUserDoc = user && uData.uid === user.uid;
+        mergedMap['thayan'] = {
+          uid: isUserDoc ? user.uid : (mergedMap['thayan'].uid || uData.uid),
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Thayan',
+          email: uData.email || 'thayan@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['thayan'].avatarUrl),
+          createdAt: uData.createdAt,
+          isOnline: isUserDoc ? true : Boolean(docIsOnline),
+          lastSeen: uData.lastSeen
+        };
+      } else if (email.includes('vitor') || name.includes('vitor')) {
+        const isUserDoc = user && uData.uid === user.uid;
+        mergedMap['vitor'] = {
+          uid: isUserDoc ? user.uid : (mergedMap['vitor'].uid || uData.uid),
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Vitor',
+          email: uData.email || 'vitor@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['vitor'].avatarUrl),
+          createdAt: uData.createdAt,
+          isOnline: isUserDoc ? true : Boolean(docIsOnline),
+          lastSeen: uData.lastSeen
+        };
+      } else if (email.includes('paulo') || name.includes('paulo')) {
+        const isUserDoc = user && uData.uid === user.uid;
+        mergedMap['paulo'] = {
+          uid: isUserDoc ? user.uid : (mergedMap['paulo'].uid || uData.uid),
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Paulo',
+          email: uData.email || 'paulo@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['paulo'].avatarUrl),
+          createdAt: uData.createdAt,
+          isOnline: isUserDoc ? true : Boolean(docIsOnline),
+          lastSeen: uData.lastSeen
+        };
       } else {
         const isUserDoc = user && uData.uid === user.uid;
         mergedMap[uData.uid] = {
@@ -244,6 +334,22 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
         if (profile.role) mergedMap['cauan'].role = profile.role;
         if (profile.avatarUrl) mergedMap['cauan'].avatarUrl = profile.avatarUrl;
         if (profile.name) mergedMap['cauan'].name = profile.name;
+      } else if (pEmail.includes('nilton') || pName.includes('nilton')) {
+        if (profile.role) mergedMap['nilton'].role = profile.role;
+        if (profile.avatarUrl) mergedMap['nilton'].avatarUrl = profile.avatarUrl;
+        if (profile.name) mergedMap['nilton'].name = profile.name;
+      } else if (pEmail.includes('thay') || pName.includes('thay')) {
+        if (profile.role) mergedMap['thayan'].role = profile.role;
+        if (profile.avatarUrl) mergedMap['thayan'].avatarUrl = profile.avatarUrl;
+        if (profile.name) mergedMap['thayan'].name = profile.name;
+      } else if (pEmail.includes('vitor') || pName.includes('vitor')) {
+        if (profile.role) mergedMap['vitor'].role = profile.role;
+        if (profile.avatarUrl) mergedMap['vitor'].avatarUrl = profile.avatarUrl;
+        if (profile.name) mergedMap['vitor'].name = profile.name;
+      } else if (pEmail.includes('paulo') || pName.includes('paulo')) {
+        if (profile.role) mergedMap['paulo'].role = profile.role;
+        if (profile.avatarUrl) mergedMap['paulo'].avatarUrl = profile.avatarUrl;
+        if (profile.name) mergedMap['paulo'].name = profile.name;
       }
     }
 

@@ -12,7 +12,9 @@ import {
   Terminal, 
   ShieldCheck, 
   AlertCircle,
-  Code
+  Code,
+  Download,
+  UploadCloud
 } from 'lucide-react';
 import { 
   getSupabaseCredentials, 
@@ -21,6 +23,7 @@ import {
   resetSupabaseClient,
   SUPABASE_SQL_SCHEMA 
 } from '../lib/supabase';
+import { restoreAllFirebaseDataToSupabaseAndLocal, RestoreStats } from '../lib/firebaseRestore';
 
 interface SupabaseMigrationModalProps {
   isOpen: boolean;
@@ -32,7 +35,9 @@ export function SupabaseMigrationModal({ isOpen, onClose }: SupabaseMigrationMod
   const [supabaseKey, setSupabaseKey] = useState('');
   const [status, setStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({ loading: false });
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'config' | 'sql' | 'guide'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'sql' | 'guide' | 'restore'>('config');
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<RestoreStats | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,6 +76,34 @@ export function SupabaseMigrationModal({ isOpen, onClose }: SupabaseMigrationMod
     navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleRunRestore = async () => {
+    setRestoring(true);
+    try {
+      const res = await restoreAllFirebaseDataToSupabaseAndLocal();
+      setRestoreResult(res);
+    } catch (err) {
+      console.error('Erro na restauração:', err);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handleDownloadBackupJson = () => {
+    const backupData = {
+      tasks: JSON.parse(localStorage.getItem('tasks_v2_global') || '[]'),
+      orders: JSON.parse(localStorage.getItem('funeraria_os_v1') || '[]'),
+      surveys: JSON.parse(localStorage.getItem('funeraria_satisfaction_surveys_v1') || '[]'),
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_sistema_bahiaprev_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!isOpen) return null;
@@ -145,6 +178,18 @@ export function SupabaseMigrationModal({ isOpen, onClose }: SupabaseMigrationMod
           >
             <Terminal className="h-4 w-4 text-emerald-600" />
             <span>3. Passo a Passo</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('restore')}
+            className={`py-2.5 px-4 font-bold text-xs rounded-t-xl transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === 'restore'
+                ? 'bg-white border-t-2 border-emerald-600 text-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <UploadCloud className="h-4 w-4 text-emerald-600" />
+            <span>4. Restaurar do Firebase</span>
           </button>
         </div>
 
@@ -335,6 +380,88 @@ export function SupabaseMigrationModal({ isOpen, onClose }: SupabaseMigrationMod
                   </div>
                 </li>
               </ol>
+            </div>
+          )}
+
+          {/* TAB 4: RESTAURAR DADOS DO FIREBASE */}
+          {activeTab === 'restore' && (
+            <div className="space-y-6">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-950 space-y-2">
+                <h4 className="font-extrabold text-sm flex items-center gap-2">
+                  <UploadCloud className="h-5 w-5 text-emerald-600" />
+                  <span>Restauração & Resgate de Dados do Firebase</span>
+                </h4>
+                <p className="text-xs leading-relaxed opacity-90">
+                  Clique no botão abaixo para buscar automaticamente todas as tarefas, Ordens de Serviço (OS) e pesquisas salvas anteriormente no Firebase Firestore, sincronizando-as com o Supabase e com o armazenamento local do seu navegador.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                <div className="space-y-1">
+                  <h5 className="font-extrabold text-xs text-slate-800">Recuperar dados e enviar ao Supabase</h5>
+                  <p className="text-[11px] text-slate-500">Recupera tarefas, entregas, anexos e formulários de OS do banco anterior.</p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleRunRestore}
+                    disabled={restoring}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${restoring ? 'animate-spin' : ''}`} />
+                    <span>{restoring ? 'Restaurando...' : 'Restaurar Dados Agora'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {restoreResult && (
+                <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-extrabold text-xs text-slate-900 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Resultado da Restauração</span>
+                    </h5>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadBackupJson}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Baixar Backup JSON</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-emerald-800 block">Tarefas</span>
+                      <span className="text-xl font-black text-emerald-950">{restoreResult.tasksRestored} recuperadas</span>
+                    </div>
+
+                    <div className="p-3 bg-teal-50/60 border border-teal-100 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-teal-800 block">Ordens de Serviço</span>
+                      <span className="text-xl font-black text-teal-950">{restoreResult.ordersRestored} recuperadas</span>
+                    </div>
+
+                    <div className="p-3 bg-cyan-50/60 border border-cyan-100 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-cyan-800 block">Pesquisas</span>
+                      <span className="text-xl font-black text-cyan-950">{restoreResult.surveysRestored} recuperadas</span>
+                    </div>
+                  </div>
+
+                  {restoreResult.errors.length > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 text-xs space-y-1">
+                      <strong className="font-bold block">Avisos do processo:</strong>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                        {restoreResult.errors.map((err, idx) => (
+                          <li key={idx}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

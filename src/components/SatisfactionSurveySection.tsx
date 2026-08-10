@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   HeartHandshake, 
@@ -31,20 +31,9 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  limit 
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
+import { supabaseService } from '../lib/supabaseService';
 
 export interface SatisfactionSurvey {
   id: string;
@@ -348,32 +337,25 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
   const [showValidationAlert, setShowValidationAlert] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // Listen to Firestore satisfaction surveys
-  useEffect(() => {
-    const q = query(
-      collection(db, 'funeraria_satisfaction_surveys'),
-      orderBy('createdAtISO', 'desc'),
-      limit(100)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: SatisfactionSurvey[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        list.push({
-          id: docSnap.id,
-          ...data
-        } as SatisfactionSurvey);
-      });
-      setSurveys(list);
+  // Fetch satisfaction surveys from Supabase
+  const loadSurveysFromSupabase = useCallback(async () => {
+    try {
+      const list = await supabaseService.fetchSurveys();
+      if (list) {
+        setSurveys(list);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar pesquisas de satisfação do Supabase:', err);
+    } finally {
       setLoading(false);
-    }, (error) => {
-      console.error('Erro ao carregar pesquisas de satisfação:', error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
   }, []);
+
+  useEffect(() => {
+    loadSurveysFromSupabase();
+    const interval = setInterval(loadSurveysFromSupabase, 8000);
+    return () => clearInterval(interval);
+  }, [loadSurveysFromSupabase]);
 
   // Compute IQAF (Índice de Qualidade do Atendimento Funerário) & Classification
   const calculateIQAF = (data: typeof formData) => {
@@ -457,7 +439,8 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     setDeleting(true);
     setDeleteErrorMessage(null);
     try {
-      await deleteDoc(doc(db, 'funeraria_satisfaction_surveys', surveyToDelete.id));
+      await supabaseService.deleteSurvey(surveyToDelete.id);
+      setSurveys(prev => prev.filter(s => s.id !== surveyToDelete.id));
       if (selectedSurveyForView?.id === surveyToDelete.id) {
         setIsDetailModalOpen(false);
       }
@@ -502,15 +485,21 @@ export const SatisfactionSurveySection: React.FC<SatisfactionSurveySectionProps>
     };
 
     try {
+      const targetId = editingSurvey ? editingSurvey.id : 'surv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const surveyObject: SatisfactionSurvey = {
+        id: targetId,
+        ...finalPayload,
+        createdAtISO: editingSurvey ? editingSurvey.createdAtISO : new Date().toISOString(),
+        researcherUid: editingSurvey ? editingSurvey.researcherUid : (user?.uid || ''),
+        researcherEmail: editingSurvey ? editingSurvey.researcherEmail : (user?.email || ''),
+      };
+
+      await supabaseService.saveSurvey(surveyObject);
+
       if (editingSurvey) {
-        await updateDoc(doc(db, 'funeraria_satisfaction_surveys', editingSurvey.id), finalPayload);
+        setSurveys(prev => prev.map(s => s.id === targetId ? surveyObject : s));
       } else {
-        await addDoc(collection(db, 'funeraria_satisfaction_surveys'), {
-          ...finalPayload,
-          createdAtISO: new Date().toISOString(),
-          researcherUid: user?.uid || '',
-          researcherEmail: user?.email || '',
-        });
+        setSurveys(prev => [surveyObject, ...prev]);
       }
 
       setIsFormOpen(false);

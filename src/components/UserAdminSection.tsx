@@ -23,11 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { db } from '../lib/firebase';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { supabaseService } from '../lib/supabaseService';
 
 interface ManagedUser {
   uid: string;
@@ -141,7 +137,7 @@ export const UserAdminSection: React.FC = () => {
     setLoadingUsers(false);
   }, [allUsers]);
 
-  // Helper to register new user without logging out active admin
+  // Helper to register new user
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(null);
@@ -164,37 +160,9 @@ export const UserAdminSection: React.FC = () => {
     setSubmitting(true);
 
     try {
-      // 1. Initialize secondary Firebase Auth app so Lucas is NOT logged out!
-      const secondaryAppName = 'SecondaryUserCreationApp';
-      let secondaryApp = getApps().find(app => app.name === secondaryAppName);
-      if (!secondaryApp) {
-        secondaryApp = initializeApp({
-          apiKey: firebaseConfig.apiKey,
-          authDomain: firebaseConfig.authDomain,
-          projectId: firebaseConfig.projectId,
-          storageBucket: firebaseConfig.storageBucket,
-          messagingSenderId: firebaseConfig.messagingSenderId,
-          appId: firebaseConfig.appId,
-        }, secondaryAppName);
-      }
-      const secondaryAuth = getAuth(secondaryApp);
+      const existingUser = usersList.find(u => u.email.toLowerCase() === newEmail.trim().toLowerCase());
+      const createdUid = existingUser ? existingUser.uid : `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-      let createdUid = '';
-
-      try {
-        const userCred = await createUserWithEmailAndPassword(secondaryAuth, newEmail.trim(), newPassword);
-        createdUid = userCred.user.uid;
-      } catch (authError: any) {
-        if (authError.code === 'auth/email-already-in-use') {
-          // If auth user already exists, generate a unique doc ID or match existing
-          const existingUser = usersList.find(u => u.email.toLowerCase() === newEmail.trim().toLowerCase());
-          createdUid = existingUser ? existingUser.uid : `user_${Date.now()}`;
-        } else {
-          throw authError;
-        }
-      }
-
-      // 2. Save user profile into Firestore 'users' collection
       const userProfilePayload = {
         uid: createdUid,
         name: newName.trim(),
@@ -205,11 +173,11 @@ export const UserAdminSection: React.FC = () => {
         createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'users', createdUid), userProfilePayload, { merge: true });
+      await supabaseService.saveUserProfile(userProfilePayload);
 
       setStatusMessage({ 
         type: 'success', 
-        text: `Usuário ${newName.trim()} (${newEmail.trim()}) cadastrado e configurado com sucesso!` 
+        text: `Usuário ${newName.trim()} (${newEmail.trim()}) cadastrado e configurado com sucesso no Supabase!` 
       });
 
       // Clear form
@@ -236,10 +204,14 @@ export const UserAdminSection: React.FC = () => {
   // Toggle permission directly from table
   const handleTogglePermission = async (userUid: string, field: 'canPostFeed' | 'canCreateTasks', currentValue: boolean) => {
     try {
-      await updateDoc(doc(db, 'users', userUid), {
-        [field]: !currentValue
-      });
-      fetchUsers().catch(() => {});
+      const u = usersList.find(item => item.uid === userUid);
+      if (u) {
+        await supabaseService.saveUserProfile({
+          ...u,
+          [field]: !currentValue
+        });
+        fetchUsers().catch(() => {});
+      }
     } catch (err) {
       console.error('Error updating permission:', err);
     }
@@ -260,17 +232,13 @@ export const UserAdminSection: React.FC = () => {
     if (!editingUser) return;
     setSavingEdit(true);
     try {
-      const userRef = doc(db, 'users', editingUser.uid);
-      const updateData = {
+      await supabaseService.saveUserProfile({
+        ...editingUser,
         name: editName.trim(),
         role: editRole.trim(),
         canPostFeed: editCanPostFeed,
         canCreateTasks: editCanCreateTasks
-      };
-      
-      const savePromise = setDoc(userRef, updateData, { merge: true });
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 6000));
-      await Promise.race([savePromise, timeoutPromise]);
+      });
       setEditingUser(null);
       fetchUsers().catch(() => {});
     } catch (err) {
@@ -285,7 +253,7 @@ export const UserAdminSection: React.FC = () => {
     if (!deletingUser) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'users', deletingUser.uid));
+      await supabaseService.deleteUserProfile(deletingUser.uid);
 
       setStatusMessage({
         type: 'success',

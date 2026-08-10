@@ -1,22 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { playNotificationSound } from '../utils/sound';
 import { useAuth } from './AuthContext';
-import { db } from '../lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  doc, 
-  updateDoc, 
-  arrayUnion, 
-  arrayRemove, 
-  deleteDoc, 
-  serverTimestamp,
-  getDocs,
-  limit
-} from 'firebase/firestore';
+import { supabaseService } from '../lib/supabaseService';
 import { 
   MessageSquare, 
   Heart, 
@@ -50,6 +35,7 @@ import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 export interface Post {
   id: string;
   authorUid: string;
+  authorEmail?: string;
   authorName: string;
   authorRole: string;
   content: string;
@@ -62,16 +48,19 @@ export interface Post {
   likedBy: string[];
   commentsCount: number;
   isAnnouncement?: boolean;
-  createdAt: any;
+  createdAt?: any;
+  createdAtISO?: string;
 }
 
 export interface Comment {
   id: string;
+  postId?: string;
   authorUid: string;
   authorName: string;
   authorRole: string;
   content: string;
-  createdAt: any;
+  createdAt?: any;
+  createdAtISO?: string;
 }
 
 const CATEGORIES = [
@@ -219,55 +208,46 @@ export const FeedSection: React.FC = () => {
   const [commentInputMap, setCommentInputMap] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Fetch real-time posts from Firestore with limit
-  useEffect(() => {
-    const postsRef = collection(db, 'posts');
-    const q = query(postsRef, orderBy('createdAt', 'desc'), limit(30));
+  // Fetch posts from Supabase
+  const loadPostsFromSupabase = useCallback(async () => {
+    try {
+      const list = await supabaseService.fetchPosts();
+      if (list) {
+        const realPosts = list.filter(p => 
+          !p.authorUid?.startsWith('admin-seed-') && 
+          p.content?.trim() !== 'Teste' && 
+          p.content?.trim() !== 'Aviso importante'
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedPosts: Post[] = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      })) as Post[];
-
-      const realPosts = fetchedPosts.filter(p => 
-        !p.authorUid?.startsWith('admin-seed-') && 
-        p.content?.trim() !== 'Teste' && 
-        p.content?.trim() !== 'Aviso importante'
-      );
-
-      // Real-time sound notification trigger for new posts or announcements
-      if (knownPostIdsRef.current === null) {
-        knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
-      } else {
-        const newPosts = realPosts.filter(p => !knownPostIdsRef.current!.has(p.id));
-        if (newPosts.length > 0) {
-          const hasAnnouncement = newPosts.some(p => p.isAnnouncement || p.category === 'Comunicado');
-          if (hasAnnouncement) {
-            playNotificationSound('announcement');
-          } else {
-            playNotificationSound('post');
+        if (knownPostIdsRef.current === null) {
+          knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
+        } else {
+          const newPosts = realPosts.filter(p => !knownPostIdsRef.current!.has(p.id));
+          if (newPosts.length > 0) {
+            const hasAnnouncement = newPosts.some(p => p.isAnnouncement || p.category === 'Comunicado');
+            if (hasAnnouncement) {
+              playNotificationSound('announcement');
+            } else {
+              playNotificationSound('post');
+            }
           }
+          knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
         }
-        knownPostIdsRef.current = new Set(realPosts.map(p => p.id));
+
+        setPosts(realPosts);
       }
-
-      setPosts(realPosts);
+    } catch (err) {
+      console.error("Error loading feed posts from Supabase:", err);
+    } finally {
       setLoading(false);
-    }, (error) => {
-      console.error("Error loading feed posts:", error);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribe();
-      // Clean up any active comment listeners on unmount
-      Object.values(commentUnsubsRef.current).forEach(unsub => {
-        if (typeof unsub === 'function') unsub();
-      });
-      commentUnsubsRef.current = {};
-    };
+    }
   }, []);
+
+  useEffect(() => {
+    loadPostsFromSupabase();
+    const interval = setInterval(loadPostsFromSupabase, 8000);
+    return () => clearInterval(interval);
+  }, [loadPostsFromSupabase]);
 
   // Handle create post
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -280,10 +260,10 @@ export const FeedSection: React.FC = () => {
 
     setPublishing(true);
     try {
-      let finalImageUrl: string | null = null;
-      let finalAttachmentUrl: string | null = null;
-      let finalAttachmentType: 'image' | 'pdf' | 'doc' | 'file' | null = null;
-      let finalAttachmentName: string | null = null;
+      let finalImageUrl: string | undefined = undefined;
+      let finalAttachmentUrl: string | undefined = undefined;
+      let finalAttachmentType: 'image' | 'pdf' | 'doc' | 'file' | undefined = undefined;
+      let finalAttachmentName: string | undefined = undefined;
 
       if (selectedAttachment) {
         if (selectedAttachment.type === 'image') {
@@ -304,9 +284,11 @@ export const FeedSection: React.FC = () => {
         }
       }
 
-      await addDoc(collection(db, 'posts'), {
+      const newId = 'post_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const newPost: Post = {
+        id: newId,
         authorUid: user.uid,
-        authorEmail: user.email || null,
+        authorEmail: user.email || undefined,
         authorName: profile.name || 'Colaborador',
         authorRole: profile.role || 'Bahia Prev',
         content: newContent.trim(),
@@ -319,8 +301,11 @@ export const FeedSection: React.FC = () => {
         likedBy: [],
         commentsCount: 0,
         isAnnouncement: newCategory === 'Comunicado',
-        createdAt: serverTimestamp()
-      });
+        createdAtISO: new Date().toISOString()
+      };
+
+      await supabaseService.savePost(newPost);
+      setPosts(prev => [newPost, ...prev]);
 
       if (newCategory === 'Comunicado') {
         playNotificationSound('announcement');
@@ -343,21 +328,23 @@ export const FeedSection: React.FC = () => {
   // Handle Like/Unlike
   const handleToggleLike = async (post: Post) => {
     if (!user) return;
-    const postRef = doc(db, 'posts', post.id);
     const hasLiked = post.likedBy?.includes(user.uid);
+    const updatedLikedBy = hasLiked 
+      ? (post.likedBy || []).filter(uid => uid !== user.uid)
+      : [...(post.likedBy || []), user.uid];
+    const updatedLikesCount = hasLiked 
+      ? Math.max(0, (post.likesCount || 1) - 1)
+      : (post.likesCount || 0) + 1;
+
+    const updatedPost = {
+      ...post,
+      likedBy: updatedLikedBy,
+      likesCount: updatedLikesCount
+    };
 
     try {
-      if (hasLiked) {
-        await updateDoc(postRef, {
-          likedBy: arrayRemove(user.uid),
-          likesCount: Math.max(0, (post.likesCount || 1) - 1)
-        });
-      } else {
-        await updateDoc(postRef, {
-          likedBy: arrayUnion(user.uid),
-          likesCount: (post.likesCount || 0) + 1
-        });
-      }
+      await supabaseService.savePost(updatedPost);
+      setPosts(prev => prev.map(p => p.id === post.id ? updatedPost : p));
     } catch (err) {
       console.error("Error toggling like:", err);
     }
@@ -372,7 +359,8 @@ export const FeedSection: React.FC = () => {
     if (!postToDelete) return;
     setDeletingPostId(postToDelete);
     try {
-      await deleteDoc(doc(db, 'posts', postToDelete));
+      await supabaseService.deletePost(postToDelete);
+      setPosts(prev => prev.filter(p => p.id !== postToDelete));
       setPostToDelete(null);
     } catch (err) {
       console.error("Error deleting post:", err);
@@ -383,38 +371,19 @@ export const FeedSection: React.FC = () => {
   };
 
   // Toggle comments and fetch them
-  const handleToggleComments = (postId: string) => {
+  const handleToggleComments = async (postId: string) => {
     if (activeCommentsPostId === postId) {
       setActiveCommentsPostId(null);
-      if (commentUnsubsRef.current[postId]) {
-        commentUnsubsRef.current[postId]();
-        delete commentUnsubsRef.current[postId];
-      }
       return;
     }
 
     setActiveCommentsPostId(postId);
-
-    if (commentUnsubsRef.current[postId]) {
-      commentUnsubsRef.current[postId]();
+    try {
+      const fetchedComments = await supabaseService.fetchComments(postId);
+      setCommentsMap(prev => ({ ...prev, [postId]: fetchedComments || [] }));
+    } catch (err) {
+      console.warn("Error fetching comments from Supabase:", err);
     }
-
-    // Subscribe to comments subcollection
-    const commentsRef = collection(db, 'posts', postId, 'comments');
-    const q = query(commentsRef, orderBy('createdAt', 'asc'), limit(50));
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      const fetchedComments = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      })) as Comment[];
-
-      setCommentsMap(prev => ({ ...prev, [postId]: fetchedComments }));
-    }, (err) => {
-      console.warn("Error listening to comments:", err);
-    });
-
-    commentUnsubsRef.current[postId] = unsub;
   };
 
   // Handle submit comment
@@ -424,21 +393,33 @@ export const FeedSection: React.FC = () => {
 
     setSubmittingComment(true);
     try {
-      const commentsRef = collection(db, 'posts', postId, 'comments');
-      await addDoc(commentsRef, {
+      const newCommentId = 'comm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const newComment: Comment = {
+        id: newCommentId,
+        postId,
         authorUid: user.uid,
         authorName: profile.name,
         authorRole: profile.role,
         content: text,
-        createdAt: serverTimestamp()
-      });
+        createdAtISO: new Date().toISOString()
+      };
 
-      // Update comments count on post
-      const postRef = doc(db, 'posts', postId);
+      await supabaseService.saveComment(newComment);
+
+      setCommentsMap(prev => ({
+        ...prev,
+        [postId]: [...(prev[postId] || []), newComment]
+      }));
+
       const currentPost = posts.find(p => p.id === postId);
-      await updateDoc(postRef, {
-        commentsCount: (currentPost?.commentsCount || 0) + 1
-      });
+      if (currentPost) {
+        const updatedPost = {
+          ...currentPost,
+          commentsCount: (currentPost.commentsCount || 0) + 1
+        };
+        await supabaseService.savePost(updatedPost);
+        setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+      }
 
       setCommentInputMap(prev => ({ ...prev, [postId]: '' }));
     } catch (err) {

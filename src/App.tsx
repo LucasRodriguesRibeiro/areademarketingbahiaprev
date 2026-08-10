@@ -21,7 +21,7 @@ import { Partner } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { AuthForm } from './components/AuthForm';
-import { LogOut, Camera, Home, AlertTriangle, Database } from 'lucide-react';
+import { LogOut, Camera, Home, AlertTriangle, Database, Wrench, X, ShieldAlert } from 'lucide-react';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -29,6 +29,7 @@ import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
 import { SupabaseMigrationModal } from './components/SupabaseMigrationModal';
 import { checkFunerariaAccess } from './utils/permissions';
+import { autoSyncAllFirebaseToSupabase } from './lib/firebaseRestore';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -37,6 +38,14 @@ function MainAppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [showMaintenanceBanner, setShowMaintenanceBanner] = useState(true);
+
+  // Automatic background sync of all historic data from Firebase to Supabase on startup
+  useEffect(() => {
+    autoSyncAllFirebaseToSupabase().catch((err) => {
+      console.warn('Sincronização automática em segundo plano:', err);
+    });
+  }, []);
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
@@ -83,6 +92,37 @@ function MainAppContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-500/15 selection:text-blue-900 antialiased font-sans">
+      {/* Top Maintenance Notice Banner */}
+      {showMaintenanceBanner && (
+        <div className="bg-amber-400 border-b border-amber-500 text-black text-xs py-2 px-3 sm:px-6 relative z-50 font-bold shadow-xs">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-6 w-6 rounded-lg bg-amber-500/40 border border-amber-600/50 flex items-center justify-center shrink-0">
+                <Wrench className="h-3.5 w-3.5 text-black animate-pulse" />
+              </div>
+              <div className="min-w-0 text-left">
+                <span className="font-black text-black mr-2 tracking-wide uppercase text-[11px]">
+                  ⚠️ AVISO DE MANUTENÇÃO & SISTEMA:
+                </span>
+                <span className="text-black font-semibold hidden sm:inline">
+                  O sistema está em manutenção preventiva para aplicação de melhorias de desempenho, otimização de velocidade e implementação de novas funcionalidades.
+                </span>
+                <span className="text-black font-semibold sm:hidden truncate block text-[11px]">
+                  Manutenção para melhorias de desempenho e novas funcionalidades.
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowMaintenanceBanner(false)}
+              className="p-1 text-black hover:bg-black/10 rounded-md transition-colors shrink-0 cursor-pointer"
+              title="Fechar aviso de manutenção"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top User Status & Info Bar */}
       <div className={`bg-slate-950 text-white text-xs py-2 px-3 sm:px-6 shadow-inner ${activeTab === 'home' ? '' : 'border-b border-slate-800/80'}`}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">

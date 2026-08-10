@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Cross, 
@@ -67,19 +67,6 @@ function cleanFirestoreObject<T>(obj: T): T {
   return obj;
 }
 
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc,
-  doc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  getDocs,
-  limit 
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { supabaseService } from '../lib/supabaseService';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
@@ -310,70 +297,25 @@ export const FunerariaSection: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Sync OS list from Firestore
-  useEffect(() => {
-    setLoadingOrders(true);
-    const osRef = collection(db, 'funeraria_os');
-    const q = query(osRef, orderBy('createdAtISO', 'desc'), limit(50));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: FunerariaOS[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            osNumber: data.osNumber || 'OS-000000',
-            seqNumber: data.seqNumber || 0,
-            status: data.status || 'Aberto',
-            prioridade: data.prioridade || 'Normal',
-            responsavelName: data.responsavelName || 'Aguardando Agente',
-            responsavelEmail: data.responsavelEmail || '',
-            responsavelUid: data.responsavelUid || '',
-            atendenteName: data.atendenteName || '',
-            unidadeAtendimento: data.unidadeAtendimento || '',
-            agentesAcompanhamento: Array.isArray(data.agentesAcompanhamento) ? data.agentesAcompanhamento : [],
-            createdAtISO: data.createdAtISO || new Date().toISOString(),
-            dateFormatted: data.dateFormatted || '',
-            timeFormatted: data.timeFormatted || '',
-            formData: data.formData || undefined,
-            checklist: Array.isArray(data.checklist) 
-              ? data.checklist.map((c: any) => ({
-                  id: c.id || '',
-                  label: c.label || '',
-                  completed: Boolean(c.completed),
-                  completedAt: c.completedAt || '',
-                  completedBy: c.completedBy || '',
-                  completedLocation: c.completedLocation || '',
-                  completedLat: typeof c.completedLat === 'number' ? c.completedLat : undefined,
-                  completedLng: typeof c.completedLng === 'number' ? c.completedLng : undefined,
-                  observations: c.observations || undefined,
-                  photoUrl: c.photoUrl || undefined,
-                })) 
-              : [],
-            photos: Array.isArray(data.photos) ? data.photos : [],
-            audioMemos: Array.isArray(data.audioMemos) ? data.audioMemos : [],
-            timeline: Array.isArray(data.timeline) ? data.timeline : [],
-            updatedAtISO: data.updatedAtISO,
-            updatedDateFormatted: data.updatedDateFormatted || data.dateFormatted || '',
-            updatedTimeFormatted: data.updatedTimeFormatted || data.timeFormatted || '',
-            serviceAddress: data.serviceAddress || data.formData?.enderecoRemocao || '',
-            serviceLocationName: data.serviceLocationName || data.formData?.nomeFalecido || '',
-            serviceLat: typeof data.serviceLat === 'number' ? data.serviceLat : undefined,
-            serviceLng: typeof data.serviceLng === 'number' ? data.serviceLng : undefined
-          };
-        });
+  // Sync OS list directly from Supabase
+  const loadOrdersFromSupabase = useCallback(async () => {
+    try {
+      const list = await supabaseService.fetchOrders();
+      if (list) {
         setOrders(list);
-        setLoadingOrders(false);
-      },
-      (error) => {
-        console.error("Erro ao carregar ordens de serviço:", error);
-        setLoadingOrders(false);
       }
-    );
-
-    return () => unsubscribe();
+    } catch (err) {
+      console.error("Erro ao carregar ordens de serviço do Supabase:", err);
+    } finally {
+      setLoadingOrders(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadOrdersFromSupabase();
+    const interval = setInterval(loadOrdersFromSupabase, 8000);
+    return () => clearInterval(interval);
+  }, [loadOrdersFromSupabase]);
 
   const showToast = (msg: string) => {
     setFeedbackMsg(msg);
@@ -392,17 +334,7 @@ export const FunerariaSection: React.FC = () => {
     setIsCreating(true);
 
     try {
-      const osRef = collection(db, 'funeraria_os');
-      const osQuery = query(osRef, orderBy('seqNumber', 'desc'), limit(1));
-      const snapshot = await getDocs(osQuery);
-      let maxSeq = 0;
-      if (!snapshot.empty) {
-        const topDoc = snapshot.docs[0].data();
-        if (typeof topDoc?.seqNumber === 'number') {
-          maxSeq = topDoc.seqNumber;
-        }
-      }
-
+      const maxSeq = orders.reduce((max, o) => Math.max(max, o.seqNumber || 0), 0);
       const nextSeq = maxSeq + 1;
       const osNumber = `OS-${String(nextSeq).padStart(6, '0')}`;
 
@@ -432,7 +364,10 @@ export const FunerariaSection: React.FC = () => {
         }
       ];
 
-      const newOsData = {
+      const newId = 'os_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+      const newOsData: FunerariaOS = {
+        id: newId,
         osNumber,
         seqNumber: nextSeq,
         status: 'Aberto' as const,
@@ -457,15 +392,11 @@ export const FunerariaSection: React.FC = () => {
         serviceLocationName: formData.nomeFalecido ? `Atendimento: ${formData.nomeFalecido}` : ''
       };
 
-      const docRef = await addDoc(osRef, newOsData);
-
-      // Sync with Supabase if configured
-      supabaseService.saveOrder({ id: docRef.id, ...newOsData }).catch(err => {
-        console.warn("Supabase dual-write:", err);
-      });
+      await supabaseService.saveOrder(newOsData);
+      setOrders(prev => [newOsData, ...prev]);
 
       showToast(`Ordem de Serviço ${osNumber} criada com sucesso! Aguardando agente.`);
-      setSelectedOsId(docRef.id);
+      setSelectedOsId(newId);
       setView('detail');
     } catch (err) {
       console.error("Erro ao criar Ordem de Serviço:", err);
@@ -498,8 +429,8 @@ export const FunerariaSection: React.FC = () => {
       const existingTimeline = targetOS.timeline || [];
       const updatedTimeline = [...existingTimeline, newTimelineEntry];
 
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
+      const updatedOS: FunerariaOS = {
+        ...targetOS,
         responsavelName: loggedInAgentName,
         responsavelEmail: profile?.email || user?.email || '',
         responsavelUid: profile?.uid || user?.uid || 'guest',
@@ -508,7 +439,10 @@ export const FunerariaSection: React.FC = () => {
         updatedAtISO: now.toISOString(),
         updatedDateFormatted: dateFormatted,
         updatedTimeFormatted: timeFormatted
-      }));
+      };
+
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       showToast(`⚡ Você iniciou o atendimento da Ordem de Serviço ${targetOS.osNumber} como Agente Principal!`);
     } catch (err) {
@@ -560,24 +494,19 @@ export const FunerariaSection: React.FC = () => {
       const existingTimeline = targetOS.timeline || [];
       const updatedTimeline = [...existingTimeline, newTimelineEntry];
 
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
+      const updatedOS: FunerariaOS = {
+        ...targetOS,
         agentesAcompanhamento: updatedAcompanhamento,
         timeline: updatedTimeline,
         updatedAtISO: now.toISOString(),
         updatedDateFormatted: dateFormatted,
         updatedTimeFormatted: timeFormatted
-      }));
+      };
+
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       showToast(`🤝 Você entrou para dar continuidade e acompanhamento na OS ${targetOS.osNumber}!`);
-      
-      // Sync to Supabase if configured
-      supabaseService.saveOrder({
-        ...targetOS,
-        agentesAcompanhamento: updatedAcompanhamento,
-        timeline: updatedTimeline,
-        updatedAtISO: now.toISOString()
-      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
     } catch (err) {
       console.error("Erro ao registrar acompanhamento:", err);
       showToast("Não foi possível registrar o acompanhamento.");
@@ -614,22 +543,17 @@ export const FunerariaSection: React.FC = () => {
       const existingTimeline = targetOS.timeline || [];
       const updatedTimeline = [...existingTimeline, newTimelineEntry];
 
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
+      const updatedOS: FunerariaOS = {
+        ...targetOS,
         agentesAcompanhamento: updatedAcompanhamento,
         timeline: updatedTimeline,
         updatedAtISO: now.toISOString(),
         updatedDateFormatted: dateFormatted,
         updatedTimeFormatted: timeFormatted
-      }));
+      };
 
-      // Sync to Supabase if configured
-      supabaseService.saveOrder({
-        ...targetOS,
-        agentesAcompanhamento: updatedAcompanhamento,
-        timeline: updatedTimeline,
-        updatedAtISO: now.toISOString()
-      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       showToast(`🚪 ${nameToRemove} foi removido do acompanhamento da OS ${targetOS.osNumber}!`);
     } catch (err) {
@@ -661,14 +585,17 @@ export const FunerariaSection: React.FC = () => {
       const existingTimeline = targetOS.timeline || [];
       const updatedTimeline = [...existingTimeline, newTimelineEntry];
 
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
+      const updatedOS: FunerariaOS = {
+        ...targetOS,
         status: newStatus,
         timeline: updatedTimeline,
         updatedAtISO: now.toISOString(),
         updatedDateFormatted: dateFormatted,
         updatedTimeFormatted: timeFormatted
-      }));
+      };
+
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       showToast(`Status da OS ${targetOS.osNumber} atualizado para "${newStatus}"`);
     } catch (err) {
@@ -764,25 +691,19 @@ export const FunerariaSection: React.FC = () => {
     const existingTimeline = currentOS.timeline || [];
     const updatedTimeline = [...existingTimeline, newTimelineEntry];
 
-    try {
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({
-        checklist: cleanFirestoreObject(updatedChecklist),
-        status: newOsStatus,
-        timeline: updatedTimeline,
-        updatedAtISO: now.toISOString(),
-        updatedDateFormatted: dateStr,
-        updatedTimeFormatted: timeShortStr
-      }));
+    const updatedOS: FunerariaOS = {
+      ...currentOS,
+      checklist: updatedChecklist,
+      status: newOsStatus,
+      timeline: updatedTimeline,
+      updatedAtISO: now.toISOString(),
+      updatedDateFormatted: dateStr,
+      updatedTimeFormatted: timeShortStr
+    };
 
-      // Sync to Supabase if configured
-      supabaseService.saveOrder({
-        ...currentOS,
-        checklist: updatedChecklist,
-        status: newOsStatus,
-        timeline: updatedTimeline,
-        updatedAtISO: now.toISOString()
-      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+    try {
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       if (!wasCompleted) {
         showToast(`✓ Etapa "${targetItem?.label}" concluída por ${loggedInAgentName || 'Agente'}!`);
@@ -848,16 +769,15 @@ export const FunerariaSection: React.FC = () => {
       return item;
     });
 
-    try {
-      const osDocRef = doc(db, 'funeraria_os', osId);
-      await updateDoc(osDocRef, cleanFirestoreObject({ checklist: updatedChecklist }));
+    const updatedOS: FunerariaOS = {
+      ...currentOS,
+      checklist: updatedChecklist,
+      updatedAtISO: new Date().toISOString()
+    };
 
-      // Sync to Supabase if configured
-      supabaseService.saveOrder({
-        ...currentOS,
-        checklist: updatedChecklist,
-        updatedAtISO: new Date().toISOString()
-      }).catch(err => console.error('Erro ao atualizar Supabase:', err));
+    try {
+      await supabaseService.saveOrder(updatedOS);
+      setOrders(prev => prev.map(o => o.id === osId ? updatedOS : o));
 
       showToast("Observações atualizadas com sucesso!");
     } catch (err) {
@@ -878,7 +798,8 @@ export const FunerariaSection: React.FC = () => {
     if (!osToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'funeraria_os', osToDelete.id));
+      await supabaseService.deleteOrder(osToDelete.id);
+      setOrders(prev => prev.filter(o => o.id !== osToDelete.id));
       if (selectedOsId === osToDelete.id) {
         setSelectedOsId(null);
         setView('list');

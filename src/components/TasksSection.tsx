@@ -30,14 +30,13 @@ import {
   Pencil,
   Save,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
-import { db } from '../lib/firebase';
 import { supabaseService } from '../lib/supabaseService';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, limit, deleteField } from 'firebase/firestore';
 
 export interface AttachmentItem {
   id?: string;
@@ -112,6 +111,7 @@ export interface MemberOption {
   name: string;
   email: string;
   role: string;
+  avatarUrl?: string;
 }
 
 export const isDirectorOrPresidentRole = (role?: string): boolean => {
@@ -207,6 +207,7 @@ export const TasksSection: React.FC = () => {
   // Modal and state for purging/clearing all tasks
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
   const [isClearingTasks, setIsClearingTasks] = useState(false);
+  const hasAttemptedAutoRestoreRef = useRef(false);
 
   // Modal for new task
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -297,7 +298,7 @@ export const TasksSection: React.FC = () => {
     const map: Record<string, MemberOption> = {
       'lucas': {
         uid: 'm-lucas-mkt',
-        name: 'Analista de Marketing',
+        name: 'Lucas Rodrigues',
         email: 'lucasrodrigues@bahiaprev.com.br',
         role: 'Administrador'
       },
@@ -312,6 +313,30 @@ export const TasksSection: React.FC = () => {
         name: 'Cauan',
         email: 'cauan@bahiaprev.com.br',
         role: 'Designer Gráfico'
+      },
+      'nilton': {
+        uid: 'm-nilton',
+        name: 'Nilton',
+        email: 'nilton@bahiaprev.com.br',
+        role: 'Colaborador'
+      },
+      'thayan': {
+        uid: 'm-thayan',
+        name: 'Thayan',
+        email: 'thayan@bahiaprev.com.br',
+        role: 'Colaborador'
+      },
+      'vitor': {
+        uid: 'm-vitor',
+        name: 'Vitor',
+        email: 'vitor@bahiaprev.com.br',
+        role: 'Colaborador'
+      },
+      'paulo': {
+        uid: 'm-paulo',
+        name: 'Paulo',
+        email: 'paulo@bahiaprev.com.br',
+        role: 'Colaborador'
       }
     };
 
@@ -328,53 +353,131 @@ export const TasksSection: React.FC = () => {
           uid: uData.uid,
           name: resolvedName,
           email: uData.email || 'marketing@bahiaprev.com.br',
-          role: 'Administrador'
+          role: 'Administrador',
+          avatarUrl: uData.avatarUrl || map['lucas']?.avatarUrl
         };
       } else if (email.includes('jairo') || name.includes('jairo')) {
         map['jairo'] = {
           uid: uData.uid,
           name: 'Jairo Queiroz',
           email: 'jairoqueiroz@bahiaprev.com.br',
-          role: 'Diretor'
+          role: 'Diretor',
+          avatarUrl: uData.avatarUrl || map['jairo']?.avatarUrl
         };
       } else if (email.includes('cauan') || name.includes('cauan')) {
         map['cauan'] = {
           uid: uData.uid,
           name: (uData.name && uData.name.toLowerCase() !== 'cauan' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Cauan',
           email: 'cauan@bahiaprev.com.br',
-          role: (uData.role && uData.role !== 'Colaborador') ? uData.role : 'Designer Gráfico'
+          role: (uData.role && uData.role !== 'Colaborador') ? uData.role : 'Designer Gráfico',
+          avatarUrl: uData.avatarUrl || map['cauan']?.avatarUrl
+        };
+      } else if (email.includes('nilton') || name.includes('nilton')) {
+        map['nilton'] = {
+          uid: uData.uid,
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Nilton',
+          email: uData.email || 'nilton@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: uData.avatarUrl || map['nilton']?.avatarUrl
+        };
+      } else if (email.includes('thay') || name.includes('thay')) {
+        map['thayan'] = {
+          uid: uData.uid,
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Thayan',
+          email: uData.email || 'thayan@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: uData.avatarUrl || map['thayan']?.avatarUrl
+        };
+      } else if (email.includes('vitor') || name.includes('vitor')) {
+        map['vitor'] = {
+          uid: uData.uid,
+          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Vitor',
+          email: uData.email || 'vitor@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: uData.avatarUrl || map['vitor']?.avatarUrl
         };
       } else if (email.includes('paulo') || name.includes('paulo')) {
         map['paulo'] = {
           uid: uData.uid,
           name: (uData.name && uData.name.toLowerCase() !== 'paulo' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Paulo',
-          email: 'paulo@bahiaprev.com.br',
-          role: uData.role || 'Colaborador'
+          email: uData.email || 'paulo@bahiaprev.com.br',
+          role: uData.role || 'Colaborador',
+          avatarUrl: uData.avatarUrl || map['paulo']?.avatarUrl
         };
       } else {
         map[uData.uid] = {
           uid: uData.uid,
           name: uData.name || email.split('@')[0],
           email: uData.email,
-          role: uData.role || 'Colaborador'
+          role: uData.role || 'Colaborador',
+          avatarUrl: uData.avatarUrl
         };
       }
     });
 
-    setCollaborators(Object.values(map));
-  }, [allUsers]);
+    if (profile?.avatarUrl && user) {
+      const pEmail = (profile.email || user.email || '').toLowerCase();
+      const pName = (profile.name || '').toLowerCase();
 
-  // Helper to check if a task should be visible to the current user (Strict confidentiality rule)
-  const isTargetedToUser = useCallback((task: Task) => {
-    // Admins and leaders see all tasks to manage and oversee team operations
-    if (isAdmin) {
-      return true;
+      Object.keys(map).forEach(key => {
+        const c = map[key];
+        const cEmail = (c.email || '').toLowerCase();
+        const cName = (c.name || '').toLowerCase();
+        if ((pEmail && cEmail && pEmail === cEmail) || (pName && cName && (pName === cName || cName.includes(pName) || pName.includes(cName)))) {
+          c.avatarUrl = profile.avatarUrl;
+        }
+      });
     }
 
+    setCollaborators(Object.values(map));
+  }, [allUsers, profile, user]);
+
+  // Helper to retrieve user photo / avatarUrl across profile, collaborators, and allUsers
+  const getAvatarForUser = useCallback((email?: string, name?: string, uid?: string): string | undefined => {
+    const e = (email || '').toLowerCase().trim();
+    const n = (name || '').toLowerCase().trim();
+
+    // 1. Check logged in profile
+    if (profile?.avatarUrl) {
+      const pEmail = (profile.email || '').toLowerCase().trim();
+      const pName = (profile.name || '').toLowerCase().trim();
+      if ((e && pEmail && e === pEmail) ||
+          (n && pName && (n === pName || pName.includes(n) || n.includes(pName))) ||
+          (uid && user && uid === user.uid)) {
+        return profile.avatarUrl;
+      }
+    }
+
+    // 2. Check collaborators list
+    const foundCollab = collaborators.find(c => {
+      const cEmail = (c.email || '').toLowerCase().trim();
+      const cName = (c.name || '').toLowerCase().trim();
+      return (e && cEmail && e === cEmail) ||
+             (n && cName && (n === cName || cName.includes(n) || n.includes(cName))) ||
+             (uid && c.uid === uid);
+    });
+    if (foundCollab?.avatarUrl) return foundCollab.avatarUrl;
+
+    // 3. Check allUsers
+    const foundUser = allUsers.find(u => {
+      const uEmail = (u.email || '').toLowerCase().trim();
+      const uName = (u.name || '').toLowerCase().trim();
+      return (e && uEmail && e === uEmail) ||
+             (n && uName && (n === uName || uName.includes(n) || n.includes(uName))) ||
+             (uid && u.uid === uid);
+    });
+    if (foundUser?.avatarUrl) return foundUser.avatarUrl;
+
+    return undefined;
+  }, [profile, user, collaborators, allUsers]);
+
+  // Helper to check if a task should be visible to the current user (Strict privacy/confidentiality rule: creator + recipient only)
+  const isTargetedToUser = useCallback((task: Task) => {
     const myEmail = (userEmail || '').toLowerCase().trim();
     const myName = (userName || '').toLowerCase().trim();
     const myUid = userId;
     const myFirstName = myName.split(' ')[0] || '';
+    const emailPrefix = myEmail ? myEmail.split('@')[0] : '';
 
     const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
     const assignedName = (task.assignedToName || '').toLowerCase().trim();
@@ -383,13 +486,14 @@ export const TasksSection: React.FC = () => {
     const createdByName = (task.createdByName || '').toLowerCase().trim();
     const completedByEmail = (task.completedByEmail || '').toLowerCase().trim();
     const completedByName = (task.completedByName || '').toLowerCase().trim();
+    const rawAssignedTo = ((task as any).assignedTo || '').toLowerCase().trim();
 
     // 1. Task assigned to all
-    if (task.assignedToType === 'all' || assignedEmail === 'todos@bahiaprev.com.br' || assignedName.includes('todos')) {
+    if (task.assignedToType === 'all' || assignedEmail === 'todos@bahiaprev.com.br' || assignedName.includes('todos') || rawAssignedTo === 'all' || rawAssignedTo.includes('todos')) {
       return true;
     }
 
-    // 2. Task created by this user
+    // 2. Task created by this user (Sender)
     if ((myUid && creatorUid && creatorUid === myUid) || 
         (myEmail && creatorEmail && (creatorEmail === myEmail || creatorEmail.includes(myEmail) || myEmail.includes(creatorEmail)))) {
       return true;
@@ -403,24 +507,52 @@ export const TasksSection: React.FC = () => {
       return true;
     }
 
-    // Special check for Lucas / Marketing email aliases
+    // Special check for Lucas / Marketing email aliases as creator
     const isMyLucas = myEmail.includes('lucas') || myName.includes('lucas') || myEmail === 'marketing@bahiaprev.com.br';
     const isCreatorLucas = creatorEmail.includes('lucas') || createdByName.includes('lucas') || creatorEmail === 'marketing@bahiaprev.com.br';
     if (isMyLucas && isCreatorLucas) {
       return true;
     }
 
-    // 3. Task assigned directly to this user by email
+    // 3. Task assigned directly to this user (Recipient)
+    if (myUid && (task as any).assignedToUid && (task as any).assignedToUid === myUid) {
+      return true;
+    }
+
     if (myEmail && assignedEmail && (assignedEmail === myEmail || assignedEmail.includes(myEmail) || myEmail.includes(assignedEmail))) {
       return true;
     }
 
-    const isAssignedToLucas = assignedEmail.includes('lucas') || assignedName.includes('lucas') || assignedEmail === 'marketing@bahiaprev.com.br';
+    const isAssignedToLucas = assignedEmail.includes('lucas') || assignedName.includes('lucas') || assignedEmail === 'marketing@bahiaprev.com.br' || rawAssignedTo.includes('lucas');
     if (isMyLucas && isAssignedToLucas) {
       return true;
     }
 
-    // 4. Task assigned directly to this user by name
+    // Special alias matching for recipients: Nilton, Thayan/Thaya, Vitor, Paulo, Cauan, Jairo
+    const isMyThayan = myEmail.includes('thay') || myName.includes('thay');
+    const isTaskThayan = assignedEmail.includes('thay') || assignedName.includes('thay') || rawAssignedTo.includes('thay');
+    if (isMyThayan && isTaskThayan) return true;
+
+    const isMyNilton = myEmail.includes('nilton') || myName.includes('nilton');
+    const isTaskNilton = assignedEmail.includes('nilton') || assignedName.includes('nilton') || rawAssignedTo.includes('nilton');
+    if (isMyNilton && isTaskNilton) return true;
+
+    const isMyVitor = myEmail.includes('vitor') || myName.includes('vitor');
+    const isTaskVitor = assignedEmail.includes('vitor') || assignedName.includes('vitor') || rawAssignedTo.includes('vitor');
+    if (isMyVitor && isTaskVitor) return true;
+
+    const isMyPaulo = myEmail.includes('paulo') || myName.includes('paulo');
+    const isTaskPaulo = assignedEmail.includes('paulo') || assignedName.includes('paulo') || rawAssignedTo.includes('paulo');
+    if (isMyPaulo && isTaskPaulo) return true;
+
+    const isMyCauan = myEmail.includes('cauan') || myName.includes('cauan');
+    const isTaskCauan = assignedEmail.includes('cauan') || assignedName.includes('cauan') || rawAssignedTo.includes('cauan');
+    if (isMyCauan && isTaskCauan) return true;
+
+    const isMyJairo = myEmail.includes('jairo') || myName.includes('jairo');
+    const isTaskJairo = assignedEmail.includes('jairo') || assignedName.includes('jairo') || rawAssignedTo.includes('jairo');
+    if (isMyJairo && isTaskJairo) return true;
+
     if (myName && assignedName && (assignedName.includes(myName) || myName.includes(assignedName))) {
       return true;
     }
@@ -429,7 +561,15 @@ export const TasksSection: React.FC = () => {
       return true;
     }
 
-    // 5. Task completed by this user
+    if (emailPrefix && emailPrefix.length >= 2 && (assignedEmail.includes(emailPrefix) || assignedName.includes(emailPrefix) || rawAssignedTo.includes(emailPrefix))) {
+      return true;
+    }
+
+    if (myFirstName && myFirstName.length >= 2 && rawAssignedTo.includes(myFirstName)) {
+      return true;
+    }
+
+    // 4. Task completed by this user
     if (myEmail && completedByEmail && (completedByEmail === myEmail || completedByEmail.includes(myEmail) || myEmail.includes(completedByEmail))) {
       return true;
     }
@@ -443,103 +583,61 @@ export const TasksSection: React.FC = () => {
     }
 
     return false;
-  }, [userEmail, userName, userId, isAdmin]);
+  }, [userEmail, userName, userId]);
 
   // Default initial tasks (returns empty array to keep system completely clean when cleared)
   const getDefaultTasks = useCallback((): Task[] => {
     return [];
   }, []);
 
-  // Sync tasks from Firestore
-  useEffect(() => {
-    setLoading(true);
-    let unsubscribe: () => void = () => {};
+  // Save local backup
+  const saveTasksLocally = (updatedTasks: Task[]) => {
+    setTasks(updatedTasks);
+    if (userId) {
+      localStorage.setItem(`tasks_v2_${userId}`, JSON.stringify(updatedTasks));
+    }
+    localStorage.setItem('tasks_v2_global', JSON.stringify(updatedTasks));
+  };
 
+  // Sync tasks directly from Supabase
+  const loadTasksFromSupabase = useCallback(async () => {
     try {
-      const tasksRef = collection(db, 'user_tasks');
-      const qTasks = query(tasksRef, limit(300));
+      const taskMap = new Map<string, Task>();
 
-      unsubscribe = onSnapshot(
-        qTasks,
-        (snapshot) => {
-          const loaded: Task[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const taskCreatorEmail = data.userEmail || '';
+      // Fetch from Supabase
+      try {
+        const rawData = await supabaseService.fetchTasks();
+        if (rawData && Array.isArray(rawData)) {
+          rawData.forEach((item: any) => {
+            const data = item.data_json || item;
+            const taskCreatorEmail = data.userEmail || data.user_email || '';
 
-            const rawAssignedTo = data.assignedTo || '';
-            const rawAssignedName = data.assignedToName || (typeof rawAssignedTo === 'string' && !rawAssignedTo.includes('@') && rawAssignedTo !== 'me' && rawAssignedTo !== 'all' ? rawAssignedTo : '');
-            const rawAssignedEmail = data.assignedToEmail || (typeof rawAssignedTo === 'string' && rawAssignedTo.includes('@') ? rawAssignedTo : '');
+            const rawAssignedTo = data.assignedTo || data.assigned_to || '';
+            let assignedName = data.assignedToName || (typeof rawAssignedTo === 'string' && !rawAssignedTo.includes('@') && rawAssignedTo !== 'me' && rawAssignedTo !== 'all' ? rawAssignedTo : '');
+            let assignedEmail = data.assignedToEmail || (typeof rawAssignedTo === 'string' && rawAssignedTo.includes('@') ? rawAssignedTo : '');
 
-            // Detect if assigned to another specific collaborator (e.g. Cauan, Paulo, etc.)
-            const isAssignedToOther = Boolean(
-              (rawAssignedName && !rawAssignedName.toLowerCase().includes(userName.toLowerCase())) ||
-              (rawAssignedEmail && userEmail && !rawAssignedEmail.toLowerCase().includes(userEmail.toLowerCase()) && !rawAssignedEmail.includes('todos')) ||
-              (rawAssignedTo && rawAssignedTo !== 'me' && rawAssignedTo !== 'all' && !rawAssignedTo.toLowerCase().includes(userName.toLowerCase()))
-            );
+            let assignedType: 'specific_user' | 'all' | 'me' = data.assignedToType || (rawAssignedTo === 'all' ? 'all' : (rawAssignedTo === 'me' ? 'me' : 'specific_user'));
 
-            let assignedType: 'specific_user' | 'all' | 'me' = data.assignedToType;
-
-            if (isAssignedToOther) {
-              assignedType = 'specific_user';
-            } else if (!assignedType) {
-              if (rawAssignedTo === 'all' || rawAssignedName.toLowerCase().includes('todos') || rawAssignedEmail.includes('todos')) {
-                assignedType = 'all';
-              } else if ((rawAssignedTo && rawAssignedTo !== 'me') || rawAssignedName || rawAssignedEmail) {
-                assignedType = 'specific_user';
-              } else {
-                assignedType = 'me';
-              }
-            }
-
-            let assignedName = rawAssignedName;
-            let assignedEmail = rawAssignedEmail;
-
-            if (assignedType === 'all') {
+            if (assignedType === 'all' || rawAssignedTo === 'all' || (assignedName && assignedName.toLowerCase().includes('todos'))) {
+              assignedType = 'all';
               assignedName = 'Todos os Colaboradores';
               assignedEmail = 'todos@bahiaprev.com.br';
-            } else if (assignedType === 'me') {
-              assignedName = userName;
-              assignedEmail = userEmail;
-            } else if (assignedType === 'specific_user') {
-              if (!assignedName && !assignedEmail && rawAssignedTo) {
-                if (rawAssignedTo.includes('@')) {
-                  assignedEmail = rawAssignedTo;
-                  assignedName = rawAssignedTo.split('@')[0];
-                } else {
-                  assignedName = rawAssignedTo;
-                }
-              }
+            } else if (assignedType === 'me' && !assignedName) {
+              assignedName = data.createdByName || userName;
+              assignedEmail = taskCreatorEmail || userEmail;
             }
 
-            // Safe parsing for createdAt timestamp
-            const rawCreatedAt = data.createdAt;
-            let parsedCreatedAt = new Date().toISOString();
-            if (rawCreatedAt) {
-              if (typeof rawCreatedAt.toDate === 'function') {
-                parsedCreatedAt = rawCreatedAt.toDate().toISOString();
-              } else if (typeof rawCreatedAt.seconds === 'number') {
-                parsedCreatedAt = new Date(rawCreatedAt.seconds * 1000).toISOString();
-              } else if (typeof rawCreatedAt === 'string' && rawCreatedAt.trim()) {
-                parsedCreatedAt = rawCreatedAt;
-              }
-            }
-
-            // Safe parsing for completedAt timestamp
-            const rawCompletedAt = data.completedAt;
-            let parsedCompletedAt: string | undefined = undefined;
-            if (rawCompletedAt) {
-              if (typeof rawCompletedAt.toDate === 'function') {
-                parsedCompletedAt = rawCompletedAt.toDate().toISOString();
-              } else if (typeof rawCompletedAt.seconds === 'number') {
-                parsedCompletedAt = new Date(rawCompletedAt.seconds * 1000).toISOString();
-              } else if (typeof rawCompletedAt === 'string' && rawCompletedAt.trim()) {
-                parsedCompletedAt = rawCompletedAt;
+            if (!assignedName && !assignedEmail && rawAssignedTo) {
+              if (rawAssignedTo.includes('@')) {
+                assignedEmail = rawAssignedTo;
+                assignedName = rawAssignedTo.split('@')[0];
+              } else {
+                assignedName = rawAssignedTo;
               }
             }
 
             const taskCandidate: Task = {
-              id: docSnap.id,
+              id: String(item.id || data.id || `task-${Date.now()}`),
               userId: data.userId || '',
               userEmail: taskCreatorEmail,
               createdByName: data.createdByName || 'Colaborador',
@@ -548,7 +646,7 @@ export const TasksSection: React.FC = () => {
               category: data.category || 'Geral',
               priority: data.priority || 'media',
               status: data.status || 'pendente',
-              dueDate: data.dueDate || '',
+              dueDate: data.dueDate || data.due_date || '',
               createdByAdmin: data.createdByAdmin || false,
               assignedToType: assignedType,
               assignedToName: assignedName || 'Colaborador',
@@ -562,96 +660,98 @@ export const TasksSection: React.FC = () => {
               completionAttachmentType: data.completionAttachmentType || undefined,
               completionAttachments: Array.isArray(data.completionAttachments) ? data.completionAttachments : (data.completionAttachmentUrl ? [{ name: data.completionAttachmentName || 'Documento de Entrega', url: data.completionAttachmentUrl, type: data.completionAttachmentType }] : undefined),
               completionNote: data.completionNote || undefined,
-              completedAt: parsedCompletedAt,
+              completedAt: data.completedAt || undefined,
               completedByEmail: data.completedByEmail || undefined,
               completedByName: data.completedByName || undefined,
-              createdAt: parsedCreatedAt,
+              createdAt: data.createdAt || data.created_at_iso || new Date().toISOString(),
             };
 
             if (isTargetedToUser(taskCandidate)) {
-              loaded.push(taskCandidate);
+              taskMap.set(taskCandidate.id, taskCandidate);
             }
           });
-
-          // Sort tasks by createdAt descending (most recent first)
-          loaded.sort((a, b) => {
-            const timeA = new Date(a.createdAt || 0).getTime();
-            const timeB = new Date(b.createdAt || 0).getTime();
-            return timeB - timeA;
-          });
-
-          // Sound notification check for new tasks or completed tasks arriving in real time
-          if (knownTaskIdsRef.current === null) {
-            knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
-            knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
-          } else {
-            const hasNewTask = loaded.some((t) => !knownTaskIdsRef.current!.has(t.id));
-            const hasNewlyCompletedTask = loaded.some((t) => {
-              const prevStatus = knownTaskStatusesRef.current?.get(t.id);
-              return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
-            });
-
-            if (hasNewlyCompletedTask) {
-              playNotificationSound('task_complete');
-              const newlyCompleted = loaded.find((t) => {
-                const prevStatus = knownTaskStatusesRef.current?.get(t.id);
-                return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
-              });
-              if (newlyCompleted) {
-                triggerCompletionToast(newlyCompleted.title, newlyCompleted.completedByName || newlyCompleted.assignedToName);
-              }
-            } else if (hasNewTask) {
-              playNotificationSound('task');
-            }
-
-            knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
-            knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
-          }
-
-          if (loaded.length === 0) {
-            setTasks(getDefaultTasks());
-          } else {
-            setTasks(loaded);
-          }
-          setLoading(false);
-        },
-        (error) => {
-          console.warn('Firestore tasks listener fallback to defaults:', error);
-          const saved = localStorage.getItem(`tasks_v2_${userId}`);
-          if (saved) {
-            try {
-              const parsed: Task[] = JSON.parse(saved);
-              setTasks(parsed.filter(isTargetedToUser));
-            } catch (e) {
-              setTasks(getDefaultTasks());
-            }
-          } else {
-            setTasks(getDefaultTasks());
-          }
-          setLoading(false);
         }
-      );
+      } catch (err) {
+        console.warn('Erro ao ler tarefas do Supabase:', err);
+      }
+
+      const loaded = Array.from(taskMap.values());
+      loaded.sort((a, b) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      if (knownTaskIdsRef.current === null) {
+        knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+        knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
+      } else {
+        const hasNewTask = loaded.some((t) => !knownTaskIdsRef.current!.has(t.id));
+        const hasNewlyCompletedTask = loaded.some((t) => {
+          const prevStatus = knownTaskStatusesRef.current?.get(t.id);
+          return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
+        });
+
+        if (hasNewlyCompletedTask) {
+          playNotificationSound('task_complete');
+          const newlyCompleted = loaded.find((t) => {
+            const prevStatus = knownTaskStatusesRef.current?.get(t.id);
+            return prevStatus && prevStatus !== 'concluida' && t.status === 'concluida';
+          });
+          if (newlyCompleted) {
+            triggerCompletionToast(newlyCompleted.title, newlyCompleted.completedByName || newlyCompleted.assignedToName);
+          }
+        } else if (hasNewTask) {
+          playNotificationSound('task');
+        }
+
+        knownTaskIdsRef.current = new Set(loaded.map((t) => t.id));
+        knownTaskStatusesRef.current = new Map(loaded.map((t) => [t.id, t.status]));
+      }
+
+      setTasks(loaded);
+      if (userId) {
+        localStorage.setItem(`tasks_v2_${userId}`, JSON.stringify(loaded));
+      }
+      localStorage.setItem('tasks_v2_global', JSON.stringify(loaded));
+
+      // Quietly background-sync tasks to Supabase
+      loaded.forEach((t) => {
+        supabaseService.saveTask(t).catch(() => {});
+      });
     } catch (err) {
-      console.warn('Error setting up tasks snapshot listener:', err);
-      setTasks(getDefaultTasks());
+      console.warn('Erro ao sincronizar tarefas:', err);
+    } finally {
       setLoading(false);
     }
+  }, [userId, userEmail, userName, isTargetedToUser, triggerCompletionToast]);
 
-    return () => unsubscribe();
-  }, [userId, userEmail, userName, userRole, isAdmin]);
-
-  // Local storage backup persistence
-  const saveTasksLocally = (updatedTasks: Task[]) => {
-    setTasks(updatedTasks);
-    if (userId) {
-      localStorage.setItem(`tasks_v2_${userId}`, JSON.stringify(updatedTasks));
+  useEffect(() => {
+    const savedLocal = localStorage.getItem(`tasks_v2_${userId}`) || localStorage.getItem('tasks_v2_global');
+    if (savedLocal) {
+      try {
+        const parsed = JSON.parse(savedLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTasks(parsed.filter(isTargetedToUser));
+        }
+      } catch (e) {
+        // ignore
+      }
     }
-  };
+
+    loadTasksFromSupabase();
+
+    const interval = setInterval(() => {
+      loadTasksFromSupabase();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [userId, loadTasksFromSupabase, isTargetedToUser]);
 
   // Handle Create Task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin || !newTitle.trim()) return;
+    if (!newTitle.trim()) return;
 
     setSubmitting(true);
 
@@ -686,7 +786,9 @@ export const TasksSection: React.FC = () => {
       }
     }
 
-    const newTaskData: Omit<Task, 'id'> = {
+    const newTaskId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdTask: Task = {
+      id: newTaskId,
       userId,
       userEmail,
       createdByName: `${userName} (${userRole})`,
@@ -705,31 +807,17 @@ export const TasksSection: React.FC = () => {
         attachmentName: attachmentFiles[0].name,
         attachmentUrl: attachmentFiles[0].url,
         attachmentType: attachmentFiles[0].type,
-      } : {})
+      } : {}),
+      createdAt: new Date().toISOString()
     };
 
-    try {
-      const docRef = await addDoc(collection(db, 'user_tasks'), {
-        ...newTaskData,
-        createdAt: serverTimestamp(),
-      });
+    saveTasksLocally([createdTask, ...tasks]);
+    playNotificationSound('task');
 
-      const createdTask: Task = {
-        ...newTaskData,
-        id: docRef.id,
-      };
-      saveTasksLocally([createdTask, ...tasks]);
-      supabaseService.saveTask(createdTask).catch((err) => console.warn('Error saving task to Supabase:', err));
-      playNotificationSound('task');
+    try {
+      await supabaseService.saveTask(createdTask);
     } catch (err) {
-      console.warn('Could not save to Firestore, saving locally and on Supabase:', err);
-      const offlineTask: Task = {
-        ...newTaskData,
-        id: 'local-' + Date.now(),
-      };
-      saveTasksLocally([offlineTask, ...tasks]);
-      supabaseService.saveTask(offlineTask).catch((err) => console.warn('Error saving offline task to Supabase:', err));
-      playNotificationSound('task');
+      console.warn('Erro ao salvar tarefa no Supabase:', err);
     } finally {
       setSubmitting(false);
       setNewTitle('');
@@ -741,39 +829,16 @@ export const TasksSection: React.FC = () => {
     }
   };
 
-  // Helper function to recursively remove undefined values for Firestore
-  const cleanFirestorePayload = (obj: any): any => {
-    if (obj === null || obj === undefined) return null;
-    if (Array.isArray(obj)) {
-      return obj.map(cleanFirestorePayload);
-    }
-    if (typeof obj === 'object' && !(obj instanceof Date) && obj.constructor?.name !== 'FieldValue') {
-      const cleaned: Record<string, any> = {};
-      for (const [key, val] of Object.entries(obj)) {
-        if (val !== undefined) {
-          cleaned[key] = cleanFirestorePayload(val);
-        }
-      }
-      return cleaned;
-    }
-    return obj;
-  };
-
   // Handle Toggle Status (Marcar como Concluída ou Reabrir)
   const handleToggleStatus = async (task: Task) => {
-    let nextStatus: 'pendente' | 'em_andamento' | 'concluida';
-    if (task.status !== 'concluida') {
-      nextStatus = 'concluida';
-    } else {
-      nextStatus = 'pendente';
-    }
+    const isCompleting = task.status !== 'concluida';
+    const now = new Date().toISOString();
 
-    let localPayload: Partial<Task>;
-    let firestorePayload: Record<string, any>;
+    let updatedTask: Task;
 
-    if (nextStatus === 'concluida') {
-      const now = new Date().toISOString();
-      localPayload = {
+    if (isCompleting) {
+      updatedTask = {
+        ...task,
         status: 'concluida',
         completedAt: now,
         completedByEmail: userEmail || '',
@@ -781,23 +846,23 @@ export const TasksSection: React.FC = () => {
       };
 
       if (completionAttachmentFiles.length > 0) {
-        localPayload.completionAttachments = completionAttachmentFiles;
-        localPayload.completionAttachmentName = completionAttachmentFiles[0]?.name || '';
-        localPayload.completionAttachmentUrl = completionAttachmentFiles[0]?.url || '';
-        localPayload.completionAttachmentType = completionAttachmentFiles[0]?.type || '';
+        updatedTask.completionAttachments = completionAttachmentFiles;
+        updatedTask.completionAttachmentName = completionAttachmentFiles[0]?.name || '';
+        updatedTask.completionAttachmentUrl = completionAttachmentFiles[0]?.url || '';
+        updatedTask.completionAttachmentType = completionAttachmentFiles[0]?.type || '';
       }
       if (completionNoteText.trim()) {
-        localPayload.completionNote = completionNoteText.trim();
+        updatedTask.completionNote = completionNoteText.trim();
       }
 
-      firestorePayload = { ...localPayload };
       playNotificationSound('task_complete');
       triggerCompletionToast(task.title, userName || 'Colaborador');
       setCompletionAttachmentFiles([]);
       setCompletionNoteText('');
     } else {
       // Reopening task (reset completion fields)
-      localPayload = {
+      updatedTask = {
+        ...task,
         status: 'pendente',
         completedAt: undefined,
         completedByEmail: undefined,
@@ -808,65 +873,37 @@ export const TasksSection: React.FC = () => {
         completionAttachmentType: undefined,
         completionAttachments: undefined,
       };
-      firestorePayload = {
-        status: 'pendente',
-        completedAt: deleteField(),
-        completedByEmail: deleteField(),
-        completedByName: deleteField(),
-        completionNote: deleteField(),
-        completionAttachmentName: deleteField(),
-        completionAttachmentUrl: deleteField(),
-        completionAttachmentType: deleteField(),
-        completionAttachments: deleteField(),
-      };
     }
 
-    const updated = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload } : t);
-    saveTasksLocally(updated);
-
-    const fullUpdatedTask = updated.find((t) => t.id === task.id) || { ...task, ...localPayload };
-    supabaseService.saveTask(fullUpdatedTask).catch((err) => console.warn('Error syncing task toggle status to Supabase:', err));
+    const updatedTasksList = tasks.map((t) => (t.id === task.id ? updatedTask : t));
+    saveTasksLocally(updatedTasksList);
 
     if (selectedTaskForView?.id === task.id) {
-      setSelectedTaskForView({ ...selectedTaskForView, ...localPayload });
+      setSelectedTaskForView(updatedTask);
     }
 
     try {
-      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), cleanFirestorePayload(firestorePayload));
-      } else {
-        // Save default/local task to Firestore as a permanent document
-        const fullTaskData: Record<string, any> = {
-          ...task,
-          ...localPayload,
-          userId: task.userId || userId,
-          userEmail: task.userEmail || userEmail,
-          createdByName: task.createdByName || userName,
-          createdAt: serverTimestamp(),
-        };
-        const docRef = await addDoc(collection(db, 'user_tasks'), cleanFirestorePayload(fullTaskData));
-        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...localPayload, id: docRef.id } : t);
-        setTasks(remapped);
-        saveTasksLocally(remapped);
-      }
+      await supabaseService.saveTask(updatedTask);
     } catch (err) {
-      console.warn('Error updating task status in Firestore:', err);
+      console.warn('Erro ao atualizar status da tarefa no Supabase:', err);
     }
   };
 
   // Handle Save Completion Delivery with attachment and note
   const handleSaveCompletionDelivery = async (task: Task) => {
+    const now = new Date().toISOString();
     const updatePayload: Partial<Task> = {
       status: 'concluida',
-      completedAt: new Date().toISOString(),
+      completedAt: now,
       completedByEmail: userEmail || '',
       completedByName: userName || 'Colaborador',
     };
+
     playNotificationSound('task_complete');
     triggerCompletionToast(task.title, userName || 'Colaborador');
 
-    updatePayload.completionAttachments = completionAttachmentFiles;
     if (completionAttachmentFiles.length > 0) {
+      updatePayload.completionAttachments = completionAttachmentFiles;
       updatePayload.completionAttachmentName = completionAttachmentFiles[0].name;
       updatePayload.completionAttachmentUrl = completionAttachmentFiles[0].url;
       updatePayload.completionAttachmentType = completionAttachmentFiles[0].type;
@@ -875,38 +912,25 @@ export const TasksSection: React.FC = () => {
       updatePayload.completionNote = completionNoteText.trim();
     }
 
-    const updatedTasks = tasks.map((t) => (t.id === task.id ? { ...t, ...updatePayload } : t));
+    const updatedTask: Task = {
+      ...task,
+      ...updatePayload,
+    };
+
+    const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t));
     saveTasksLocally(updatedTasks);
 
-    const completedTaskToSync = updatedTasks.find(t => t.id === task.id) || { ...task, ...updatePayload };
-    supabaseService.saveTask(completedTaskToSync).catch((err) => console.warn('Error syncing completion to Supabase:', err));
-
     if (selectedTaskForView?.id === task.id) {
-      setSelectedTaskForView({ ...selectedTaskForView, ...updatePayload });
+      setSelectedTaskForView(updatedTask);
     }
 
     setCompletionAttachmentFiles([]);
     setCompletionNoteText('');
 
     try {
-      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), cleanFirestorePayload(updatePayload));
-      } else {
-        const fullTaskData = {
-          ...task,
-          ...updatePayload,
-          userId: task.userId || userId,
-          userEmail: task.userEmail || userEmail,
-          createdByName: task.createdByName || userName,
-          createdAt: serverTimestamp(),
-        };
-        const docRef = await addDoc(collection(db, 'user_tasks'), cleanFirestorePayload(fullTaskData));
-        const remapped = tasks.map((t) => t.id === task.id ? { ...t, ...updatePayload, id: docRef.id } : t);
-        setTasks(remapped);
-        saveTasksLocally(remapped);
-      }
+      await supabaseService.saveTask(updatedTask);
     } catch (err) {
-      console.warn('Error saving completion delivery in Firestore:', err);
+      console.warn('Erro ao salvar entrega no Supabase:', err);
     }
   };
 
@@ -946,18 +970,15 @@ export const TasksSection: React.FC = () => {
 
     const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t));
     saveTasksLocally(updatedTasks);
-    supabaseService.saveTask(updatedTask).catch((err) => console.warn('Error syncing updated completion to Supabase:', err));
 
     if (selectedTaskForView?.id === task.id) {
       setSelectedTaskForView(updatedTask);
     }
 
     try {
-      if (!task.id.startsWith('def-') && !task.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'user_tasks', task.id), updatePayload);
-      }
+      await supabaseService.saveTask(updatedTask);
     } catch (err) {
-      console.warn('Error updating completion notes/attachment in Firestore:', err);
+      console.warn('Erro ao atualizar entrega no Supabase:', err);
     }
 
     setIsSavingCompletionEdit(false);
@@ -1089,7 +1110,7 @@ export const TasksSection: React.FC = () => {
       }
     }
 
-    const updatePayload: Record<string, any> = {
+    const updatePayload: Partial<Task> = {
       title: editTitle.trim(),
       description: editDescription.trim(),
       priority: editPriority,
@@ -1098,22 +1119,20 @@ export const TasksSection: React.FC = () => {
       assignedToType: assignedType,
       assignedToName: assignedName,
       assignedToEmail: assignedEmail,
+      attachments: editAttachmentFiles,
+      attachmentName: editAttachmentFiles[0]?.name || '',
+      attachmentUrl: editAttachmentFiles[0]?.url || '',
+      attachmentType: editAttachmentFiles[0]?.type || '',
     };
-
-    const firestorePayload: Record<string, any> = { ...updatePayload };
 
     if (editStatus === 'concluida' && selectedTaskForView.status !== 'concluida') {
       const now = new Date().toISOString();
       updatePayload.completedAt = now;
       updatePayload.completedByEmail = userEmail;
       updatePayload.completedByName = userName;
-      firestorePayload.completedAt = now;
-      firestorePayload.completedByEmail = userEmail;
-      firestorePayload.completedByName = userName;
       playNotificationSound('task_complete');
       triggerCompletionToast(editTitle, userName);
     } else if (editStatus !== 'concluida' && selectedTaskForView.status === 'concluida') {
-      // Reopening task via Edit Modal
       updatePayload.completedAt = undefined;
       updatePayload.completedByEmail = undefined;
       updatePayload.completedByName = undefined;
@@ -1122,26 +1141,7 @@ export const TasksSection: React.FC = () => {
       updatePayload.completionAttachmentUrl = undefined;
       updatePayload.completionAttachmentType = undefined;
       updatePayload.completionAttachments = undefined;
-
-      firestorePayload.completedAt = deleteField();
-      firestorePayload.completedByEmail = deleteField();
-      firestorePayload.completedByName = deleteField();
-      firestorePayload.completionNote = deleteField();
-      firestorePayload.completionAttachmentName = deleteField();
-      firestorePayload.completionAttachmentUrl = deleteField();
-      firestorePayload.completionAttachmentType = deleteField();
-      firestorePayload.completionAttachments = deleteField();
     }
-
-    updatePayload.attachments = editAttachmentFiles;
-    updatePayload.attachmentName = editAttachmentFiles[0]?.name || '';
-    updatePayload.attachmentUrl = editAttachmentFiles[0]?.url || '';
-    updatePayload.attachmentType = editAttachmentFiles[0]?.type || '';
-
-    firestorePayload.attachments = editAttachmentFiles;
-    firestorePayload.attachmentName = editAttachmentFiles[0]?.name || '';
-    firestorePayload.attachmentUrl = editAttachmentFiles[0]?.url || '';
-    firestorePayload.attachmentType = editAttachmentFiles[0]?.type || '';
 
     const updatedTask: Task = {
       ...selectedTaskForView,
@@ -1151,14 +1151,11 @@ export const TasksSection: React.FC = () => {
     const updatedTasksList = tasks.map(t => t.id === selectedTaskForView.id ? updatedTask : t);
     saveTasksLocally(updatedTasksList);
     setSelectedTaskForView(updatedTask);
-    supabaseService.saveTask(updatedTask).catch((err) => console.warn('Error syncing task edit to Supabase:', err));
 
-    if (!selectedTaskForView.id.startsWith('def-') && !selectedTaskForView.id.startsWith('local-')) {
-      try {
-        await updateDoc(doc(db, 'user_tasks', selectedTaskForView.id), firestorePayload);
-      } catch (err) {
-        console.warn('Error updating task in Firestore:', err);
-      }
+    try {
+      await supabaseService.saveTask(updatedTask);
+    } catch (err) {
+      console.warn('Erro ao salvar edição no Supabase:', err);
     }
 
     setIsSavingEdit(false);
@@ -1169,39 +1166,35 @@ export const TasksSection: React.FC = () => {
   const handleDeleteTask = async (taskId: string) => {
     const updated = tasks.filter((t) => t.id !== taskId);
     saveTasksLocally(updated);
-    supabaseService.deleteTask(taskId).catch((err) => console.warn('Error deleting task in Supabase:', err));
-
-    if (!taskId.startsWith('def-') && !taskId.startsWith('local-')) {
-      try {
-        await deleteDoc(doc(db, 'user_tasks', taskId));
-      } catch (err) {
-        console.warn('Error deleting task in Firestore:', err);
-      }
+    if (selectedTaskForView?.id === taskId) {
+      setSelectedTaskForView(null);
+    }
+    try {
+      await supabaseService.deleteTask(taskId);
+    } catch (err) {
+      console.warn('Erro ao excluir tarefa no Supabase:', err);
     }
   };
 
-  // Purge/Clear All Tasks from Firestore and local storage to leave system 100% clean
+  // Purge/Clear All Tasks
   const handleClearAllTasks = async () => {
     setIsClearingTasks(true);
     try {
-      // 1. Delete all Firestore user_tasks documents
-      const snapshot = await getDocs(collection(db, 'user_tasks'));
-      const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(doc(db, 'user_tasks', docSnap.id)));
-      await Promise.all(deletePromises);
+      for (const task of tasks) {
+        await supabaseService.deleteTask(task.id);
+      }
 
-      // 2. Clear local storage
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('tasks_')) {
           localStorage.removeItem(key);
         }
       });
 
-      // 3. Clear local state
       setTasks([]);
       setSelectedTaskForView(null);
     } catch (err) {
       console.error('Erro ao excluir histórico de tarefas:', err);
-      alert('Ocorreu um erro ao tentar limpar as tarefas do banco de dados.');
+      alert('Ocorreu um erro ao tentar limpar as tarefas.');
     } finally {
       setIsClearingTasks(false);
       setShowClearConfirmModal(false);
@@ -1319,12 +1312,32 @@ export const TasksSection: React.FC = () => {
       return true;
     }
 
-    // 3. Special matching for Lucas (strictly assignedTo or completedBy, NOT creator)
+    // 3. Alias matching for team members
     const isCollabLucas = isLucasUser(cEmail, cName);
     const isTaskAssignedLucas = isLucasUser(assignedEmail, assignedName) || isLucasUser(completedEmail, completedName);
     if (isCollabLucas && isTaskAssignedLucas) {
       return true;
     }
+
+    const isCollabNilton = cEmail.includes('nilton') || cName.includes('nilton');
+    const isTaskAssignedNilton = assignedEmail.includes('nilton') || assignedName.includes('nilton') || completedEmail.includes('nilton') || completedName.includes('nilton');
+    if (isCollabNilton && isTaskAssignedNilton) return true;
+
+    const isCollabThayan = cEmail.includes('thay') || cName.includes('thay');
+    const isTaskAssignedThayan = assignedEmail.includes('thay') || assignedName.includes('thay') || completedEmail.includes('thay') || completedName.includes('thay');
+    if (isCollabThayan && isTaskAssignedThayan) return true;
+
+    const isCollabVitor = cEmail.includes('vitor') || cName.includes('vitor');
+    const isTaskAssignedVitor = assignedEmail.includes('vitor') || assignedName.includes('vitor') || completedEmail.includes('vitor') || completedName.includes('vitor');
+    if (isCollabVitor && isTaskAssignedVitor) return true;
+
+    const isCollabPaulo = cEmail.includes('paulo') || cName.includes('paulo');
+    const isTaskAssignedPaulo = assignedEmail.includes('paulo') || assignedName.includes('paulo') || completedEmail.includes('paulo') || completedName.includes('paulo');
+    if (isCollabPaulo && isTaskAssignedPaulo) return true;
+
+    const isCollabCauan = cEmail.includes('cauan') || cName.includes('cauan');
+    const isTaskAssignedCauan = assignedEmail.includes('cauan') || assignedName.includes('cauan') || completedEmail.includes('cauan') || completedName.includes('cauan');
+    if (isCollabCauan && isTaskAssignedCauan) return true;
 
     // 4. Name match on assignedToName or completedByName
     if (cName && cName.length > 2 && cName !== 'colaborador') {
@@ -1661,16 +1674,14 @@ export const TasksSection: React.FC = () => {
           </button>
         </div>
 
-        {/* Add New Task Button - Admin Only */}
-        {isAdmin && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Criar / Atribuir Tarefa</span>
-          </button>
-        )}
+        {/* Add New Task Button */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Criar / Atribuir Tarefa</span>
+        </button>
       </div>
 
       {/* Sub-bar for Completed Tasks: Organized Filters (Only shown when viewing ALL tasks) */}
@@ -1816,16 +1827,25 @@ export const TasksSection: React.FC = () => {
                       </h4>
 
                       {/* Recipient Badge */}
-                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 shadow-xs max-w-full break-words ${
-                        task.assignedToType === 'all'
-                          ? 'bg-amber-100 text-amber-900 border-amber-300'
-                          : isAssignedToMe
-                          ? 'bg-blue-100 text-blue-900 border-blue-300 font-extrabold'
-                          : 'bg-slate-100 text-slate-800 border-slate-300'
-                      }`}>
-                        <UserCheck className="h-3 w-3 text-blue-600 shrink-0" />
-                        <span className="truncate max-w-[200px] sm:max-w-none">Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
-                      </span>
+                      {(() => {
+                        const recipientAvatar = getAvatarForUser(task.assignedToEmail, task.assignedToName);
+                        return (
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 shadow-xs max-w-full break-words ${
+                            task.assignedToType === 'all'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : isAssignedToMe
+                              ? 'bg-blue-100 text-blue-900 border-blue-300 font-extrabold'
+                              : 'bg-slate-100 text-slate-800 border-slate-300'
+                          }`}>
+                            {recipientAvatar ? (
+                              <img src={recipientAvatar} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 border border-blue-400/60" />
+                            ) : (
+                              <UserCheck className="h-3 w-3 text-blue-600 shrink-0" />
+                            )}
+                            <span className="truncate max-w-[200px] sm:max-w-none">Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
+                          </span>
+                        );
+                      })()}
 
                       {/* Priority Badge */}
                       <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase shrink-0 ${
@@ -1887,15 +1907,23 @@ export const TasksSection: React.FC = () => {
                     {/* Creator & Due Date Metadata */}
                     <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-500 pt-0.5 max-w-full">
                       {task.createdByName && (
-                        <span className="font-medium text-slate-600 flex items-center gap-1 break-words">
-                          <User className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className="font-medium text-slate-600 flex items-center gap-1.5 break-words">
+                          {getAvatarForUser(task.userEmail, task.createdByName, task.userId) ? (
+                            <img src={getAvatarForUser(task.userEmail, task.createdByName, task.userId)} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 border border-slate-300" />
+                          ) : (
+                            <User className="h-3 w-3 text-slate-400 shrink-0" />
+                          )}
                           <span>Enviado por: <strong>{task.createdByName}</strong></span>
                         </span>
                       )}
 
                       {task.status === 'concluida' && task.completedByName && (
-                        <span className="font-bold text-emerald-800 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                        <span className="font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                          {getAvatarForUser(task.completedByEmail, task.completedByName) ? (
+                            <img src={getAvatarForUser(task.completedByEmail, task.completedByName)} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 border border-emerald-400" />
+                          ) : (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                          )}
                           <span>Concluído por: {task.completedByName}</span>
                         </span>
                       )}
@@ -1980,14 +2008,12 @@ export const TasksSection: React.FC = () => {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Todas as tarefas atribuídas ao seu nome ou para a equipe aparecem aqui.
             </p>
-            {isAdmin && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
-              >
-                Criar / Atribuir Nova Tarefa
-              </button>
-            )}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Criar / Atribuir Nova Tarefa
+            </button>
           </div>
         )}
       </div>
@@ -2286,11 +2312,19 @@ export const TasksSection: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`h-10 w-10 rounded-xl font-extrabold flex items-center justify-center text-xs shrink-0 ${
-                      isSelected ? 'bg-blue-500/30 text-white border border-blue-400/40' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                    }`}>
-                      {collab.name.charAt(0).toUpperCase()}
-                    </div>
+                    {collab.avatarUrl || getAvatarForUser(collab.email, collab.name, collab.uid) ? (
+                      <img 
+                        src={collab.avatarUrl || getAvatarForUser(collab.email, collab.name, collab.uid)} 
+                        alt={collab.name} 
+                        className="h-10 w-10 rounded-xl object-cover border border-slate-200/90 shrink-0 shadow-2xs" 
+                      />
+                    ) : (
+                      <div className={`h-10 w-10 rounded-xl font-extrabold flex items-center justify-center text-xs shrink-0 ${
+                        isSelected ? 'bg-blue-500/30 text-white border border-blue-400/40' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}>
+                        {collab.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <span className="font-extrabold text-xs block truncate leading-tight">
                         {collab.name}
@@ -2463,6 +2497,37 @@ export const TasksSection: React.FC = () => {
                     <UserCheck className="h-4 w-4 text-blue-600" />
                     <span>Colaborador Destinatário (Nome) *</span>
                   </label>
+
+                  {/* Quick Avatar Picker Chips */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none">
+                    {collaborators
+                      .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                      .map((member) => {
+                        const isSel = selectedRecipient === member.email;
+                        const avatar = member.avatarUrl || getAvatarForUser(member.email, member.name, member.uid);
+                        return (
+                          <button
+                            key={member.email || member.uid}
+                            type="button"
+                            onClick={() => setSelectedRecipient(member.email)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                              isSel
+                                ? 'bg-blue-600 text-white border-blue-700 shadow-xs ring-2 ring-blue-400/30'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50/50'
+                            }`}
+                          >
+                            {avatar ? (
+                              <img src={avatar} alt={member.name} className="h-5 w-5 rounded-full object-cover shrink-0 border border-white/60 shadow-2xs" />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                                {member.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="truncate max-w-[100px]">{member.name.split(' ')[0]}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
 
                   <select
                     value={selectedRecipient}
@@ -2862,8 +2927,12 @@ export const TasksSection: React.FC = () => {
                     </span>
 
                     {/* Destinado a */}
-                    <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg flex items-center gap-1">
-                      <UserCheck className="h-3.5 w-3.5 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg flex items-center gap-1.5">
+                      {getAvatarForUser(selectedTaskForView.assignedToEmail, selectedTaskForView.assignedToName) ? (
+                        <img src={getAvatarForUser(selectedTaskForView.assignedToEmail, selectedTaskForView.assignedToName)} alt="" className="h-4 w-4 rounded-full object-cover shrink-0 border border-blue-400" />
+                      ) : (
+                        <UserCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                      )}
                       <span>Para: <strong>{selectedTaskForView.assignedToName || 'Colaborador'}</strong></span>
                     </span>
                   </div>
@@ -2872,7 +2941,11 @@ export const TasksSection: React.FC = () => {
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs text-slate-600">
                     {selectedTaskForView.createdByName && (
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-slate-400 shrink-0" />
+                        {getAvatarForUser(selectedTaskForView.userEmail, selectedTaskForView.createdByName, selectedTaskForView.userId) ? (
+                          <img src={getAvatarForUser(selectedTaskForView.userEmail, selectedTaskForView.createdByName, selectedTaskForView.userId)} alt="" className="h-4.5 w-4.5 rounded-full object-cover shrink-0 border border-slate-300" />
+                        ) : (
+                          <User className="h-4 w-4 text-slate-400 shrink-0" />
+                        )}
                         <span>Enviado por: <strong className="text-slate-800">{selectedTaskForView.createdByName}</strong></span>
                       </div>
                     )}

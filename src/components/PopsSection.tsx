@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FileText, 
   BookOpen, 
@@ -20,18 +20,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { useAuth } from './AuthContext';
-import { db } from '../lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  orderBy, 
-  getDocs, 
-  deleteDoc, 
-  doc, 
-  serverTimestamp,
-  limit 
-} from 'firebase/firestore';
+import { supabaseService } from '../lib/supabaseService';
 
 export interface PopItem {
   id: string;
@@ -77,26 +66,23 @@ export const PopsSection: React.FC = () => {
     profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
     profile?.email === 'jairoqueiroz@bahiaprev.com.br';
 
-  const fetchPops = async () => {
+  const fetchPops = useCallback(async () => {
     try {
       setLoading(true);
-      const q = query(collection(db, 'pops'), orderBy('createdAt', 'desc'), limit(50));
-      const snapshot = await getDocs(q);
-      const items: PopItem[] = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      })) as PopItem[];
-      setPops(items);
+      const items = await supabaseService.fetchPops();
+      if (items) {
+        setPops(items);
+      }
     } catch (err) {
-      console.warn('Error fetching POPs:', err);
+      console.warn('Error fetching POPs from Supabase:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPops();
-  }, []);
+  }, [fetchPops]);
 
   const getCategoryLabel = (cat: string) => {
     switch (cat) {
@@ -122,8 +108,10 @@ export const PopsSection: React.FC = () => {
 
       const now = new Date();
       const dateFormatted = now.toLocaleDateString('pt-BR');
+      const newId = 'pop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-      await addDoc(collection(db, 'pops'), {
+      const newPop: PopItem = {
+        id: newId,
         code: newCode.trim().toUpperCase() || 'POP-2026-001',
         title: newTitle.trim(),
         category: newCategory,
@@ -134,9 +122,10 @@ export const PopsSection: React.FC = () => {
         updatedAt: dateFormatted,
         fileSize: '1.5 MB',
         steps: stepsList.length > 0 ? stepsList : ['Seguir as orientações técnicas e normas vigentes.'],
-        importance: newImportance.trim(),
-        createdAt: serverTimestamp()
-      });
+        importance: newImportance.trim()
+      };
+
+      await supabaseService.savePop(newPop);
 
       setNewTitle('');
       setNewDescription('');
@@ -154,7 +143,7 @@ export const PopsSection: React.FC = () => {
   const handleDeletePop = async (id: string) => {
     if (!confirm('Deseja realmente excluir este Procedimento Operacional Padrão (POP)?')) return;
     try {
-      await deleteDoc(doc(db, 'pops', id));
+      await supabaseService.deletePop(id);
       await fetchPops();
     } catch (err) {
       console.error('Error deleting POP:', err);

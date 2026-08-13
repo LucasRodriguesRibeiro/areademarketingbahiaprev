@@ -29,7 +29,6 @@ import { InstallPwaModal } from './components/InstallPwaModal';
 import { InstallSection } from './components/InstallSection';
 import { SupabaseMigrationModal } from './components/SupabaseMigrationModal';
 import { checkFunerariaAccess } from './utils/permissions';
-import { autoSyncAllFirebaseToSupabase } from './lib/firebaseRestore';
 
 function MainAppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -39,13 +38,6 @@ function MainAppContent() {
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [showMaintenanceBanner, setShowMaintenanceBanner] = useState(true);
-
-  // Automatic background sync of all historic data from Firebase to Supabase on startup
-  useEffect(() => {
-    autoSyncAllFirebaseToSupabase().catch((err) => {
-      console.warn('Sincronização automática em segundo plano:', err);
-    });
-  }, []);
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');

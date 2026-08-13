@@ -2,8 +2,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Get credentials from VITE_ env or localStorage fallback or BahiaPrev defaults
 export function getSupabaseCredentials(): { url: string; key: string } {
-  let url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || 'https://mtdquepmyexalfpjjqgd.supabase.co';
-  let key = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || 'sb_publishable_I4GJwO7qzIBVtK6UjLj_1g_7fzyK8jj';
+  const envUrl = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SUPABASE_URL : '';
+  const envKey = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : '';
+  const localUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('supabase_url') : '';
+  const localKey = typeof localStorage !== 'undefined' ? localStorage.getItem('supabase_anon_key') : '';
+
+  let url = envUrl || localUrl || 'https://mtdquepmyexalfpjjqgd.supabase.co';
+  let key = envKey || localKey || 'sb_publishable_I4GJwO7qzIBVtK6UjLj_1g_7fzyK8jj';
 
   // Sanitize URL if user typed /rest/v1/ or trailing slash
   if (url) {
@@ -20,11 +25,13 @@ export function saveSupabaseCredentials(url: string, key: string) {
   const cleanUrl = url ? url.trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '') : '';
   const cleanKey = key ? key.trim() : '';
 
-  if (cleanUrl) localStorage.setItem('supabase_url', cleanUrl);
-  else localStorage.removeItem('supabase_url');
+  if (typeof localStorage !== 'undefined') {
+    if (cleanUrl) localStorage.setItem('supabase_url', cleanUrl);
+    else localStorage.removeItem('supabase_url');
 
-  if (cleanKey) localStorage.setItem('supabase_anon_key', cleanKey);
-  else localStorage.removeItem('supabase_anon_key');
+    if (cleanKey) localStorage.setItem('supabase_anon_key', cleanKey);
+    else localStorage.removeItem('supabase_anon_key');
+  }
 }
 
 let supabaseInstance: SupabaseClient | null = null;

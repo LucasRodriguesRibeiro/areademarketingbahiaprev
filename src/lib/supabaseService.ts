@@ -50,6 +50,44 @@ export function mapSupabaseRowToOs(row: any) {
   };
 }
 
+// Helper to pack extra metadata into description if data_json column is absent
+export function packTaskMetadata(description: string, task: any): string {
+  const meta: Record<string, any> = {};
+  if (task.userEmail) meta.userEmail = task.userEmail;
+  if (task.userId) meta.userId = task.userId;
+  if (task.createdByName) meta.createdByName = task.createdByName;
+  if (task.assignedToEmail) meta.assignedToEmail = task.assignedToEmail;
+  if (task.assignedToName) meta.assignedToName = task.assignedToName;
+  if (task.assignedToType) meta.assignedToType = task.assignedToType;
+  if (task.attachments && task.attachments.length > 0) meta.attachments = task.attachments;
+  if (task.completionAttachments && task.completionAttachments.length > 0) meta.completionAttachments = task.completionAttachments;
+  if (task.completionNote) meta.completionNote = task.completionNote;
+  if (task.completedAt) meta.completedAt = task.completedAt;
+  if (task.completedByEmail) meta.completedByEmail = task.completedByEmail;
+  if (task.completedByName) meta.completedByName = task.completedByName;
+  if (task.createdByAdmin) meta.createdByAdmin = task.createdByAdmin;
+
+  const cleanDesc = (description || '').replace(/^<!-- TASK_META:[\s\S]*?-->\n?/i, '').trim();
+  if (Object.keys(meta).length === 0) return cleanDesc;
+  return `<!-- TASK_META:${JSON.stringify(meta)} -->\n${cleanDesc}`;
+}
+
+// Helper to unpack metadata from description
+export function unpackTaskMetadata(description: string): { cleanDescription: string; meta: Record<string, any> } {
+  if (!description) return { cleanDescription: '', meta: {} };
+  const match = description.match(/^<!-- TASK_META:([\s\S]*?)-->\n?/i);
+  if (match && match[1]) {
+    try {
+      const meta = JSON.parse(match[1]);
+      const cleanDescription = description.replace(/^<!-- TASK_META:[\s\S]*?-->\n?/i, '');
+      return { cleanDescription, meta };
+    } catch {
+      return { cleanDescription: description, meta: {} };
+    }
+  }
+  return { cleanDescription: description, meta: {} };
+}
+
 export const supabaseService = {
   // 1. FUNERARIA OS
   async fetchOrders(): Promise<any[] | null> {
@@ -120,20 +158,111 @@ export const supabaseService = {
         console.warn('Erro ao buscar tarefas no Supabase:', error.message);
         return null;
       }
-      return (data || []).map((row: any) => {
-        if (row.data_json && typeof row.data_json === 'object') {
-          return { id: row.id, ...row.data_json, status: row.status || row.data_json.status || 'pendente' };
+      const taskRows = (data || []).filter((row: any) => row.id !== 'sys_team_roles_config' && row.title !== '__SYS_ROLES_CONFIG__');
+      return taskRows.map((row: any) => {
+        const { cleanDescription, meta } = unpackTaskMetadata(row.description || '');
+
+        let assignedName = meta.assignedToName || row.assigned_to || '';
+        let assignedEmail = meta.assignedToEmail || '';
+        const rawAssigned = (row.assigned_to || '').toLowerCase().trim();
+
+        // Auto-resolve known collaborator emails if missing
+        if (!assignedEmail) {
+          if (rawAssigned.includes('@')) {
+            assignedEmail = row.assigned_to;
+          } else if (rawAssigned.includes('cauan')) {
+            assignedName = 'Cauan';
+            assignedEmail = 'cauan@bahiaprev.com.br';
+          } else if (rawAssigned.includes('lucas') || rawAssigned.includes('marketing')) {
+            assignedName = 'Lucas Rodrigues';
+            assignedEmail = 'lucasrodrigues@bahiaprev.com.br';
+          } else if (rawAssigned.includes('jairo')) {
+            assignedName = 'Jairo Queiroz';
+            assignedEmail = 'jairoqueiroz@bahiaprev.com.br';
+          } else if (rawAssigned.includes('nilton')) {
+            assignedName = 'Nilton';
+            assignedEmail = 'nilton@bahiaprev.com.br';
+          } else if (rawAssigned.includes('thay')) {
+            assignedName = 'Thayan';
+            assignedEmail = 'thayan@bahiaprev.com.br';
+          } else if (rawAssigned.includes('vitor')) {
+            assignedName = 'Vitor';
+            assignedEmail = 'vitor@bahiaprev.com.br';
+          } else if (rawAssigned.includes('paulo')) {
+            assignedName = 'Paulo';
+            assignedEmail = 'paulo@bahiaprev.com.br';
+          }
         }
+
+        let createdName = meta.createdByName || row.created_by || 'Lucas Rodrigues';
+        let creatorEmail = meta.userEmail || '';
+        const rawCreator = (row.created_by || '').toLowerCase().trim();
+
+        if (!creatorEmail) {
+          if (rawCreator.includes('@')) {
+            creatorEmail = row.created_by;
+          } else if (rawCreator.includes('lucas') || rawCreator.includes('marketing')) {
+            createdName = 'Lucas Rodrigues (Analista de Marketing)';
+            creatorEmail = 'lucasrodrigues@bahiaprev.com.br';
+          } else if (rawCreator.includes('jairo')) {
+            createdName = 'Jairo Queiroz (Diretor)';
+            creatorEmail = 'jairoqueiroz@bahiaprev.com.br';
+          } else if (rawCreator.includes('nilton')) {
+            createdName = 'Nilton (Colaborador)';
+            creatorEmail = 'nilton@bahiaprev.com.br';
+          }
+        }
+
+        let assignedType: 'specific_user' | 'all' | 'me' = meta.assignedToType || (rawAssigned === 'all' || rawAssigned.includes('todos') ? 'all' : (rawAssigned === 'me' ? 'me' : 'specific_user'));
+
+        if (row.data_json && typeof row.data_json === 'object') {
+          return {
+            id: row.id,
+            ...row.data_json,
+            title: row.title || row.data_json.title,
+            description: cleanDescription || row.data_json.description || '',
+            category: row.category || row.data_json.category || 'Geral',
+            priority: row.priority || row.data_json.priority || 'media',
+            status: row.status || row.data_json.status || 'pendente',
+            dueDate: row.due_date || row.data_json.dueDate || '',
+            assignedToType: row.data_json.assignedToType || assignedType,
+            assignedToName: row.data_json.assignedToName || assignedName,
+            assignedToEmail: row.data_json.assignedToEmail || assignedEmail,
+            createdByName: row.data_json.createdByName || createdName,
+            userEmail: row.data_json.userEmail || creatorEmail,
+            userId: row.data_json.userId || meta.userId || '',
+            createdAt: row.created_at_iso || row.data_json.createdAt || new Date().toISOString(),
+          };
+        }
+
         return {
           id: row.id,
-          title: row.title,
-          description: row.description || '',
-          category: row.category || '',
-          priority: row.priority || 'media',
-          status: row.status || 'pendente',
+          userId: meta.userId || '',
+          userEmail: creatorEmail,
+          createdByName: createdName,
+          title: row.title || '',
+          description: cleanDescription,
+          category: row.category || 'Geral',
+          priority: (row.priority as any) || 'media',
+          status: (row.status as any) || (row.completed ? 'concluida' : 'pendente'),
           dueDate: row.due_date || '',
-          assignedTo: row.assigned_to || '',
-          createdAt: row.created_at_iso,
+          assignedToType: assignedType,
+          assignedToName: assignedName,
+          assignedToEmail: assignedEmail,
+          createdByAdmin: meta.createdByAdmin || false,
+          attachments: meta.attachments || [],
+          attachmentName: meta.attachments?.[0]?.name,
+          attachmentUrl: meta.attachments?.[0]?.url,
+          attachmentType: meta.attachments?.[0]?.type,
+          completionAttachments: meta.completionAttachments || [],
+          completionAttachmentName: meta.completionAttachments?.[0]?.name,
+          completionAttachmentUrl: meta.completionAttachments?.[0]?.url,
+          completionAttachmentType: meta.completionAttachments?.[0]?.type,
+          completionNote: meta.completionNote,
+          completedAt: meta.completedAt || (row.completed ? row.created_at_iso : undefined),
+          completedByEmail: meta.completedByEmail,
+          completedByName: meta.completedByName,
+          createdAt: row.created_at_iso || new Date().toISOString(),
         };
       });
     } catch (err) {
@@ -147,28 +276,26 @@ export const supabaseService = {
     if (!supabase) return false;
 
     try {
+      const packedDescription = packTaskMetadata(task.description || '', task);
+
+      const assignedDisplay = task.assignedToName || task.assignedToEmail || task.assignedTo || (task.assignedToType === 'all' ? 'Todos os Colaboradores' : 'Colaborador');
+      const creatorDisplay = task.createdByName || task.userEmail || 'Lucas Rodrigues (Administrador)';
+
       const payload: any = {
         id: String(task.id),
         title: task.title || '',
-        description: task.description || '',
-        category: task.category || '',
-        assigned_to: task.assignedToName || task.assignedToEmail || task.assignedTo || '',
+        description: packedDescription,
+        category: task.category || 'Geral',
+        assigned_to: assignedDisplay,
         priority: task.priority || 'media',
         status: task.status || 'pendente',
         due_date: task.dueDate || '',
         completed: task.status === 'concluida',
-        created_by: task.createdByName || task.userEmail || task.userId || '',
-        data_json: task,
+        created_by: creatorDisplay,
         created_at_iso: task.createdAt || new Date().toISOString()
       };
 
-      let { error } = await supabase.from('user_tasks').upsert(payload, { onConflict: 'id' });
-
-      if (error && (error.message.includes('data_json') || error.code === 'PGRST204')) {
-        delete payload.data_json;
-        const fallback = await supabase.from('user_tasks').upsert(payload, { onConflict: 'id' });
-        error = fallback.error;
-      }
+      const { error } = await supabase.from('user_tasks').upsert(payload, { onConflict: 'id' });
 
       if (error) {
         console.warn('Erro ao salvar tarefa no Supabase:', error.message);
@@ -443,12 +570,20 @@ export const supabaseService = {
   },
 
   // 7. USERS
+  _usersTableMissing: false,
+
   async fetchUsers(): Promise<any[] | null> {
+    if (this._usersTableMissing) return null;
     const supabase = getSupabaseClient();
     if (!supabase) return null;
     try {
       const { data, error } = await supabase.from('users').select('*');
-      if (error) return null;
+      if (error) {
+        if (error.code === '42P01' || error.code === 'PGRST204' || error.message?.includes('404') || error.message?.includes('not exist')) {
+          this._usersTableMissing = true;
+        }
+        return null;
+      }
       return (data || []).map((row: any) => ({
         uid: row.uid,
         name: row.name || '',
@@ -468,14 +603,28 @@ export const supabaseService = {
   },
 
   async saveUser(user: any): Promise<boolean> {
+    const cleanEmail = (user.email || '').toLowerCase().trim();
+    const cleanRole = (user.role || '').trim();
+
+    // Cache team role if email and role are present
+    if (cleanEmail && cleanRole) {
+      try {
+        const cached = localStorage.getItem('bahiaprev_team_roles');
+        const roles = cached ? JSON.parse(cached) : {};
+        roles[cleanEmail] = cleanRole;
+        localStorage.setItem('bahiaprev_team_roles', JSON.stringify(roles));
+      } catch {}
+    }
+
+    if (this._usersTableMissing) return true;
     const supabase = getSupabaseClient();
     if (!supabase) return false;
     try {
       const { error } = await supabase.from('users').upsert({
         uid: String(user.uid || user.id),
         name: user.name || user.displayName || '',
-        email: user.email || '',
-        role: user.role || 'Colaborador',
+        email: cleanEmail,
+        role: cleanRole || 'Colaborador',
         unit: user.unit || '',
         phone: user.phone || '',
         is_online: Boolean(user.isOnline),
@@ -484,17 +633,29 @@ export const supabaseService = {
         can_post_feed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : true,
         can_create_tasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : true
       }, { onConflict: 'uid' });
-      return !error;
+      if (error) {
+        if (error.code === '42P01' || error.code === 'PGRST204' || error.message?.includes('404') || error.message?.includes('not exist')) {
+          this._usersTableMissing = true;
+        }
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
   },
 
   async saveUserProfile(user: any): Promise<boolean> {
+    const cleanEmail = (user.email || '').toLowerCase().trim();
+    const cleanRole = (user.role || '').trim();
+    if (cleanEmail && cleanRole) {
+      await this.saveTeamRole(cleanEmail, cleanRole);
+    }
     return this.saveUser(user);
   },
 
   async deleteUser(uid: string): Promise<boolean> {
+    if (this._usersTableMissing) return true;
     const supabase = getSupabaseClient();
     if (!supabase) return false;
     try {
@@ -507,5 +668,92 @@ export const supabaseService = {
 
   async deleteUserProfile(uid: string): Promise<boolean> {
     return this.deleteUser(uid);
+  },
+
+  // 8. TEAM ROLES & CARGOS CONFIGURATION (Synchronized across all devices)
+  async fetchTeamRoles(): Promise<Record<string, string>> {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      try {
+        const cached = localStorage.getItem('bahiaprev_team_roles');
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    try {
+      const { data, error } = await supabase.from('user_tasks').select('description').eq('id', 'sys_team_roles_config').single();
+      if (error || !data || !data.description) {
+        // Fallback to localStorage cache
+        try {
+          const cached = localStorage.getItem('bahiaprev_team_roles');
+          return cached ? JSON.parse(cached) : {};
+        } catch {
+          return {};
+        }
+      }
+      const parsed = JSON.parse(data.description);
+      if (parsed && typeof parsed === 'object') {
+        try {
+          localStorage.setItem('bahiaprev_team_roles', JSON.stringify(parsed));
+        } catch {}
+        return parsed;
+      }
+      return {};
+    } catch {
+      try {
+        const cached = localStorage.getItem('bahiaprev_team_roles');
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    }
+  },
+
+  async saveTeamRole(email: string, role: string): Promise<boolean> {
+    if (!email || !role) return false;
+    const supabase = getSupabaseClient();
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanRole = role.trim();
+
+    try {
+      // 1. Get current config & update locally immediately
+      const currentRoles = await this.fetchTeamRoles();
+      currentRoles[cleanEmail] = cleanRole;
+
+      try {
+        localStorage.setItem('bahiaprev_team_roles', JSON.stringify(currentRoles));
+      } catch {}
+
+      if (!supabase) return true;
+
+      // 2. Persist to Supabase user_tasks config
+      const payload = {
+        id: 'sys_team_roles_config',
+        title: '__SYS_ROLES_CONFIG__',
+        description: JSON.stringify(currentRoles),
+        category: 'System',
+        assigned_to: 'system',
+        status: 'concluida',
+        completed: true,
+        created_by: 'system',
+        created_at_iso: new Date().toISOString()
+      };
+
+      await supabase.from('user_tasks').upsert(payload, { onConflict: 'id' });
+
+      // 3. Also update users table if it exists
+      if (!this._usersTableMissing) {
+        try {
+          await supabase.from('users').update({ role: cleanRole }).eq('email', cleanEmail);
+        } catch {}
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 };

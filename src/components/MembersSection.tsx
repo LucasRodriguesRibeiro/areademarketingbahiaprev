@@ -53,25 +53,35 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     setSavingRole(true);
     const updatedRole = newRoleInput.trim();
     try {
+      const cleanEmail = (editingMember.email || '').toLowerCase().trim();
+      if (cleanEmail) {
+        await supabaseService.saveTeamRole(cleanEmail, updatedRole);
+      }
+
+      const existingUser = allUsers.find(u => (u.email && u.email.toLowerCase() === cleanEmail) || u.uid === editingMember.uid);
+      const targetUid = existingUser ? existingUser.uid : (editingMember.uid || `u_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`);
+
       await supabaseService.saveUserProfile({
-        uid: editingMember.uid,
+        uid: targetUid,
         name: editingMember.name,
-        email: editingMember.email,
+        email: cleanEmail,
         role: updatedRole
       });
 
       const isCurrentUser = user && (
-        editingMember.uid === user.uid || 
-        editingMember.email?.toLowerCase() === user.email?.toLowerCase() ||
-        editingMember.email?.toLowerCase().includes('lucas') ||
-        editingMember.email?.toLowerCase() === 'marketing@bahiaprev.com.br'
+        targetUid === user.uid || 
+        cleanEmail === user.email?.toLowerCase() ||
+        cleanEmail.includes('lucas') ||
+        cleanEmail === 'marketing@bahiaprev.com.br'
       );
 
       if (isCurrentUser) {
         await updateUserProfile({ role: updatedRole });
       }
 
-      setMembers(prev => prev.map(m => m.uid === editingMember.uid ? { ...m, role: updatedRole } : m));
+      await fetchUsers();
+
+      setMembers(prev => prev.map(m => (m.email?.toLowerCase() === cleanEmail || m.uid === editingMember.uid) ? { ...m, role: updatedRole } : m));
       setToastMsg(`Cargo de ${editingMember.name} atualizado para "${updatedRole}"!`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
@@ -95,6 +105,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
 
     try {
       await supabaseService.deleteUserProfile(member.uid);
+      await fetchUsers();
       setToastMsg(`Usuário ${member.name} foi excluído do sistema com sucesso.`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
@@ -104,256 +115,55 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     }
   };
 
-  // Default team members list
-  const DEMO_MEMBERS: MemberProfile[] = [
-    {
-      uid: 'm-lucas',
-      name: 'Lucas Rodrigues',
-      email: 'lucasrodrigues@bahiaprev.com.br',
-      role: 'Analista de Marketing'
-    },
-    {
-      uid: 'm-jairo',
-      name: 'Jairo Queiroz',
-      email: 'jairoqueiroz@bahiaprev.com.br',
-      role: 'Diretor'
-    },
-    {
-      uid: 'm-cauan',
-      name: 'Cauan',
-      email: 'cauan@bahiaprev.com.br',
-      role: 'Designer Gráfico'
-    },
-    {
-      uid: 'm-nilton',
-      name: 'Nilton',
-      email: 'nilton@bahiaprev.com.br',
-      role: 'Colaborador'
-    },
-    {
-      uid: 'm-thayan',
-      name: 'Thayan',
-      email: 'thayan@bahiaprev.com.br',
-      role: 'Colaborador'
-    },
-    {
-      uid: 'm-vitor',
-      name: 'Vitor',
-      email: 'vitor@bahiaprev.com.br',
-      role: 'Colaborador'
-    },
-    {
-      uid: 'm-paulo',
-      name: 'Paulo',
-      email: 'paulo@bahiaprev.com.br',
-      role: 'Colaborador'
-    }
-  ];
-
   useEffect(() => {
-    const mergedMap: Record<string, MemberProfile> = {
-      'lucas': {
-        uid: 'm-lucas',
-        name: 'Lucas Rodrigues',
-        email: 'lucasrodrigues@bahiaprev.com.br',
-        role: 'Analista de Marketing',
-        avatarUrl: undefined
-      },
-      'jairo': {
-        uid: 'm-jairo',
-        name: 'Jairo Queiroz',
-        email: 'jairoqueiroz@bahiaprev.com.br',
-        role: 'Diretor/Presidente',
-        avatarUrl: undefined
-      },
-      'cauan': {
-        uid: 'm-cauan',
-        name: 'Cauan',
-        email: 'cauan@bahiaprev.com.br',
-        role: profile?.email === 'cauan@bahiaprev.com.br' ? (profile?.role || 'Designer Gráfico') : 'Designer Gráfico',
-        avatarUrl: undefined
-      },
-      'nilton': {
-        uid: 'm-nilton',
-        name: 'Nilton',
-        email: 'nilton@bahiaprev.com.br',
-        role: 'Colaborador',
-        avatarUrl: undefined
-      },
-      'thayan': {
-        uid: 'm-thayan',
-        name: 'Thayan',
-        email: 'thayan@bahiaprev.com.br',
-        role: 'Colaborador',
-        avatarUrl: undefined
-      },
-      'vitor': {
-        uid: 'm-vitor',
-        name: 'Vitor',
-        email: 'vitor@bahiaprev.com.br',
-        role: 'Colaborador',
-        avatarUrl: undefined
-      },
-      'paulo': {
-        uid: 'm-paulo',
-        name: 'Paulo',
-        email: 'paulo@bahiaprev.com.br',
-        role: 'Colaborador',
-        avatarUrl: undefined
-      }
-    };
+    const defaultOrder = [
+      'lucasrodrigues@bahiaprev.com.br',
+      'jairoqueiroz@bahiaprev.com.br',
+      'cauan@bahiaprev.com.br',
+      'nilton@bahiaprev.com.br',
+      'thayan@bahiaprev.com.br',
+      'vitor@bahiaprev.com.br',
+      'paulo@bahiaprev.com.br'
+    ];
 
-    allUsers.forEach((uData) => {
-      const email = (uData.email || '').toLowerCase();
-      const name = (uData.name || '').toLowerCase();
+    const list: MemberProfile[] = allUsers
+      .filter(u => (u.email || '').toLowerCase().trim() !== 'marketing@bahiaprev.com.br')
+      .map(u => {
+        const emailLower = (u.email || '').toLowerCase().trim();
+        const isUserDoc = Boolean(user && (u.uid === user.uid || (user.email && user.email.toLowerCase() === emailLower)));
+        const isOnline = isUserDoc ? true : Boolean(u.isOnline || (u.lastSeen && (new Date().getTime() - new Date(u.lastSeen).getTime() < 120000)));
 
-      const docIsOnline = uData.isOnline === true || (
-        uData.lastSeen && (new Date().getTime() - new Date(uData.lastSeen).getTime() < 120000)
-      );
-
-      if (email.includes('lucas') || name.includes('lucas') || name.includes('analista') || email === 'marketing@bahiaprev.com.br') {
-        const isUserDoc = user && uData.uid === user.uid;
-        let role = uData.role === 'Administrador' ? 'Analista de Marketing • Administrador' : (uData.role || 'Analista de Marketing');
-        let displayName = uData.name || mergedMap['lucas'].name;
-        if (displayName === 'Analista de Marketing' || displayName === 'Lucas' || displayName === 'marketing') {
-          displayName = 'Lucas Rodrigues';
+        let displayName = u.name;
+        if (emailLower.includes('lucas') || emailLower === 'marketing@bahiaprev.com.br') {
+          if (!displayName || displayName === 'Analista de Marketing' || displayName === 'Lucas' || displayName === 'marketing') {
+            displayName = 'Lucas Rodrigues';
+          }
         }
 
-        mergedMap['lucas'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['lucas'].uid || uData.uid),
-          name: displayName,
-          email: uData.email || 'marketing@bahiaprev.com.br',
-          role: role,
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['lucas'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
+        return {
+          uid: u.uid,
+          name: displayName || emailLower.split('@')[0] || 'Colaborador',
+          email: u.email,
+          role: u.role || 'Colaborador',
+          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : u.avatarUrl,
+          createdAt: u.createdAt,
+          isOnline,
+          lastSeen: u.lastSeen
         };
-      } else if (email.includes('jairo') || name.includes('jairo')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap['jairo'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['jairo'].uid || uData.uid),
-          name: uData.name || mergedMap['jairo'].name,
-          email: 'jairoqueiroz@bahiaprev.com.br',
-          role: uData.role || mergedMap['jairo'].role,
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['jairo'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else if (email.includes('cauan') || name.includes('cauan')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        const cauanResolvedName = (uData.name && uData.name.toLowerCase() !== 'cauan' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Cauan';
-        const cauanResolvedRole = (uData.role && uData.role !== 'Colaborador') ? uData.role : 'Designer Gráfico';
+      });
 
-        mergedMap['cauan'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['cauan'].uid || uData.uid),
-          name: cauanResolvedName,
-          email: 'cauan@bahiaprev.com.br',
-          role: cauanResolvedRole,
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['cauan'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else if (email.includes('nilton') || name.includes('nilton')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap['nilton'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['nilton'].uid || uData.uid),
-          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Nilton',
-          email: uData.email || 'nilton@bahiaprev.com.br',
-          role: uData.role || 'Colaborador',
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['nilton'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else if (email.includes('thay') || name.includes('thay')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap['thayan'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['thayan'].uid || uData.uid),
-          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Thayan',
-          email: uData.email || 'thayan@bahiaprev.com.br',
-          role: uData.role || 'Colaborador',
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['thayan'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else if (email.includes('vitor') || name.includes('vitor')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap['vitor'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['vitor'].uid || uData.uid),
-          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Vitor',
-          email: uData.email || 'vitor@bahiaprev.com.br',
-          role: uData.role || 'Colaborador',
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['vitor'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else if (email.includes('paulo') || name.includes('paulo')) {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap['paulo'] = {
-          uid: isUserDoc ? user.uid : (mergedMap['paulo'].uid || uData.uid),
-          name: (uData.name && !uData.name.includes('@')) ? uData.name : 'Paulo',
-          email: uData.email || 'paulo@bahiaprev.com.br',
-          role: uData.role || 'Colaborador',
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || mergedMap['paulo'].avatarUrl),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      } else {
-        const isUserDoc = user && uData.uid === user.uid;
-        mergedMap[uData.uid] = {
-          uid: isUserDoc ? user.uid : uData.uid,
-          name: uData.name || email.split('@')[0],
-          email: uData.email || '',
-          role: uData.role || 'Colaborador',
-          avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : (uData.avatarUrl || undefined),
-          createdAt: uData.createdAt,
-          isOnline: isUserDoc ? true : Boolean(docIsOnline),
-          lastSeen: uData.lastSeen
-        };
-      }
+    list.sort((a, b) => {
+      const aEmail = (a.email || '').toLowerCase();
+      const bEmail = (b.email || '').toLowerCase();
+      const aIdx = defaultOrder.indexOf(aEmail);
+      const bIdx = defaultOrder.indexOf(bEmail);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.name.localeCompare(b.name);
     });
 
-    if (profile) {
-      const pEmail = (profile.email || '').toLowerCase();
-      const pName = (profile.name || '').toLowerCase();
-      if (pEmail.includes('lucas') || pName.includes('lucas') || pEmail === 'marketing@bahiaprev.com.br') {
-        if (profile.role) mergedMap['lucas'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['lucas'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['lucas'].name = profile.name;
-      } else if (pEmail.includes('jairo') || pName.includes('jairo')) {
-        if (profile.role) mergedMap['jairo'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['jairo'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['jairo'].name = profile.name;
-      } else if (pEmail.includes('cauan') || pName.includes('cauan')) {
-        if (profile.role) mergedMap['cauan'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['cauan'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['cauan'].name = profile.name;
-      } else if (pEmail.includes('nilton') || pName.includes('nilton')) {
-        if (profile.role) mergedMap['nilton'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['nilton'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['nilton'].name = profile.name;
-      } else if (pEmail.includes('thay') || pName.includes('thay')) {
-        if (profile.role) mergedMap['thayan'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['thayan'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['thayan'].name = profile.name;
-      } else if (pEmail.includes('vitor') || pName.includes('vitor')) {
-        if (profile.role) mergedMap['vitor'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['vitor'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['vitor'].name = profile.name;
-      } else if (pEmail.includes('paulo') || pName.includes('paulo')) {
-        if (profile.role) mergedMap['paulo'].role = profile.role;
-        if (profile.avatarUrl) mergedMap['paulo'].avatarUrl = profile.avatarUrl;
-        if (profile.name) mergedMap['paulo'].name = profile.name;
-      }
-    }
-
-    setMembers(Object.values(mergedMap));
+    setMembers(list);
   }, [allUsers, user, profile]);
 
   const filteredMembers = members.filter(m => 

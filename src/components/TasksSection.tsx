@@ -122,33 +122,45 @@ export const isDirectorOrPresidentRole = (role?: string): boolean => {
 
 const DEFAULT_MEMBERS: MemberOption[] = [
   {
-    uid: 'm-lucas-mkt',
-    name: 'Analista de Marketing',
+    uid: 'u_lucas_dev',
+    name: 'Lucas Rodrigues',
     email: 'lucasrodrigues@bahiaprev.com.br',
-    role: 'Administrador'
+    role: 'Analista de Marketing'
   },
   {
-    uid: 'm-jairo',
+    uid: 'u_jairo_dir',
     name: 'Jairo Queiroz',
     email: 'jairoqueiroz@bahiaprev.com.br',
     role: 'Diretor'
   },
   {
-    uid: 'm-cauan',
+    uid: 'u_cauan_des',
     name: 'Cauan',
     email: 'cauan@bahiaprev.com.br',
     role: 'Designer Gráfico'
   },
   {
-    uid: 'm-paulo',
-    name: 'Paulo',
-    email: 'paulo@bahiaprev.com.br',
+    uid: 'u_nilton',
+    name: 'Nilton',
+    email: 'nilton@bahiaprev.com.br',
     role: 'Colaborador'
   },
   {
-    uid: 'm-pablo',
-    name: 'Pablo',
-    email: 'pablo@bahiaprev.com.br',
+    uid: 'u_thayan',
+    name: 'Thayan',
+    email: 'thayan@bahiaprev.com.br',
+    role: 'Colaborador'
+  },
+  {
+    uid: 'u_vitor',
+    name: 'Vitor',
+    email: 'vitor@bahiaprev.com.br',
+    role: 'Colaborador'
+  },
+  {
+    uid: 'u_paulo',
+    name: 'Paulo',
+    email: 'paulo@bahiaprev.com.br',
     role: 'Colaborador'
   }
 ];
@@ -167,8 +179,8 @@ export const TasksSection: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'prazo_crescente' | 'prazo_decrescente' | 'prioridade'>('prazo_crescente');
   const [selectedUserFilterForCompleted, setSelectedUserFilterForCompleted] = useState<string>('minhas');
-  const [selectedCollaboratorUid, setSelectedCollaboratorUid] = useState<string | null>(null);
-  const [taskScopeMode, setTaskScopeMode] = useState<'minhas' | 'colaborador' | 'todas'>('minhas');
+  const [selectedSentRecipientKey, setSelectedSentRecipientKey] = useState<string | null>(null);
+  const [taskScopeMode, setTaskScopeMode] = useState<'minhas' | 'enviadas'>('minhas');
   const [isMyTasksMinimized, setIsMyTasksMinimized] = useState<boolean>(false);
   const [completionToast, setCompletionToast] = useState<{ title: string; subtitle: string } | null>(null);
 
@@ -218,6 +230,17 @@ export const TasksSection: React.FC = () => {
   const [selectedRecipient, setSelectedRecipient] = useState<string>('me'); // 'me' | 'all' | email
   const [attachmentFiles, setAttachmentFiles] = useState<AttachmentItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement | null>(null);
+  const completionFileInputRef = useRef<HTMLInputElement | null>(null);
+  const editCompletionFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processSelectedFiles(e, (newItems) => {
+      setAttachmentFiles(prev => [...prev, ...newItems]);
+    });
+  };
 
   const processSelectedFiles = (e: React.ChangeEvent<HTMLInputElement>, onFilesLoaded: (items: AttachmentItem[]) => void) => {
     const files = e.target.files;
@@ -288,6 +311,8 @@ export const TasksSection: React.FC = () => {
     : (!isCauan && (
         userRole.toLowerCase().includes('admin') || 
         userRole.toLowerCase().includes('diretor') || 
+        userRole.toLowerCase().includes('marketing') ||
+        userRole.toLowerCase().includes('analista') ||
         userEmail === 'marketing@bahiaprev.com.br' ||
         userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
         userEmail === 'jairoqueiroz@bahiaprev.com.br'
@@ -297,43 +322,43 @@ export const TasksSection: React.FC = () => {
   useEffect(() => {
     const map: Record<string, MemberOption> = {
       'lucas': {
-        uid: 'm-lucas-mkt',
+        uid: 'u_lucas_dev',
         name: 'Lucas Rodrigues',
         email: 'lucasrodrigues@bahiaprev.com.br',
-        role: 'Administrador'
+        role: 'Analista de Marketing'
       },
       'jairo': {
-        uid: 'm-jairo',
+        uid: 'u_jairo_dir',
         name: 'Jairo Queiroz',
         email: 'jairoqueiroz@bahiaprev.com.br',
         role: 'Diretor'
       },
       'cauan': {
-        uid: 'm-cauan',
+        uid: 'u_cauan_des',
         name: 'Cauan',
         email: 'cauan@bahiaprev.com.br',
         role: 'Designer Gráfico'
       },
       'nilton': {
-        uid: 'm-nilton',
+        uid: 'u_nilton',
         name: 'Nilton',
         email: 'nilton@bahiaprev.com.br',
         role: 'Colaborador'
       },
       'thayan': {
-        uid: 'm-thayan',
+        uid: 'u_thayan',
         name: 'Thayan',
         email: 'thayan@bahiaprev.com.br',
         role: 'Colaborador'
       },
       'vitor': {
-        uid: 'm-vitor',
+        uid: 'u_vitor',
         name: 'Vitor',
         email: 'vitor@bahiaprev.com.br',
         role: 'Colaborador'
       },
       'paulo': {
-        uid: 'm-paulo',
+        uid: 'u_paulo',
         name: 'Paulo',
         email: 'paulo@bahiaprev.com.br',
         role: 'Colaborador'
@@ -350,18 +375,18 @@ export const TasksSection: React.FC = () => {
           resolvedName = 'Lucas Rodrigues';
         }
         map['lucas'] = {
-          uid: uData.uid,
+          uid: uData.uid || 'u_lucas_dev',
           name: resolvedName,
-          email: uData.email || 'marketing@bahiaprev.com.br',
-          role: 'Administrador',
+          email: 'lucasrodrigues@bahiaprev.com.br',
+          role: uData.role || 'Analista de Marketing',
           avatarUrl: uData.avatarUrl || map['lucas']?.avatarUrl
         };
       } else if (email.includes('jairo') || name.includes('jairo')) {
         map['jairo'] = {
           uid: uData.uid,
-          name: 'Jairo Queiroz',
+          name: uData.name || 'Jairo Queiroz',
           email: 'jairoqueiroz@bahiaprev.com.br',
-          role: 'Diretor',
+          role: uData.role || 'Diretor',
           avatarUrl: uData.avatarUrl || map['jairo']?.avatarUrl
         };
       } else if (email.includes('cauan') || name.includes('cauan')) {
@@ -369,7 +394,7 @@ export const TasksSection: React.FC = () => {
           uid: uData.uid,
           name: (uData.name && uData.name.toLowerCase() !== 'cauan' && uData.name.toLowerCase() !== 'colaborador' && !uData.name.includes('@')) ? uData.name : 'Cauan',
           email: 'cauan@bahiaprev.com.br',
-          role: (uData.role && uData.role !== 'Colaborador') ? uData.role : 'Designer Gráfico',
+          role: uData.role || 'Designer Gráfico',
           avatarUrl: uData.avatarUrl || map['cauan']?.avatarUrl
         };
       } else if (email.includes('nilton') || name.includes('nilton')) {
@@ -471,13 +496,28 @@ export const TasksSection: React.FC = () => {
     return undefined;
   }, [profile, user, collaborators, allUsers]);
 
-  // Helper to check if a task should be visible to the current user (Strict privacy/confidentiality rule: creator + recipient only)
+  // Helper to identify Lucas / Marketing manager
+  const isLucasUser = useCallback((email?: string, name?: string) => {
+    const e = (email || '').toLowerCase().trim();
+    const n = (name || '').toLowerCase().trim();
+    return e.includes('lucas') || n.includes('lucas') || n.includes('analista') || e.includes('marketing') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
+  }, []);
+
+  // Helper to check if a task should be visible to the current user
   const isTargetedToUser = useCallback((task: Task) => {
     const myEmail = (userEmail || '').toLowerCase().trim();
     const myName = (userName || '').toLowerCase().trim();
     const myUid = userId;
     const myFirstName = myName.split(' ')[0] || '';
     const emailPrefix = myEmail ? myEmail.split('@')[0] : '';
+
+    const isMyLucas = isLucasUser(myEmail, myName);
+    const myIsAdmin = isAdmin || isMyLucas || myEmail.includes('jairo') || userRole.toLowerCase().includes('admin') || userRole.toLowerCase().includes('diretor');
+
+    // Administrators and Managers have full visibility to oversee all assignments and statuses
+    if (myIsAdmin) {
+      return true;
+    }
 
     const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
     const assignedName = (task.assignedToName || '').toLowerCase().trim();
@@ -507,24 +547,12 @@ export const TasksSection: React.FC = () => {
       return true;
     }
 
-    // Special check for Lucas / Marketing email aliases as creator
-    const isMyLucas = myEmail.includes('lucas') || myName.includes('lucas') || myEmail === 'marketing@bahiaprev.com.br';
-    const isCreatorLucas = creatorEmail.includes('lucas') || createdByName.includes('lucas') || creatorEmail === 'marketing@bahiaprev.com.br';
-    if (isMyLucas && isCreatorLucas) {
-      return true;
-    }
-
     // 3. Task assigned directly to this user (Recipient)
     if (myUid && (task as any).assignedToUid && (task as any).assignedToUid === myUid) {
       return true;
     }
 
     if (myEmail && assignedEmail && (assignedEmail === myEmail || assignedEmail.includes(myEmail) || myEmail.includes(assignedEmail))) {
-      return true;
-    }
-
-    const isAssignedToLucas = assignedEmail.includes('lucas') || assignedName.includes('lucas') || assignedEmail === 'marketing@bahiaprev.com.br' || rawAssignedTo.includes('lucas');
-    if (isMyLucas && isAssignedToLucas) {
       return true;
     }
 
@@ -583,20 +611,56 @@ export const TasksSection: React.FC = () => {
     }
 
     return false;
-  }, [userEmail, userName, userId]);
+  }, [userEmail, userName, userId, isAdmin, userRole, isLucasUser]);
 
   // Default initial tasks (returns empty array to keep system completely clean when cleared)
   const getDefaultTasks = useCallback((): Task[] => {
     return [];
   }, []);
 
-  // Save local backup
+  // Safe localStorage helper to prevent QuotaExceededError
+  const safeSaveTasksLocally = useCallback((uId: string | undefined, list: Task[]) => {
+    try {
+      // Strip large data: base64 URLs for localStorage cache to stay well below browser limit
+      const cleanList = list.map(t => ({
+        ...t,
+        attachments: (t.attachments || []).map(a => ({
+          name: a.name,
+          url: (a.url && a.url.startsWith('data:')) ? '' : a.url,
+          type: a.type
+        })),
+        completionAttachments: (t.completionAttachments || []).map(a => ({
+          name: a.name,
+          url: (a.url && a.url.startsWith('data:')) ? '' : a.url,
+          type: a.type
+        })),
+        attachmentUrl: (t.attachmentUrl && t.attachmentUrl.startsWith('data:')) ? '' : t.attachmentUrl,
+        completionAttachmentUrl: (t.completionAttachmentUrl && t.completionAttachmentUrl.startsWith('data:')) ? '' : t.completionAttachmentUrl
+      }));
+
+      const serialized = JSON.stringify(cleanList);
+      if (uId) {
+        localStorage.setItem(`tasks_v2_${uId}`, serialized);
+      }
+      localStorage.setItem('tasks_v2_global', serialized);
+    } catch (e) {
+      // If browser storage is full, quietly clear older cached tasks keys
+      try {
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith('tasks_v1_') || k.startsWith('tasks_backup_')) {
+            localStorage.removeItem(k);
+          }
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Save local backup without throwing
   const saveTasksLocally = (updatedTasks: Task[]) => {
     setTasks(updatedTasks);
-    if (userId) {
-      localStorage.setItem(`tasks_v2_${userId}`, JSON.stringify(updatedTasks));
-    }
-    localStorage.setItem('tasks_v2_global', JSON.stringify(updatedTasks));
+    safeSaveTasksLocally(userId, updatedTasks);
   };
 
   // Sync tasks directly from Supabase
@@ -608,66 +672,9 @@ export const TasksSection: React.FC = () => {
       try {
         const rawData = await supabaseService.fetchTasks();
         if (rawData && Array.isArray(rawData)) {
-          rawData.forEach((item: any) => {
-            const data = item.data_json || item;
-            const taskCreatorEmail = data.userEmail || data.user_email || '';
-
-            const rawAssignedTo = data.assignedTo || data.assigned_to || '';
-            let assignedName = data.assignedToName || (typeof rawAssignedTo === 'string' && !rawAssignedTo.includes('@') && rawAssignedTo !== 'me' && rawAssignedTo !== 'all' ? rawAssignedTo : '');
-            let assignedEmail = data.assignedToEmail || (typeof rawAssignedTo === 'string' && rawAssignedTo.includes('@') ? rawAssignedTo : '');
-
-            let assignedType: 'specific_user' | 'all' | 'me' = data.assignedToType || (rawAssignedTo === 'all' ? 'all' : (rawAssignedTo === 'me' ? 'me' : 'specific_user'));
-
-            if (assignedType === 'all' || rawAssignedTo === 'all' || (assignedName && assignedName.toLowerCase().includes('todos'))) {
-              assignedType = 'all';
-              assignedName = 'Todos os Colaboradores';
-              assignedEmail = 'todos@bahiaprev.com.br';
-            } else if (assignedType === 'me' && !assignedName) {
-              assignedName = data.createdByName || userName;
-              assignedEmail = taskCreatorEmail || userEmail;
-            }
-
-            if (!assignedName && !assignedEmail && rawAssignedTo) {
-              if (rawAssignedTo.includes('@')) {
-                assignedEmail = rawAssignedTo;
-                assignedName = rawAssignedTo.split('@')[0];
-              } else {
-                assignedName = rawAssignedTo;
-              }
-            }
-
-            const taskCandidate: Task = {
-              id: String(item.id || data.id || `task-${Date.now()}`),
-              userId: data.userId || '',
-              userEmail: taskCreatorEmail,
-              createdByName: data.createdByName || 'Colaborador',
-              title: data.title || '',
-              description: data.description || '',
-              category: data.category || 'Geral',
-              priority: data.priority || 'media',
-              status: data.status || 'pendente',
-              dueDate: data.dueDate || data.due_date || '',
-              createdByAdmin: data.createdByAdmin || false,
-              assignedToType: assignedType,
-              assignedToName: assignedName || 'Colaborador',
-              assignedToEmail: assignedEmail || '',
-              attachmentName: data.attachmentName || undefined,
-              attachmentUrl: data.attachmentUrl || undefined,
-              attachmentType: data.attachmentType || undefined,
-              attachments: Array.isArray(data.attachments) ? data.attachments : (data.attachmentUrl ? [{ name: data.attachmentName || 'Documento Anexo', url: data.attachmentUrl, type: data.attachmentType }] : undefined),
-              completionAttachmentName: data.completionAttachmentName || undefined,
-              completionAttachmentUrl: data.completionAttachmentUrl || undefined,
-              completionAttachmentType: data.completionAttachmentType || undefined,
-              completionAttachments: Array.isArray(data.completionAttachments) ? data.completionAttachments : (data.completionAttachmentUrl ? [{ name: data.completionAttachmentName || 'Documento de Entrega', url: data.completionAttachmentUrl, type: data.completionAttachmentType }] : undefined),
-              completionNote: data.completionNote || undefined,
-              completedAt: data.completedAt || undefined,
-              completedByEmail: data.completedByEmail || undefined,
-              completedByName: data.completedByName || undefined,
-              createdAt: data.createdAt || data.created_at_iso || new Date().toISOString(),
-            };
-
-            if (isTargetedToUser(taskCandidate)) {
-              taskMap.set(taskCandidate.id, taskCandidate);
+          rawData.forEach((item: Task) => {
+            if (item && item.id && isTargetedToUser(item)) {
+              taskMap.set(item.id, item);
             }
           });
         }
@@ -710,21 +717,13 @@ export const TasksSection: React.FC = () => {
       }
 
       setTasks(loaded);
-      if (userId) {
-        localStorage.setItem(`tasks_v2_${userId}`, JSON.stringify(loaded));
-      }
-      localStorage.setItem('tasks_v2_global', JSON.stringify(loaded));
-
-      // Quietly background-sync tasks to Supabase
-      loaded.forEach((t) => {
-        supabaseService.saveTask(t).catch(() => {});
-      });
+      safeSaveTasksLocally(userId, loaded);
     } catch (err) {
       console.warn('Erro ao sincronizar tarefas:', err);
     } finally {
       setLoading(false);
     }
-  }, [userId, userEmail, userName, isTargetedToUser, triggerCompletionToast]);
+  }, [userId, isTargetedToUser, triggerCompletionToast, safeSaveTasksLocally]);
 
   useEffect(() => {
     const savedLocal = localStorage.getItem(`tasks_v2_${userId}`) || localStorage.getItem('tasks_v2_global');
@@ -985,12 +984,6 @@ export const TasksSection: React.FC = () => {
     setIsEditingCompletion(false);
   };
 
-  const isLucasUser = useCallback((email?: string, name?: string) => {
-    const e = (email || '').toLowerCase().trim();
-    const n = (name || '').toLowerCase().trim();
-    return e.includes('lucas') || n.includes('lucas') || n.includes('analista') || e.includes('marketing') || e === 'marketing@bahiaprev.com.br' || e === 'institutojairoqueiroz@gmail.com';
-  }, []);
-
   // Helper to verify if the current user is the assigner/creator of the task
   const isTaskAssignedByMe = useCallback((task: Task | null) => {
     if (!task) return false;
@@ -1028,6 +1021,12 @@ export const TasksSection: React.FC = () => {
 
     return false;
   }, [userId, userEmail, userName, isLucasUser]);
+
+  // Helper to verify if the current user has permission to delete the task (only creator or master admin)
+  const canDeleteTask = useCallback((task: Task | null) => {
+    if (!task) return false;
+    return isTaskAssignedByMe(task) || isLucasUser(userEmail, userName);
+  }, [isTaskAssignedByMe, isLucasUser, userEmail, userName]);
 
   // Open Task for Editing (only allowed for task creator/assigner)
   const openEditTask = (task: Task) => {
@@ -1162,8 +1161,14 @@ export const TasksSection: React.FC = () => {
     setIsEditingTask(false);
   };
 
-  // Handle Delete Task
+  // Handle Delete Task (strictly protected: only creator or master admin can delete)
   const handleDeleteTask = async (taskId: string) => {
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    if (taskToDelete && !canDeleteTask(taskToDelete)) {
+      alert('Apenas quem criou/atribuiu esta tarefa tem permissão para excluí-la.');
+      return;
+    }
+
     const updated = tasks.filter((t) => t.id !== taskId);
     saveTasksLocally(updated);
     if (selectedTaskForView?.id === taskId) {
@@ -1244,11 +1249,6 @@ export const TasksSection: React.FC = () => {
       }
     }
 
-    // If completed by another user (collaborator), it does NOT belong to my completed tasks
-    if (completedEmail && myEmail && completedEmail !== myEmail && !(isMeLucas && isLucasUser(completedEmail, completedName))) {
-      return false;
-    }
-
     // Check if task is assigned to me or completed by me
     if (task.assignedToType === 'me') {
       return true;
@@ -1270,8 +1270,25 @@ export const TasksSection: React.FC = () => {
       return true;
     }
 
+    // Direct alias matching for collaborators
+    const isMyNilton = myEmail.includes('nilton') || myName.includes('nilton');
+    if (isMyNilton && (assignedEmail.includes('nilton') || assignedName.includes('nilton'))) return true;
+
+    const isMyCauan = myEmail.includes('cauan') || myName.includes('cauan');
+    if (isMyCauan && (assignedEmail.includes('cauan') || assignedName.includes('cauan'))) return true;
+
+    const isMyThayan = myEmail.includes('thay') || myName.includes('thay');
+    if (isMyThayan && (assignedEmail.includes('thay') || assignedName.includes('thay'))) return true;
+
+    const isMyVitor = myEmail.includes('vitor') || myName.includes('vitor');
+    if (isMyVitor && (assignedEmail.includes('vitor') || assignedName.includes('vitor'))) return true;
+
+    const isMyPaulo = myEmail.includes('paulo') || myName.includes('paulo');
+    if (isMyPaulo && (assignedEmail.includes('paulo') || assignedName.includes('paulo'))) return true;
+
     return false;
   };
+
 
   const isTaskFromOtherAdminToMe = (task: Task) => {
     if (!isTaskBelongsToMe(task)) return false;
@@ -1407,79 +1424,162 @@ export const TasksSection: React.FC = () => {
     return Object.values(map);
   }, [collaborators, visibleTasks]);
 
-  const getCollabCounts = useCallback((collab: MemberOption) => {
-    const tasks = visibleTasks.filter(t => isTaskAssociatedWithCollaborator(t, collab));
-    const open = tasks.filter(t => t.status !== 'concluida' && !isTaskOverdue(t)).length;
-    const overdue = tasks.filter(t => isTaskOverdue(t)).length;
-    const completed = tasks.filter(t => t.status === 'concluida').length;
-    return { open, overdue, completed, total: tasks.length };
-  }, [visibleTasks, isTaskAssociatedWithCollaborator]);
 
-  // Filter collaborators to ONLY show team members who have open or overdue tasks assigned/associated with them in the database
-  const activeCollaboratorOptions = useMemo(() => {
-    const myIsLucas = isLucasUser(myEmail, myName);
 
-    return allCollaboratorOptions.filter(collab => {
-      const cEmail = (collab.email || '').toLowerCase().trim();
-      const cName = (collab.name || '').toLowerCase().trim();
-      const cFirstName = cName.split(' ')[0] || '';
+  // Helper to check if a task matches a specific recipient
+  const isTaskAssignedToRecipient = useCallback((task: Task, recipientKey: string | null) => {
+    if (!recipientKey) return true;
 
-      const cIsLucas = isLucasUser(cEmail, cName);
+    const rKey = recipientKey.toLowerCase().trim();
+    const assignedEmail = (task.assignedToEmail || '').toLowerCase().trim();
+    const assignedName = (task.assignedToName || '').toLowerCase().trim();
 
-      // If current user is Lucas and collaborator is Lucas, hide from list (already in "Minhas Tarefas")
-      if (myIsLucas && cIsLucas) return false;
+    if (rKey === 'todos@bahiaprev.com.br' || rKey === 'all' || rKey.includes('todos')) {
+      return task.assignedToType === 'all' || assignedEmail === 'todos@bahiaprev.com.br' || assignedName.includes('todos');
+    }
 
-      // Exact email match with current user
-      if (cEmail && myEmail && cEmail === myEmail) return false;
+    if (assignedEmail && (assignedEmail === rKey || assignedEmail.includes(rKey) || rKey.includes(assignedEmail))) {
+      return true;
+    }
 
-      // Exact/included name match with current user (excluding generic 'colaborador' or 'admin')
-      if (cName && myName && cName.length > 2 && myName.length > 2 && cName !== 'colaborador' && myName !== 'colaborador' && cName !== 'admin' && myName !== 'admin') {
-        if (cName === myName || cName.includes(myName) || myName.includes(cName)) {
-          return false;
-        }
+    if (assignedName && (assignedName === rKey || assignedName.includes(rKey) || rKey.includes(assignedName))) {
+      return true;
+    }
+
+    // First name match
+    const keyFirst = rKey.split(/[@\s._-]/)[0];
+    const nameFirst = assignedName.split(/[@\s._-]/)[0];
+    if (keyFirst && nameFirst && keyFirst === nameFirst && keyFirst.length >= 3) return true;
+
+    // Direct recipient matching for team member names (Lucas, Cauan, Nilton, Thayan, Vitor, Paulo, etc.)
+    if ((rKey.includes('lucas') || rKey.includes('marketing')) && (assignedEmail.includes('lucas') || assignedName.includes('lucas') || assignedEmail.includes('marketing') || assignedName.includes('marketing'))) return true;
+    if (rKey.includes('cauan') && (assignedEmail.includes('cauan') || assignedName.includes('cauan'))) return true;
+    if (rKey.includes('nilton') && (assignedEmail.includes('nilton') || assignedName.includes('nilton'))) return true;
+    if (rKey.includes('thay') && (assignedEmail.includes('thay') || assignedName.includes('thay'))) return true;
+    if (rKey.includes('vitor') && (assignedEmail.includes('vitor') || assignedName.includes('vitor'))) return true;
+    if (rKey.includes('paulo') && (assignedEmail.includes('paulo') || assignedName.includes('paulo'))) return true;
+
+    return false;
+  }, []);
+
+  const isTaskSentByMe = useCallback((task: Task) => {
+    return isTaskAssignedByMe(task) && !isTaskBelongsToMe(task);
+  }, [isTaskAssignedByMe, isTaskBelongsToMe]);
+
+  // List of ONLY recipients who have ACTUALLY received tasks assigned by the logged-in user
+  // If Lucas didn't assign any tasks to Jairo, Jairo will NEVER appear in this list!
+  const sentRecipients = useMemo(() => {
+    const map: Record<string, {
+      key: string;
+      name: string;
+      email: string;
+      role: string;
+      avatarUrl?: string;
+      total: number;
+      open: number;
+      overdue: number;
+      completed: number;
+    }> = {};
+
+    const mySentTasks = visibleTasks.filter(t => isTaskAssignedByMe(t) && !isTaskBelongsToMe(t));
+
+    mySentTasks.forEach(task => {
+      let recEmail = (task.assignedToEmail || '').toLowerCase().trim();
+      let recName = (task.assignedToName || '').trim();
+      let recRole = 'Colaborador';
+
+      if (task.assignedToType === 'all' || recEmail === 'todos@bahiaprev.com.br' || recName.toLowerCase().includes('todos')) {
+        recEmail = 'todos@bahiaprev.com.br';
+        recName = 'Todos os Colaboradores';
       }
 
-      if (cFirstName && myFirstName && cFirstName.length >= 3 && myFirstName.length >= 3 && cFirstName !== 'colaborador' && myFirstName !== 'colaborador' && cFirstName === myFirstName) {
-        return false;
+      if (!recName) {
+        recName = recEmail ? recEmail.split('@')[0] : 'Colaborador';
       }
 
-      // Show collaborator if they have any tasks (open, overdue, or completed) or if currently selected
-      const counts = getCollabCounts(collab);
-      const isSelected = !!selectedCollaboratorUid && (
-        selectedCollaboratorUid === collab.uid ||
-        selectedCollaboratorUid.toLowerCase() === (collab.email || '').toLowerCase() ||
-        selectedCollaboratorUid.toLowerCase() === collab.name.toLowerCase() ||
-        collab.name.toLowerCase().includes(selectedCollaboratorUid.toLowerCase())
-      );
-      return counts.total > 0 || isSelected;
+      // Match with known members for role & avatar
+      const matchedMember = allCollaboratorOptions.find(m => {
+        const mEmail = (m.email || '').toLowerCase().trim();
+        const mName = (m.name || '').toLowerCase().trim();
+        return (recEmail && mEmail && recEmail === mEmail) ||
+               (recName && mName && (mName === recName.toLowerCase() || mName.includes(recName.toLowerCase()) || recName.toLowerCase().includes(mName)));
+      });
+
+      if (matchedMember) {
+        recName = matchedMember.name;
+        recEmail = matchedMember.email || recEmail;
+        recRole = matchedMember.role || recRole;
+      }
+
+      const key = (recEmail || recName).toLowerCase();
+      if (!map[key]) {
+        map[key] = {
+          key,
+          name: recName,
+          email: recEmail,
+          role: recRole,
+          avatarUrl: matchedMember?.avatarUrl || getAvatarForUser(recEmail, recName),
+          total: 0,
+          open: 0,
+          overdue: 0,
+          completed: 0
+        };
+      }
+
+      map[key].total += 1;
+      const isOverdue = isTaskOverdue(task);
+      if (task.status === 'concluida') {
+        map[key].completed += 1;
+      } else if (isOverdue) {
+        map[key].overdue += 1;
+      } else {
+        map[key].open += 1;
+      }
     });
-  }, [allCollaboratorOptions, getCollabCounts, myEmail, myName, myFirstName, isLucasUser, selectedCollaboratorUid]);
 
-  const selectedCollabObj = useMemo(() => {
-    if (!selectedCollaboratorUid) return null;
-    return allCollaboratorOptions.find(c => 
-      c.uid === selectedCollaboratorUid || 
-      c.email?.toLowerCase() === selectedCollaboratorUid.toLowerCase() ||
-      c.name.toLowerCase() === selectedCollaboratorUid.toLowerCase() ||
-      (c.name && selectedCollaboratorUid && c.name.toLowerCase().includes(selectedCollaboratorUid.toLowerCase())) ||
-      (c.email && selectedCollaboratorUid && c.email.toLowerCase().includes(selectedCollaboratorUid.toLowerCase()))
-    ) || null;
-  }, [selectedCollaboratorUid, allCollaboratorOptions]);
+    return Object.values(map);
+  }, [visibleTasks, isTaskAssignedByMe, isTaskBelongsToMe, allCollaboratorOptions, getAvatarForUser, isTaskOverdue]);
 
-  const collabOpenCount = useMemo(() => {
-    if (!selectedCollabObj) return 0;
-    return visibleTasks.filter(t => isTaskAssociatedWithCollaborator(t, selectedCollabObj) && t.status !== 'concluida' && !isTaskOverdue(t)).length;
-  }, [selectedCollabObj, visibleTasks, isTaskAssociatedWithCollaborator]);
+  const selectedRecipientObj = useMemo(() => {
+    if (!selectedSentRecipientKey) return null;
+    return sentRecipients.find(r => r.key === selectedSentRecipientKey) || null;
+  }, [selectedSentRecipientKey, sentRecipients]);
 
-  const collabOverdueCount = useMemo(() => {
-    if (!selectedCollabObj) return 0;
-    return visibleTasks.filter(t => isTaskAssociatedWithCollaborator(t, selectedCollabObj) && isTaskOverdue(t)).length;
-  }, [selectedCollabObj, visibleTasks, isTaskAssociatedWithCollaborator]);
+  const sentOpenTasksCount = useMemo(() => {
+    return visibleTasks.filter(t => isTaskAssignedByMe(t) && !isTaskBelongsToMe(t) && t.status !== 'concluida' && !isTaskOverdue(t)).length;
+  }, [visibleTasks, isTaskAssignedByMe, isTaskBelongsToMe]);
 
-  const collabCompletedCount = useMemo(() => {
-    if (!selectedCollabObj) return 0;
-    return visibleTasks.filter(t => isTaskAssociatedWithCollaborator(t, selectedCollabObj) && t.status === 'concluida').length;
-  }, [selectedCollabObj, visibleTasks, isTaskAssociatedWithCollaborator]);
+  const sentOverdueTasksCount = useMemo(() => {
+    return visibleTasks.filter(t => isTaskAssignedByMe(t) && !isTaskBelongsToMe(t) && isTaskOverdue(t)).length;
+  }, [visibleTasks, isTaskAssignedByMe, isTaskBelongsToMe]);
+
+  const sentCompletedTasksCount = useMemo(() => {
+    return visibleTasks.filter(t => isTaskAssignedByMe(t) && !isTaskBelongsToMe(t) && t.status === 'concluida').length;
+  }, [visibleTasks, isTaskAssignedByMe, isTaskBelongsToMe]);
+
+  const sentTotalTasksCount = useMemo(() => {
+    return visibleTasks.filter(t => isTaskAssignedByMe(t) && !isTaskBelongsToMe(t)).length;
+  }, [visibleTasks, isTaskAssignedByMe, isTaskBelongsToMe]);
+
+  const activeSentOpenCount = useMemo(() => {
+    if (selectedRecipientObj) return selectedRecipientObj.open;
+    return sentOpenTasksCount;
+  }, [selectedRecipientObj, sentOpenTasksCount]);
+
+  const activeSentOverdueCount = useMemo(() => {
+    if (selectedRecipientObj) return selectedRecipientObj.overdue;
+    return sentOverdueTasksCount;
+  }, [selectedRecipientObj, sentOverdueTasksCount]);
+
+  const activeSentCompletedCount = useMemo(() => {
+    if (selectedRecipientObj) return selectedRecipientObj.completed;
+    return sentCompletedTasksCount;
+  }, [selectedRecipientObj, sentCompletedTasksCount]);
+
+  const activeSentTotalCount = useMemo(() => {
+    if (selectedRecipientObj) return selectedRecipientObj.total;
+    return sentTotalTasksCount;
+  }, [selectedRecipientObj, sentTotalTasksCount]);
 
   const myOpenTasksCount = useMemo(() => {
     return visibleTasks.filter(t => isTaskBelongsToMe(t) && t.status !== 'concluida' && !isTaskOverdue(t)).length;
@@ -1525,7 +1625,7 @@ export const TasksSection: React.FC = () => {
       statusFilter === 'abertas' ? (task.status !== 'concluida' && !overdue) :
       statusFilter === 'atrasadas' ? overdue :
       statusFilter === 'concluida' ? (task.status === 'concluida') :
-      true;
+      (task.status !== 'concluida' && !overdue);
 
     const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter;
     const matchesSearch = 
@@ -1538,39 +1638,37 @@ export const TasksSection: React.FC = () => {
     const matchesScope = 
       taskScopeMode === 'minhas'
         ? isTaskBelongsToMe(task)
-        : taskScopeMode === 'colaborador' && selectedCollabObj
-        ? isTaskAssociatedWithCollaborator(task, selectedCollabObj)
-        : true; // 'todas'
+        : (isTaskAssignedByMe(task) && !isTaskBelongsToMe(task)) && (
+            selectedSentRecipientKey
+              ? isTaskAssignedToRecipient(task, selectedSentRecipientKey)
+              : false
+          );
 
-    const matchesUserCompletedFilter = 
-      statusFilter !== 'concluida' || taskScopeMode !== 'todas' ||
-      (selectedUserFilterForCompleted === 'minhas'
-        ? isTaskBelongsToMe(task)
-        : selectedUserFilterForCompleted === 'outros_admins'
-        ? isTaskFromOtherAdminToMe(task)
-        : selectedUserFilterForCompleted === 'colaboradores'
-        ? isTaskOfCollaborator(task)
-        : selectedUserFilterForCompleted === 'todos'
-        ? true
-        : (
-            task.assignedToEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
-            task.completedByEmail?.toLowerCase() === selectedUserFilterForCompleted.toLowerCase() ||
-            task.assignedToName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase()) ||
-            task.completedByName?.toLowerCase().includes(selectedUserFilterForCompleted.toLowerCase())
-          )
-      );
-
-    return matchesStatus && matchesPriority && matchesSearch && matchesScope && matchesUserCompletedFilter;
+    return matchesStatus && matchesPriority && matchesSearch && matchesScope;
   });
 
-  // Sorted Tasks (Ordered by due date / deadline: shortest to longest)
+  // Sorted Tasks (Ordered with OPEN / PENDING tasks FIRST, and completed tasks at the bottom)
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
+      // 1. Primary Rule: Open/Pending/Overdue tasks ALWAYS come before completed tasks
+      const aCompleted = a.status === 'concluida';
+      const bCompleted = b.status === 'concluida';
+      if (!aCompleted && bCompleted) return -1;
+      if (aCompleted && !bCompleted) return 1;
+
+      // 2. If both are completed: show most recently completed / created first
+      if (aCompleted && bCompleted) {
+        const aComp = a.completedAt || a.createdAt || '';
+        const bComp = b.completedAt || b.createdAt || '';
+        return bComp.localeCompare(aComp);
+      }
+
+      // 3. For open tasks: Apply selected sort order (Prazo crescente by default)
       const aDate = a.dueDate ? a.dueDate.trim() : '';
       const bDate = b.dueDate ? b.dueDate.trim() : '';
 
       if (sortOrder === 'prazo_crescente') {
-        // Menor prazo primeiro (datas mais próximas / antigas no topo)
+        // Menor prazo primeiro (datas mais próximas / urgentes no topo)
         if (aDate && !bDate) return -1;
         if (!aDate && bDate) return 1;
         if (aDate && bDate) {
@@ -1603,7 +1701,7 @@ export const TasksSection: React.FC = () => {
     });
   }, [filteredTasks, sortOrder]);
 
-  {/* Componente Auxiliar para Renderizar a Lista de Tarefas, Busca e Filtros */}
+  // Componente Auxiliar para Renderizar a Lista de Tarefas, Busca e Filtros
   const renderTaskListSection = () => (
     <div className="space-y-4 pt-3 border-t border-slate-200/60">
       {/* Action Bar: Search, Filters, Sort & New Task Button */}
@@ -1637,6 +1735,7 @@ export const TasksSection: React.FC = () => {
 
         {/* Status Filters */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          {/* 1. Abertas */}
           <button
             onClick={() => setStatusFilter('abertas')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
@@ -1646,9 +1745,10 @@ export const TasksSection: React.FC = () => {
             }`}
           >
             <Clock className="h-3.5 w-3.5" />
-            <span>Abertas ({taskScopeMode === 'minhas' ? myOpenTasksCount : taskScopeMode === 'colaborador' ? collabOpenCount : openTasksCount})</span>
+            <span>Abertas ({taskScopeMode === 'minhas' ? myOpenTasksCount : activeSentOpenCount})</span>
           </button>
 
+          {/* 2. Atrasadas */}
           <button
             onClick={() => setStatusFilter('atrasadas')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
@@ -1658,19 +1758,20 @@ export const TasksSection: React.FC = () => {
             }`}
           >
             <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-            <span>Atrasadas ({taskScopeMode === 'minhas' ? myOverdueTasksCount : taskScopeMode === 'colaborador' ? collabOverdueCount : overdueTasksCount})</span>
+            <span>Atrasadas ({taskScopeMode === 'minhas' ? myOverdueTasksCount : activeSentOverdueCount})</span>
           </button>
 
+          {/* 3. Concluídas */}
           <button
             onClick={() => setStatusFilter('concluida')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
               statusFilter === 'concluida'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/30'
+                : 'bg-emerald-50/50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100/60'
             }`}
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Concluídas ({taskScopeMode === 'minhas' ? myCompletedTasksCount : taskScopeMode === 'colaborador' ? collabCompletedCount : completedTasks})</span>
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Concluídas ({taskScopeMode === 'minhas' ? myCompletedTasksCount : activeSentCompletedCount})</span>
           </button>
         </div>
 
@@ -1683,97 +1784,6 @@ export const TasksSection: React.FC = () => {
           <span>Criar / Atribuir Tarefa</span>
         </button>
       </div>
-
-      {/* Sub-bar for Completed Tasks: Organized Filters (Only shown when viewing ALL tasks) */}
-      {statusFilter === 'concluida' && taskScopeMode === 'todas' && (
-        <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
-          <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-emerald-200/60">
-            <div className="flex items-center gap-2 text-xs font-black text-emerald-950 uppercase tracking-wider">
-              <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
-              <span>Filtros Organizados de Tarefas Concluídas</span>
-            </div>
-            <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-3 py-1 rounded-full shadow-2xs">
-              {selectedUserFilterForCompleted === 'minhas' 
-                ? `${myCompletedTasksCount} tarefa(s) sua(s) concluída(s)`
-                : selectedUserFilterForCompleted === 'colaboradores'
-                ? `${colaboradoresCompletedCount} tarefa(s) de colaboradores concluída(s)`
-                : `${completedTasks} tarefa(s) concluída(s) no total`}
-            </span>
-          </div>
-
-          {/* Categorized Filter Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* 1. Minhas Tarefas Concluídas */}
-            <button
-              onClick={() => setSelectedUserFilterForCompleted('minhas')}
-              className={`p-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
-                selectedUserFilterForCompleted === 'minhas'
-                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                  : 'bg-white text-slate-800 border-emerald-200/80 hover:bg-emerald-100/60'
-              }`}
-            >
-              <div className="flex items-center gap-2 truncate">
-                <UserCheck className={`h-4 w-4 shrink-0 ${selectedUserFilterForCompleted === 'minhas' ? 'text-white' : 'text-emerald-600'}`} />
-                <span className="truncate">Minhas Tarefas</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
-                selectedUserFilterForCompleted === 'minhas' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
-              }`}>
-                {myCompletedTasksCount}
-              </span>
-            </button>
-
-            {/* 2. Tarefas dos Colaboradores */}
-            <button
-              onClick={() => setSelectedUserFilterForCompleted('colaboradores')}
-              className={`p-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
-                selectedUserFilterForCompleted !== 'minhas'
-                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                  : 'bg-white text-slate-800 border-emerald-200/80 hover:bg-emerald-100/60'
-              }`}
-            >
-              <div className="flex items-center gap-2 truncate">
-                <Users className={`h-4 w-4 shrink-0 ${selectedUserFilterForCompleted !== 'minhas' ? 'text-white' : 'text-emerald-600'}`} />
-                <span className="truncate">Dos Colaboradores</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-md text-[11px] font-black ${
-                selectedUserFilterForCompleted !== 'minhas' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
-              }`}>
-                {colaboradoresCompletedCount}
-              </span>
-            </button>
-          </div>
-
-          {/* Sub-pills for Specific Collaborators - Only shown when in Collaborators or All view, NOT in 'Minhas Tarefas' */}
-          {selectedUserFilterForCompleted !== 'minhas' && collaboratorUsersList.length > 0 && (
-            <div className="pt-2 border-t border-emerald-200/50 space-y-1.5">
-              <span className="text-[11px] font-bold text-emerald-900 block">
-                Filtrar por Colaborador Específico:
-              </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {collaboratorUsersList.map((usr) => {
-                  const isSelected = selectedUserFilterForCompleted.toLowerCase() === (usr.email || usr.name).toLowerCase();
-
-                  return (
-                    <button
-                      key={usr.email || usr.name}
-                      onClick={() => setSelectedUserFilterForCompleted(isSelected ? 'colaboradores' : (usr.email || usr.name))}
-                      className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 border ${
-                        isSelected
-                          ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-100/60'
-                      }`}
-                    >
-                      <User className="h-3 w-3 text-emerald-600 shrink-0" />
-                      <span>{usr.name} ({usr.count})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Task Cards List */}
       <div className="space-y-3">
@@ -1986,6 +1996,7 @@ export const TasksSection: React.FC = () => {
                       <span>Editar</span>
                     </button>
                   )}
+
                   <button
                     onClick={() => {
                       setSelectedTaskForView(task);
@@ -1997,6 +2008,22 @@ export const TasksSection: React.FC = () => {
                     <Eye className="h-4 w-4" />
                     <span>Abrir</span>
                   </button>
+
+                  {canDeleteTask(task) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Deseja realmente excluir permanentemente a tarefa "${task.title}"?`)) {
+                          handleDeleteTask(task.id);
+                        }
+                      }}
+                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      title="Excluir esta tarefa (apenas quem criou)"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Excluir</span>
+                    </button>
+                  )}
                 </div>
               </motion.div>
             );
@@ -2056,8 +2083,78 @@ export const TasksSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Seção 1: Minhas Tarefas */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+      {/* Visual Scope Navigation Tabs - 2 Clean Options */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        {/* Tab 1: Minhas Tarefas Recebidas */}
+        <button
+          onClick={() => {
+            setTaskScopeMode('minhas');
+            setSelectedSentRecipientKey(null);
+            setStatusFilter('abertas');
+          }}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 ${
+            taskScopeMode === 'minhas'
+              ? 'bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/40'
+              : 'bg-white text-slate-800 border-slate-200/90 hover:border-indigo-300 hover:bg-indigo-50/30 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+              taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+            }`}>
+              <UserCheck className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-extrabold text-sm sm:text-base block truncate">Minhas Tarefas</span>
+              <span className={`text-xs block mt-0.5 truncate ${taskScopeMode === 'minhas' ? 'text-indigo-200' : 'text-slate-500'}`}>
+                Recebidas para eu fazer
+              </span>
+            </div>
+          </div>
+          <span className={`text-xs font-black px-3 py-1 rounded-full shrink-0 ${
+            taskScopeMode === 'minhas' ? 'bg-white/20 text-white border border-white/20' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+          }`}>
+            {myTotalTasksCount}
+          </span>
+        </button>
+
+        {/* Tab 2: Tarefas Enviadas / Atribuídas */}
+        <button
+          onClick={() => {
+            setTaskScopeMode('enviadas');
+            setSelectedSentRecipientKey(null);
+            setStatusFilter('abertas');
+          }}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 ${
+            taskScopeMode === 'enviadas'
+              ? 'bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 text-white border-blue-700 shadow-md ring-2 ring-blue-400/40'
+              : 'bg-white text-slate-800 border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+              taskScopeMode === 'enviadas' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
+            }`}>
+              <Send className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-extrabold text-sm sm:text-base block truncate">Tarefas Enviadas</span>
+              <span className={`text-xs block mt-0.5 truncate ${taskScopeMode === 'enviadas' ? 'text-blue-200' : 'text-slate-500'}`}>
+                Atribuídas a colaboradores
+              </span>
+            </div>
+          </div>
+          <span className={`text-xs font-black px-3 py-1 rounded-full shrink-0 ${
+            taskScopeMode === 'enviadas' ? 'bg-white/20 text-white border border-white/20' : 'bg-blue-50 text-blue-700 border border-blue-200'
+          }`}>
+            {sentTotalTasksCount}
+          </span>
+        </button>
+      </div>
+
+      {/* SEÇÃO 1: MINHAS TAREFAS (RECEBIDAS) */}
+      {taskScopeMode === 'minhas' && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
               <div className="h-9 w-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-2xs">
@@ -2065,7 +2162,7 @@ export const TasksSection: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                  <span>Minhas Tarefas</span>
+                  <span>Minhas Tarefas (Recebidas)</span>
                   <span className="text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full">
                     {myTotalTasksCount} {myTotalTasksCount === 1 ? 'tarefa' : 'tarefas'}
                   </span>
@@ -2075,396 +2172,326 @@ export const TasksSection: React.FC = () => {
                 </p>
               </div>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Metric 1: Minhas Abertas */}
             <button
-              onClick={() => setIsMyTasksMinimized(!isMyTasksMinimized)}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/80"
+              onClick={() => setStatusFilter('abertas')}
+              className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                statusFilter === 'abertas'
+                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/30'
+                  : 'bg-indigo-50/50 hover:bg-indigo-100/60 border-indigo-200/80 shadow-2xs'
+              }`}
             >
-              {isMyTasksMinimized ? (
-                <>
-                  <ChevronDown className="h-4 w-4 text-indigo-600" />
-                  <span>Expandir Minhas Tarefas</span>
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="h-4 w-4 text-slate-500" />
-                  <span>Minimizar</span>
-                </>
-              )}
+              <div>
+                <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                  statusFilter === 'abertas' ? 'text-indigo-100' : 'text-indigo-700'
+                }`}>
+                  Minhas Abertas
+                </span>
+                <span className={`text-2xl font-black mt-0.5 block ${
+                  statusFilter === 'abertas' ? 'text-white' : 'text-slate-900'
+                }`}>
+                  {myOpenTasksCount}
+                </span>
+              </div>
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                statusFilter === 'abertas' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+              }`}>
+                <Clock className="h-5 w-5" />
+              </div>
+            </button>
+
+            {/* Metric 2: Minhas Atrasadas */}
+            <button
+              onClick={() => setStatusFilter('atrasadas')}
+              className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                statusFilter === 'atrasadas'
+                  ? 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400/30'
+                  : 'bg-red-50/50 hover:bg-red-100/60 border-red-200 shadow-2xs'
+              }`}
+            >
+              <div>
+                <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                  statusFilter === 'atrasadas' ? 'text-red-100' : 'text-red-700'
+                }`}>
+                  Minhas Atrasadas
+                </span>
+                <span className={`text-2xl font-black mt-0.5 block ${
+                  statusFilter === 'atrasadas' ? 'text-white' : 'text-red-700'
+                }`}>
+                  {myOverdueTasksCount}
+                </span>
+              </div>
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                statusFilter === 'atrasadas' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+              }`}>
+                <AlertCircle className="h-5 w-5" />
+              </div>
+            </button>
+
+            {/* Metric 3: Minhas Concluídas */}
+            <button
+              onClick={() => setStatusFilter('concluida')}
+              className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+                statusFilter === 'concluida'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/30'
+                  : 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200 shadow-2xs'
+              }`}
+            >
+              <div>
+                <span className={`text-[10px] font-black uppercase tracking-wider block ${
+                  statusFilter === 'concluida' ? 'text-emerald-100' : 'text-emerald-700'
+                }`}>
+                  Minhas Concluídas
+                </span>
+                <span className={`text-2xl font-black mt-0.5 block ${
+                  statusFilter === 'concluida' ? 'text-white' : 'text-emerald-700'
+                }`}>
+                  {myCompletedTasksCount}
+                </span>
+              </div>
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
+                statusFilter === 'concluida' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+              }`}>
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
             </button>
           </div>
 
-          {/* Conteúdo Expansível de Minhas Tarefas */}
-          {!isMyTasksMinimized && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-4 pt-1"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Metric 1: Minhas Abertas */}
+          {renderTaskListSection()}
+        </div>
+      )}
+
+      {/* SEÇÃO 2: TAREFAS ENVIADAS / ATRIBUÍDAS A OUTROS */}
+      {taskScopeMode === 'enviadas' && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-2xs">
+                <Send className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                  <span>Tarefas Atribuídas por Você</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                    {sentTotalTasksCount} {sentTotalTasksCount === 1 ? 'tarefa enviada' : 'tarefas enviadas'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Acompanhe em tempo real o status e entregas das tarefas que você enviou para os colaboradores
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Destinatários que RECEBERAM tarefas suas (Se Lucas não enviou para Jairo, Jairo NÃO aparece) */}
+          <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-blue-600" />
+                <span>Colaboradores com Tarefas Atribuídas ({sentRecipients.length})</span>
+              </span>
+              {selectedSentRecipientKey && (
                 <button
                   onClick={() => {
-                    setTaskScopeMode('minhas');
-                    setSelectedCollaboratorUid(null);
+                    setSelectedSentRecipientKey(null);
                     setStatusFilter('abertas');
-                    setSelectedUserFilterForCompleted('minhas');
                   }}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs hover:bg-blue-50 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Limpar seleção</span>
+                </button>
+              )}
+            </div>
+
+            {sentRecipients.length === 0 ? (
+              <p className="text-xs text-slate-500 italic py-2">
+                Você ainda não enviou tarefas para nenhum colaborador.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                {/* Cards Nominais Apenas dos Destinatários que Receberam Tarefas do Usuário */}
+                {sentRecipients.map((rec) => {
+                  const isSel = selectedSentRecipientKey === rec.key;
+                  return (
+                    <button
+                      key={rec.key}
+                      onClick={() => {
+                        const nextKey = isSel ? null : rec.key;
+                        setSelectedSentRecipientKey(nextKey);
+                        if (!isSel) {
+                          if (rec.open === 0 && rec.completed > 0) {
+                            setStatusFilter('concluida');
+                          } else if (rec.open === 0 && rec.overdue > 0) {
+                            setStatusFilter('atrasadas');
+                          } else {
+                            setStatusFilter('abertas');
+                          }
+                        }
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                        isSel
+                          ? 'bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 text-white border-blue-800 shadow-md ring-2 ring-blue-500/40'
+                          : 'bg-white text-slate-800 border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {rec.avatarUrl ? (
+                          <img src={rec.avatarUrl} alt={rec.name} className="h-8 w-8 rounded-lg object-cover border border-slate-200 shrink-0 shadow-2xs" />
+                        ) : (
+                          <div className={`h-8 w-8 rounded-lg font-black flex items-center justify-center text-xs shrink-0 ${
+                            isSel ? 'bg-blue-500/30 text-white border border-blue-400/40' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {rec.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-xs block truncate leading-tight">
+                            {rec.name}
+                          </span>
+                          <span className={`text-[10px] font-semibold block truncate mt-0.5 ${isSel ? 'text-blue-200' : 'text-slate-500'}`}>
+                            {rec.role}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
+                          isSel ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {rec.total}
+                        </span>
+                        {rec.overdue > 0 && (
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                            isSel ? 'bg-red-500/30 text-red-200' : 'bg-red-50 text-red-700 border border-red-200'
+                          }`}>
+                            {rec.overdue} atrasada{rec.overdue > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Se nenhum colaborador foi selecionado, exibe instrução amigável para clicar no nome */}
+          {!selectedSentRecipientKey ? (
+            <div className="text-center py-12 px-4 bg-slate-50/70 rounded-3xl border border-dashed border-slate-200/90 space-y-3">
+              <div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-2xs border border-blue-100">
+                <Users className="h-7 w-7" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h4 className="text-sm font-extrabold text-slate-800">
+                  Selecione um colaborador acima
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Clique no nome do colaborador para visualizar as tarefas que você atribuiu para ele, acompanhar prazos e verificar entregas.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Cards de Métricas por Status para o colaborador selecionado */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Metric 1: Abertas */}
+                <button
+                  onClick={() => setStatusFilter('abertas')}
                   className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    statusFilter === 'abertas' && taskScopeMode === 'minhas'
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/30'
-                      : 'bg-indigo-50/50 hover:bg-indigo-100/60 border-indigo-200/80 shadow-2xs'
+                    statusFilter === 'abertas'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-400/30'
+                      : 'bg-blue-50/50 hover:bg-blue-100/60 border-blue-200/80 shadow-2xs'
                   }`}
                 >
                   <div>
                     <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                      statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-indigo-100' : 'text-indigo-700'
+                      statusFilter === 'abertas' ? 'text-blue-100' : 'text-blue-700'
                     }`}>
-                      Minhas Tarefas Abertas
+                      Abertas / Em Andamento {selectedRecipientObj ? `(${selectedRecipientObj.name})` : ''}
                     </span>
                     <span className={`text-2xl font-black mt-0.5 block ${
-                      statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-slate-900'
+                      statusFilter === 'abertas' ? 'text-white' : 'text-slate-900'
                     }`}>
-                      {myOpenTasksCount}
+                      {activeSentOpenCount}
                     </span>
                   </div>
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                    statusFilter === 'abertas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                    statusFilter === 'abertas' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
                   }`}>
                     <Clock className="h-5 w-5" />
                   </div>
                 </button>
 
-                {/* Metric 2: Minhas Atrasadas */}
+                {/* Metric 2: Atrasadas */}
                 <button
-                  onClick={() => {
-                    setTaskScopeMode('minhas');
-                    setSelectedCollaboratorUid(null);
-                    setStatusFilter('atrasadas');
-                    setSelectedUserFilterForCompleted('minhas');
-                  }}
+                  onClick={() => setStatusFilter('atrasadas')}
                   className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas'
+                    statusFilter === 'atrasadas'
                       ? 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400/30'
                       : 'bg-red-50/50 hover:bg-red-100/60 border-red-200 shadow-2xs'
                   }`}
                 >
                   <div>
                     <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                      statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-red-100' : 'text-red-700'
+                      statusFilter === 'atrasadas' ? 'text-red-100' : 'text-red-700'
                     }`}>
-                      Minhas Atrasadas
+                      Atrasadas {selectedRecipientObj ? `(${selectedRecipientObj.name})` : ''}
                     </span>
                     <span className={`text-2xl font-black mt-0.5 block ${
-                      statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'text-white' : 'text-red-700'
+                      statusFilter === 'atrasadas' ? 'text-white' : 'text-red-700'
                     }`}>
-                      {myOverdueTasksCount}
+                      {activeSentOverdueCount}
                     </span>
                   </div>
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                    statusFilter === 'atrasadas' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                    statusFilter === 'atrasadas' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
                   }`}>
                     <AlertCircle className="h-5 w-5" />
                   </div>
                 </button>
 
-                {/* Metric 3: Minhas Concluídas */}
+                {/* Metric 3: Concluídas */}
                 <button
-                  onClick={() => {
-                    setTaskScopeMode('minhas');
-                    setSelectedCollaboratorUid(null);
-                    setStatusFilter('concluida');
-                    setSelectedUserFilterForCompleted('minhas');
-                  }}
+                  onClick={() => setStatusFilter('concluida')}
                   className={`rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    statusFilter === 'concluida' && taskScopeMode === 'minhas'
+                    statusFilter === 'concluida'
                       ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/30'
                       : 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200 shadow-2xs'
                   }`}
                 >
                   <div>
                     <span className={`text-[10px] font-black uppercase tracking-wider block ${
-                      statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-emerald-100' : 'text-emerald-700'
+                      statusFilter === 'concluida' ? 'text-emerald-100' : 'text-emerald-700'
                     }`}>
-                      Minhas Concluídas
+                      Concluídas {selectedRecipientObj ? `(${selectedRecipientObj.name})` : ''}
                     </span>
                     <span className={`text-2xl font-black mt-0.5 block ${
-                      statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'text-white' : 'text-emerald-700'
+                      statusFilter === 'concluida' ? 'text-white' : 'text-emerald-700'
                     }`}>
-                      {myCompletedTasksCount}
+                      {activeSentCompletedCount}
                     </span>
                   </div>
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold ${
-                    statusFilter === 'concluida' && taskScopeMode === 'minhas' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+                    statusFilter === 'concluida' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
                   }`}>
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                 </button>
               </div>
 
-              {/* Lista e Filtros de Minhas Tarefas Alocados no Topo */}
-              {taskScopeMode === 'minhas' && renderTaskListSection()}
-            </motion.div>
+              {renderTaskListSection()}
+            </>
           )}
         </div>
-
-      {/* Seção 2: Tarefas Atribuídas */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-2xs">
-              <Users className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                <span>Tarefas Atribuídas</span>
-                <span className="text-xs font-bold px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
-                  {activeCollaboratorOptions.length} {activeCollaboratorOptions.length === 1 ? 'colaborador' : 'colaboradores'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Selecione um colaborador abaixo para visualizar apenas as tarefas atribuídas a ele
-              </p>
-            </div>
-          </div>
-
-          {(selectedCollaboratorUid || taskScopeMode === 'colaborador') && (
-            <button
-              onClick={() => {
-                setTaskScopeMode('minhas');
-                setSelectedCollaboratorUid(null);
-              }}
-              className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <X className="h-3.5 w-3.5" />
-              <span>Voltar para Minhas Tarefas</span>
-            </button>
-          )}
-        </div>
-
-        {/* Grid de Colaboradores com Tarefas Atribuídas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {/* Card Todos */}
-          <button
-            onClick={() => {
-              setTaskScopeMode('todas');
-              setSelectedCollaboratorUid(null);
-            }}
-            className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center gap-3 ${
-              taskScopeMode === 'todas'
-                ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-400/30'
-                : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
-            }`}
-          >
-            <div className={`h-10 w-10 rounded-xl font-black flex items-center justify-center text-xs shrink-0 ${
-              taskScopeMode === 'todas' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
-            }`}>
-              <Users className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="font-extrabold text-xs block truncate">Todos os Colaboradores</span>
-              <span className={`text-[10px] font-semibold block truncate ${
-                taskScopeMode === 'todas' ? 'text-blue-100' : 'text-slate-500'
-              }`}>
-                Ver todas as tarefas
-              </span>
-            </div>
-          </button>
-
-          {/* Individual Collaborator Cards */}
-          {activeCollaboratorOptions.length === 0 ? (
-            <div className="col-span-full sm:col-span-2 md:col-span-3 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-center text-xs text-slate-500 font-medium">
-              Nenhum colaborador com tarefas em aberto ou atrasadas no momento.
-            </div>
-          ) : (
-            activeCollaboratorOptions.map((collab) => {
-              const isSelected = taskScopeMode === 'colaborador' && (
-                selectedCollabObj?.uid === collab.uid || 
-                selectedCollabObj?.email?.toLowerCase() === collab.email?.toLowerCase() ||
-                (selectedCollaboratorUid && (
-                  selectedCollaboratorUid === collab.uid || 
-                  selectedCollaboratorUid.toLowerCase() === collab.email?.toLowerCase() ||
-                  selectedCollaboratorUid.toLowerCase() === collab.name.toLowerCase() ||
-                  collab.name.toLowerCase().includes(selectedCollaboratorUid.toLowerCase())
-                ))
-              );
-
-              const counts = getCollabCounts(collab);
-
-              return (
-                <button
-                  key={collab.uid || collab.email || collab.name}
-                  onClick={() => {
-                    const cid = collab.uid || collab.email || collab.name;
-                    if (isSelected) {
-                      setTaskScopeMode('minhas');
-                      setSelectedCollaboratorUid(null);
-                    } else {
-                      setTaskScopeMode('colaborador');
-                      setSelectedCollaboratorUid(cid);
-                    }
-                  }}
-                  className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between gap-2.5 ${
-                    isSelected
-                      ? 'bg-gradient-to-br from-blue-700 to-slate-900 text-white border-blue-800 shadow-md ring-2 ring-blue-500/40'
-                      : 'bg-white text-slate-800 border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 shadow-2xs'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {collab.avatarUrl || getAvatarForUser(collab.email, collab.name, collab.uid) ? (
-                      <img 
-                        src={collab.avatarUrl || getAvatarForUser(collab.email, collab.name, collab.uid)} 
-                        alt={collab.name} 
-                        className="h-10 w-10 rounded-xl object-cover border border-slate-200/90 shrink-0 shadow-2xs" 
-                      />
-                    ) : (
-                      <div className={`h-10 w-10 rounded-xl font-extrabold flex items-center justify-center text-xs shrink-0 ${
-                        isSelected ? 'bg-blue-500/30 text-white border border-blue-400/40' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                      }`}>
-                        {collab.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <span className="font-extrabold text-xs block truncate leading-tight">
-                        {collab.name}
-                      </span>
-                      <span className={`text-[10px] font-semibold block truncate mt-0.5 ${
-                        isSelected ? 'text-blue-200' : 'text-slate-500'
-                      }`}>
-                        {collab.role || 'Colaborador'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 shrink-0">
-                    {counts.open > 0 && (
-                      <div className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0 transition-colors ${
-                        isSelected
-                          ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}>
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                        <span>{counts.open} {counts.open === 1 ? 'aberta' : 'abertas'}</span>
-                      </div>
-                    )}
-                    {counts.overdue > 0 && (
-                      <div className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0 transition-colors ${
-                        isSelected
-                          ? 'bg-red-500/30 text-red-200 border border-red-400/30'
-                          : 'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
-                        <span>{counts.overdue} {counts.overdue === 1 ? 'atrasada' : 'atrasadas'}</span>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Banner de Status Ativo do Colaborador Selecionado */}
-      {selectedCollabObj && (
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-md border border-blue-700/50 space-y-3"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-300 font-black flex items-center justify-center text-sm shadow-inner">
-                {selectedCollabObj.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="font-extrabold text-base text-white flex items-center gap-2">
-                  <span>Painel de Tarefas: {selectedCollabObj.name}</span>
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 bg-blue-500/30 text-blue-200 border border-blue-400/30 rounded-full">
-                    {selectedCollabObj.role || 'Colaborador'}
-                  </span>
-                </h3>
-                <p className="text-xs text-blue-200">
-                  Exibindo tarefas de <strong>{selectedCollabObj.name}</strong>. Clique nos botões abaixo para alternar entre Abertas, Atrasadas e Concluídas:
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setTaskScopeMode('minhas');
-                setSelectedCollaboratorUid(null);
-              }}
-              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <X className="h-4 w-4" />
-              <span>Voltar para Minhas Tarefas</span>
-            </button>
-          </div>
-
-          {/* Botões de Filtro Rápido por Status do Colaborador */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-blue-800/60">
-            <button
-              onClick={() => setStatusFilter('abertas')}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                statusFilter === 'abertas'
-                  ? 'bg-blue-600 text-white border-blue-400 shadow-md ring-2 ring-blue-300/40'
-                  : 'bg-white/5 hover:bg-white/10 text-blue-100 border-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-300" />
-                <span className="text-xs font-extrabold">Tarefas Abertas</span>
-              </div>
-              <span className="text-base font-black px-2.5 py-0.5 rounded-lg bg-blue-500/30 border border-blue-300/30">
-                {collabOpenCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setStatusFilter('atrasadas')}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                statusFilter === 'atrasadas'
-                  ? 'bg-red-600 text-white border-red-400 shadow-md ring-2 ring-red-300/40'
-                  : 'bg-white/5 hover:bg-white/10 text-red-200 border-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <span className="text-xs font-extrabold text-red-200">Tarefas Atrasadas</span>
-              </div>
-              <span className="text-base font-black px-2.5 py-0.5 rounded-lg bg-red-500/30 border border-red-300/30 text-red-100">
-                {collabOverdueCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setStatusFilter('concluida')}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                statusFilter === 'concluida'
-                  ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-2 ring-emerald-300/40'
-                  : 'bg-white/5 hover:bg-white/10 text-emerald-200 border-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                <span className="text-xs font-extrabold text-emerald-200">Tarefas Concluídas</span>
-              </div>
-              <span className="text-base font-black px-2.5 py-0.5 rounded-lg bg-emerald-500/30 border border-emerald-300/30 text-emerald-100">
-                {collabCompletedCount}
-              </span>
-            </button>
-          </div>
-        </motion.div>
       )}
 
-      {/* Lista de tarefas de colaboradores ou todas quando selecionadas */}
-      {taskScopeMode !== 'minhas' && renderTaskListSection()}
-
-    {/* Modal Nova Tarefa com Seleção Nominal de Colaborador (Apenas Admin) */}
+    {/* Modal Nova Tarefa com Seleção Nominal de Colaborador (Disponível para todos os usuários) */}
       <AnimatePresence>
-        {isModalOpen && isAdmin && (
+        {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2491,7 +2518,7 @@ export const TasksSection: React.FC = () => {
 
               <form onSubmit={handleCreateTask} className="space-y-4">
                 
-                {/* Seleção de Colaborador Destinatário pelo Nome */}
+                {/* Seleção de Colaborador Destinatário pelo Nome (Jairo nunca recebe tarefas) */}
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
                   <label className="block text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
                     <UserCheck className="h-4 w-4 text-blue-600" />
@@ -2501,7 +2528,7 @@ export const TasksSection: React.FC = () => {
                   {/* Quick Avatar Picker Chips */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none">
                     {collaborators
-                      .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                      .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')) && !(member.name && member.name.toLowerCase().includes('jairo')))
                       .map((member) => {
                         const isSel = selectedRecipient === member.email;
                         const avatar = member.avatarUrl || getAvatarForUser(member.email, member.name, member.uid);
@@ -2541,7 +2568,7 @@ export const TasksSection: React.FC = () => {
                     
                     <optgroup label="Selecione o Colaborador por Nome:">
                       {collaborators
-                        .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                        .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')) && !(member.name && member.name.toLowerCase().includes('jairo')))
                         .map((member) => (
                           <option key={member.email || member.uid} value={member.email}>
                             👤 {member.name} — ({member.role || 'Colaborador'})
@@ -2723,7 +2750,7 @@ export const TasksSection: React.FC = () => {
                       
                       <optgroup label="Selecione o Colaborador por Nome:">
                         {collaborators
-                          .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')))
+                          .filter((member) => !isDirectorOrPresidentRole(member.role) && !(member.email && member.email.toLowerCase().includes('jairo')) && !(member.name && member.name.toLowerCase().includes('jairo')))
                           .map((member) => (
                             <option key={member.email || member.uid} value={member.email}>
                               👤 {member.name} — ({member.role || 'Colaborador'})
@@ -3277,17 +3304,20 @@ export const TasksSection: React.FC = () => {
                         </span>
                       </button>
 
-                      {(isAdmin || selectedTaskForView.userId === userId || selectedTaskForView.userEmail === userEmail) && (
+                      {canDeleteTask(selectedTaskForView) && (
                         <button
                           type="button"
                           onClick={() => {
-                            handleDeleteTask(selectedTaskForView.id);
-                            setSelectedTaskForView(null);
+                            if (window.confirm(`Deseja realmente excluir permanentemente a tarefa "${selectedTaskForView.title}"?`)) {
+                              handleDeleteTask(selectedTaskForView.id);
+                              setSelectedTaskForView(null);
+                            }
                           }}
-                          className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-200"
-                          title="Excluir esta tarefa"
+                          className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition-colors cursor-pointer border border-rose-200 flex items-center gap-1.5 shadow-2xs"
+                          title="Excluir esta tarefa (apenas quem criou)"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-rose-600" />
+                          <span>Excluir Tarefa</span>
                         </button>
                       )}
                     </div>

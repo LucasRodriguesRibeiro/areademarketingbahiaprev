@@ -104,32 +104,34 @@ export const UserAdminSection: React.FC = () => {
 
   // Subscribe to all users in Firestore
   useEffect(() => {
-    const loaded: ManagedUser[] = allUsers.map((item) => {
-      const uEmail = (item.email || '').toLowerCase().trim();
-      const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : true;
-      const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : true;
-      const finalName = item.name || (uEmail ? uEmail.split('@')[0] : 'Usuário');
-      const finalEmail = item.email || '';
-      const finalRole = item.role || 'Colaborador';
+    const loaded: ManagedUser[] = allUsers
+      .filter(item => (item.email || '').toLowerCase().trim() !== 'marketing@bahiaprev.com.br')
+      .map((item) => {
+        const uEmail = (item.email || '').toLowerCase().trim();
+        const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : true;
+        const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : true;
+        const finalName = (uEmail.includes('lucas') ? 'Lucas Rodrigues' : (item.name || (uEmail ? uEmail.split('@')[0] : 'Usuário')));
+        const finalEmail = item.email || '';
+        const finalRole = item.role || 'Colaborador';
 
-      return {
-        uid: item.uid,
-        name: finalName,
-        email: finalEmail,
-        role: finalRole,
-        avatarUrl: item.avatarUrl,
-        canPostFeed: defaultCanPost,
-        canCreateTasks: defaultCanTasks,
-        isOnline: item.isOnline,
-        lastSeen: item.lastSeen,
-        createdAt: item.createdAt
-      };
-    });
+        return {
+          uid: item.uid,
+          name: finalName,
+          email: finalEmail,
+          role: finalRole,
+          avatarUrl: item.avatarUrl,
+          canPostFeed: defaultCanPost,
+          canCreateTasks: defaultCanTasks,
+          isOnline: item.isOnline,
+          lastSeen: item.lastSeen,
+          createdAt: item.createdAt
+        };
+      });
 
     // Sort users: Lucas & Directors first, then alphabetically
     loaded.sort((a, b) => {
-      if (a.email.includes('lucas') || a.email === 'marketing@bahiaprev.com.br') return -1;
-      if (b.email.includes('lucas') || b.email === 'marketing@bahiaprev.com.br') return 1;
+      if (a.email.includes('lucas')) return -1;
+      if (b.email.includes('lucas')) return 1;
       return a.name.localeCompare(b.name);
     });
 

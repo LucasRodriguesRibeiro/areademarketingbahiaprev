@@ -144,7 +144,7 @@ export const AuthForm: React.FC = () => {
           {providerNotEnabled && (
             <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium leading-relaxed">
               <span className="font-bold block text-sm text-amber-800 mb-1.5">⚠️ Configuração Necessária no Firebase</span>
-              Para que você possa logar e para criarmos automaticamente seu usuário <span className="font-bold">marketing@bahiaprev.com.br</span>, ative o método de login por e-mail no console do Firebase:
+              Para que você possa logar e para criarmos automaticamente seu usuário <span className="font-bold">lucasrodrigues@bahiaprev.com.br</span>, ative o método de login por e-mail no console do Firebase:
               <ol className="list-decimal ml-4 mt-2 space-y-1 font-semibold">
                 <li>Abra o console do seu projeto Firebase.</li>
                 <li>Clique em <span className="font-bold text-amber-950">Authentication</span> no menu esquerdo.</li>

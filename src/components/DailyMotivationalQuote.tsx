@@ -74,7 +74,7 @@ export const DailyMotivationalQuote: React.FC<DailyMotivationalQuoteProps> = ({
               <Sparkles className="h-3.5 w-3.5 fill-amber-300/20" />
             </div>
             <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-300 drop-shadow-xs">
-              Frase do Dia
+              Motivação do Dia
             </span>
           </div>
 
@@ -95,10 +95,11 @@ export const DailyMotivationalQuote: React.FC<DailyMotivationalQuoteProps> = ({
           </p>
         </div>
 
-        {/* Footer / Author */}
+        {/* Footer */}
         <div className="flex items-center justify-between pt-1.5 text-[10px] text-slate-400">
-          <span className="truncate">
-            Autor: <strong className="text-slate-200 font-semibold">{todayQuote.author || 'Bahia Prev'}</strong>
+          <span className="text-amber-300/80 font-semibold text-[10px] flex items-center gap-1">
+            <Sparkles className="h-2.5 w-2.5" />
+            Bahia Prev Hub
           </span>
           <span className="text-[9px] text-amber-300/70 group-hover:text-amber-300 font-medium shrink-0">
             Expandir ✨
@@ -141,7 +142,7 @@ export const DailyMotivationalQuote: React.FC<DailyMotivationalQuoteProps> = ({
           </div>
 
           <span className="inline-block text-[11px] font-extrabold uppercase tracking-widest text-amber-300 bg-amber-500/10 border border-amber-400/20 px-3 py-1 rounded-full mb-3">
-            ✨ Inspiração Diária Bahia Prev
+            ✨ Motivação do Dia • Bahia Prev
           </span>
 
           {/* The Quote */}
@@ -153,33 +154,25 @@ export const DailyMotivationalQuote: React.FC<DailyMotivationalQuoteProps> = ({
             <Quote className="h-8 w-8 text-amber-400/20 absolute -bottom-3 -right-1" />
           </div>
 
-          {/* Author / Theme */}
-          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-center gap-3 text-xs">
-            {todayQuote.author && (
-              <span className="text-slate-300 font-medium">
-                Autor: <strong className="text-amber-300 font-bold">{todayQuote.author}</strong>
+          {/* Theme */}
+          {todayQuote.theme && (
+            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-center gap-2 text-xs">
+              <span className="text-amber-400 font-semibold bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
+                {todayQuote.theme}
               </span>
-            )}
-            {todayQuote.theme && (
-              <>
-                <span className="text-slate-600">•</span>
-                <span className="text-amber-400 font-semibold bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
-                  {todayQuote.theme}
-                </span>
-              </>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Daily Notice */}
           <p className="mt-4 text-[11px] text-slate-400">
-            Uma nova frase inspiradora é exibida automaticamente a cada dia para toda a nossa equipe.
+            Uma nova frase motivacional é exibida automaticamente a cada dia para toda a nossa equipe.
           </p>
 
           <button
             onClick={() => setShowModal(false)}
             className="mt-6 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer"
           >
-            Tenha um excelente dia!
+            Tenha um excelente dia de trabalho! ✨
           </button>
         </motion.div>
       </div>

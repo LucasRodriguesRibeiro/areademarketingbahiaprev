@@ -570,105 +570,377 @@ export const supabaseService = {
     return this.savePostComment(comment);
   },
 
-  // 7. USERS
+  // 7. USERS & USER REGISTRY (Cloud-synchronized with local fallback)
   _usersTableMissing: false,
 
-  async fetchUsers(): Promise<any[] | null> {
-    if (this._usersTableMissing) return null;
-    const supabase = getSupabaseClient();
-    if (!supabase) return null;
+  async fetchUsersRegistry(): Promise<{
+    users: any[];
+    deletedEmails: string[];
+    deletedUids: string[];
+  }> {
+    const defaultRegistry = {
+      users: [
+        { uid: 'u_lucas_dev', name: 'Lucas Rodrigues', email: 'lucasrodrigues@bahiaprev.com.br', role: 'Analista de Marketing', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_jairo_dir', name: 'Jairo Queiroz', email: 'jairoqueiroz@bahiaprev.com.br', role: 'Diretor/Presidente', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_cauan_des', name: 'Cauan', email: 'cauan@bahiaprev.com.br', role: 'Designer Gráfico', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_nilton', name: 'Nilton', email: 'nilton@bahiaprev.com.br', role: 'Gerente Funerário', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_thayan', name: 'Thayan', email: 'thayan@bahiaprev.com.br', role: 'CPD', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_vitor', name: 'Vitor', email: 'vitor@bahiaprev.com.br', role: 'Financeiro', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' },
+        { uid: 'u_paulo', name: 'Paulo', email: 'paulo@bahiaprev.com.br', role: 'Agente Funerário', canPostFeed: true, canCreateTasks: true, createdAt: '2026-07-01T00:00:00.000Z' }
+      ],
+      deletedEmails: ['marketing@bahiaprev.com.br'],
+      deletedUids: ['u_lucas_mkt']
+    };
+
+    let registry = { ...defaultRegistry };
+
+    // 1. Check local storage cache
     try {
-      const { data, error } = await supabase.from('users').select('*');
-      if (error) {
-        if (error.code === '42P01' || error.code === 'PGRST204' || error.message?.includes('404') || error.message?.includes('not exist')) {
-          this._usersTableMissing = true;
+      const cached = localStorage.getItem('bahiaprev_sys_users_registry');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.users)) {
+          registry = {
+            users: parsed.users,
+            deletedEmails: Array.isArray(parsed.deletedEmails) ? parsed.deletedEmails : ['marketing@bahiaprev.com.br'],
+            deletedUids: Array.isArray(parsed.deletedUids) ? parsed.deletedUids : ['u_lucas_mkt']
+          };
         }
-        return null;
       }
-      return (data || []).map((row: any) => ({
-        uid: row.uid,
-        name: row.name || '',
-        email: row.email || '',
-        role: row.role || 'Colaborador',
-        unit: row.unit || '',
-        phone: row.phone || '',
-        isOnline: Boolean(row.is_online),
-        lastSeen: row.last_seen,
-        avatarUrl: row.avatar_url || undefined,
-        canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : true,
-        canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : true
-      }));
-    } catch {
+    } catch {}
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return registry;
+
+    // 2. Fetch cloud registry from user_tasks (id: sys_users_registry)
+    try {
+      const { data, error } = await supabase
+        .from('user_tasks')
+        .select('description')
+        .eq('id', 'sys_users_registry')
+        .single();
+
+      if (!error && data?.description) {
+        const parsed = JSON.parse(data.description);
+        if (parsed && Array.isArray(parsed.users)) {
+          registry = {
+            users: parsed.users,
+            deletedEmails: Array.isArray(parsed.deletedEmails) ? parsed.deletedEmails : ['marketing@bahiaprev.com.br'],
+            deletedUids: Array.isArray(parsed.deletedUids) ? parsed.deletedUids : ['u_lucas_mkt']
+          };
+          try {
+            localStorage.setItem('bahiaprev_sys_users_registry', JSON.stringify(registry));
+          } catch {}
+        }
+      } else if (error && error.code === 'PGRST116') {
+        // Record not created yet -> seed it to cloud
+        await this.saveUsersRegistry(registry);
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar sys_users_registry do Supabase:', err);
+    }
+
+    // 3. Overlay DB users table if it exists
+    if (!this._usersTableMissing) {
+      try {
+        const { data: dbUsers, error: dbErr } = await supabase.from('users').select('*');
+        if (dbErr) {
+          if (dbErr.code === '42P01' || dbErr.code === 'PGRST204' || dbErr.code === 'PGRST205' || dbErr.message?.includes('not exist')) {
+            this._usersTableMissing = true;
+          }
+        } else if (Array.isArray(dbUsers) && dbUsers.length > 0) {
+          dbUsers.forEach((row: any) => {
+            const emailLower = (row.email || '').toLowerCase().trim();
+            if (!emailLower || registry.deletedEmails.includes(emailLower) || registry.deletedUids.includes(row.uid)) return;
+
+            const existingIdx = registry.users.findIndex(u => u.uid === row.uid || (u.email && u.email.toLowerCase() === emailLower));
+            const formatted = {
+              uid: row.uid,
+              name: formatUserName(row.name, emailLower),
+              email: emailLower,
+              role: row.role || 'Colaborador',
+              unit: row.unit || '',
+              phone: row.phone || '',
+              isOnline: Boolean(row.is_online),
+              lastSeen: row.last_seen,
+              avatarUrl: row.avatar_url || undefined,
+              canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : true,
+              canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : true
+            };
+
+            if (existingIdx >= 0) {
+              registry.users[existingIdx] = { ...registry.users[existingIdx], ...formatted };
+            } else {
+              registry.users.push(formatted);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    return registry;
+  },
+
+  async saveUsersRegistry(registry: { users: any[]; deletedEmails: string[]; deletedUids: string[] }): Promise<boolean> {
+    try {
+      localStorage.setItem('bahiaprev_sys_users_registry', JSON.stringify(registry));
+    } catch {}
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return true;
+
+    try {
+      const payload = {
+        id: 'sys_users_registry',
+        title: '__SYS_USERS_REGISTRY__',
+        description: JSON.stringify(registry),
+        category: 'System',
+        assigned_to: 'system',
+        status: 'concluida',
+        completed: true,
+        created_by: 'system',
+        created_at_iso: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('user_tasks').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        console.warn('Erro ao salvar sys_users_registry no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Falha ao gravar sys_users_registry:', err);
+      return false;
+    }
+  },
+
+  async fetchUsers(): Promise<any[] | null> {
+    try {
+      const [registry, teamRoles] = await Promise.all([
+        this.fetchUsersRegistry(),
+        this.fetchTeamRoles()
+      ]);
+
+      const deletedEmailsSet = new Set((registry.deletedEmails || []).map(e => e.toLowerCase().trim()));
+      const deletedUidsSet = new Set(registry.deletedUids || []);
+
+      const activeUsers: any[] = [];
+      const seenEmails = new Set<string>();
+
+      for (const u of registry.users) {
+        const emailLower = (u.email || '').toLowerCase().trim();
+        if (!emailLower || deletedEmailsSet.has(emailLower) || deletedUidsSet.has(u.uid) || emailLower === 'marketing@bahiaprev.com.br') {
+          continue;
+        }
+
+        if (seenEmails.has(emailLower)) continue;
+        seenEmails.add(emailLower);
+
+        const effectiveRole = teamRoles[emailLower] || u.role || 'Colaborador';
+        const formattedName = formatUserName(u.name, emailLower);
+
+        activeUsers.push({
+          uid: u.uid || `u_${emailLower.replace(/[^a-z0-9]/g, '_')}`,
+          name: formattedName,
+          email: emailLower,
+          role: effectiveRole,
+          unit: u.unit || '',
+          phone: u.phone || '',
+          avatarUrl: u.avatarUrl,
+          canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : true,
+          canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : true,
+          createdAt: u.createdAt || new Date().toISOString(),
+          isOnline: Boolean(u.isOnline),
+          lastSeen: u.lastSeen,
+          password: u.password
+        });
+      }
+
+      return activeUsers;
+    } catch (err) {
+      console.warn('Erro em fetchUsers:', err);
       return null;
     }
   },
 
   async saveUser(user: any): Promise<boolean> {
-    const cleanEmail = (user.email || '').toLowerCase().trim();
-    const cleanRole = (user.role || '').trim();
-
-    // Cache team role if email and role are present
-    if (cleanEmail && cleanRole) {
-      try {
-        const cached = localStorage.getItem('bahiaprev_team_roles');
-        const roles = cached ? JSON.parse(cached) : {};
-        roles[cleanEmail] = cleanRole;
-        localStorage.setItem('bahiaprev_team_roles', JSON.stringify(roles));
-      } catch {}
-    }
-
-    if (this._usersTableMissing) return true;
-    const supabase = getSupabaseClient();
-    if (!supabase) return false;
-    try {
-      const { error } = await supabase.from('users').upsert({
-        uid: String(user.uid || user.id),
-        name: formatUserName(user.name || user.displayName, cleanEmail),
-        email: cleanEmail,
-        role: cleanRole || 'Colaborador',
-        unit: user.unit || '',
-        phone: user.phone || '',
-        is_online: Boolean(user.isOnline),
-        last_seen: user.lastSeen || new Date().toISOString(),
-        avatar_url: user.avatarUrl || null,
-        can_post_feed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : true,
-        can_create_tasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : true
-      }, { onConflict: 'uid' });
-      if (error) {
-        if (error.code === '42P01' || error.code === 'PGRST204' || error.message?.includes('404') || error.message?.includes('not exist')) {
-          this._usersTableMissing = true;
-        }
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    return this.saveUserProfile(user);
   },
 
   async saveUserProfile(user: any): Promise<boolean> {
     const cleanEmail = (user.email || '').toLowerCase().trim();
-    const cleanRole = (user.role || '').trim();
-    if (cleanEmail && cleanRole) {
-      await this.saveTeamRole(cleanEmail, cleanRole);
-    }
-    return this.saveUser(user);
-  },
+    if (!cleanEmail) return false;
 
-  async deleteUser(uid: string): Promise<boolean> {
-    if (this._usersTableMissing) return true;
-    const supabase = getSupabaseClient();
-    if (!supabase) return false;
+    const cleanRole = (user.role || 'Colaborador').trim();
+    const formattedName = formatUserName(user.name || user.displayName, cleanEmail);
+    const uid = String(user.uid || user.id || `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`);
+
     try {
-      const { error } = await supabase.from('users').delete().eq('uid', uid);
-      return !error;
-    } catch {
+      // 1. Update team role configuration
+      await this.saveTeamRole(cleanEmail, cleanRole);
+
+      // 2. Fetch current registry
+      const registry = await this.fetchUsersRegistry();
+
+      // Remove from deleted lists if previously deleted (reinstate user)
+      registry.deletedEmails = (registry.deletedEmails || []).filter(e => e.toLowerCase().trim() !== cleanEmail);
+      registry.deletedUids = (registry.deletedUids || []).filter(id => id !== uid);
+
+      const userObject: any = {
+        uid,
+        name: formattedName,
+        email: cleanEmail,
+        role: cleanRole,
+        unit: user.unit || '',
+        phone: user.phone || '',
+        avatarUrl: user.avatarUrl || undefined,
+        canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : true,
+        canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : true,
+        createdAt: user.createdAt || new Date().toISOString(),
+        isOnline: Boolean(user.isOnline),
+        lastSeen: user.lastSeen || new Date().toISOString()
+      };
+
+      if (user.password) {
+        userObject.password = user.password;
+      }
+
+      // Upsert into registry users array
+      const existingIndex = registry.users.findIndex(u => 
+        u.uid === uid || (u.email && u.email.toLowerCase().trim() === cleanEmail)
+      );
+
+      if (existingIndex >= 0) {
+        registry.users[existingIndex] = {
+          ...registry.users[existingIndex],
+          ...userObject
+        };
+      } else {
+        registry.users.push(userObject);
+      }
+
+      // 3. Save updated registry to cloud & localStorage
+      await this.saveUsersRegistry(registry);
+
+      // 4. Try updating public.users table if it exists in Supabase
+      if (!this._usersTableMissing) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          try {
+            const { error } = await supabase.from('users').upsert({
+              uid,
+              name: formattedName,
+              email: cleanEmail,
+              role: cleanRole,
+              unit: user.unit || '',
+              phone: user.phone || '',
+              is_online: Boolean(user.isOnline),
+              last_seen: user.lastSeen || new Date().toISOString()
+            }, { onConflict: 'uid' });
+
+            if (error && (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205' || error.message?.includes('not exist'))) {
+              this._usersTableMissing = true;
+            }
+          } catch {}
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Erro ao salvar perfil do usuário:', err);
       return false;
     }
   },
 
-  async deleteUserProfile(uid: string): Promise<boolean> {
-    return this.deleteUser(uid);
+  async deleteUser(uid: string, email?: string): Promise<boolean> {
+    return this.deleteUserProfile(uid, email);
+  },
+
+  async deleteUserProfile(uid: string, email?: string): Promise<boolean> {
+    if (!uid && !email) return false;
+
+    try {
+      const registry = await this.fetchUsersRegistry();
+      const cleanEmail = email ? email.toLowerCase().trim() : '';
+
+      // Find user to get both uid and email if only one was provided
+      let targetUser = registry.users.find(u => 
+        (uid && u.uid === uid) || (cleanEmail && u.email && u.email.toLowerCase().trim() === cleanEmail)
+      );
+
+      const targetUid = uid || targetUser?.uid;
+      const targetEmail = cleanEmail || (targetUser?.email ? targetUser.email.toLowerCase().trim() : '');
+
+      if (targetEmail && (targetEmail === 'lucasrodrigues@bahiaprev.com.br' || targetEmail === 'marketing@bahiaprev.com.br')) {
+        console.warn('Não é permitido excluir o Administrador Principal.');
+        return false;
+      }
+
+      // 1. Add to deleted lists
+      if (targetUid && !registry.deletedUids.includes(targetUid)) {
+        registry.deletedUids.push(targetUid);
+      }
+      if (targetEmail && !registry.deletedEmails.includes(targetEmail)) {
+        registry.deletedEmails.push(targetEmail);
+      }
+
+      // 2. Remove from users array
+      registry.users = registry.users.filter(u => {
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const matchesUid = targetUid && u.uid === targetUid;
+        const matchesEmail = targetEmail && uEmail === targetEmail;
+        return !matchesUid && !matchesEmail;
+      });
+
+      // 3. Save updated registry to cloud & localStorage
+      await this.saveUsersRegistry(registry);
+
+      // 4. Remove from team roles config
+      if (targetEmail) {
+        try {
+          const roles = await this.fetchTeamRoles();
+          if (roles[targetEmail]) {
+            delete roles[targetEmail];
+            localStorage.setItem('bahiaprev_team_roles', JSON.stringify(roles));
+
+            const supabase = getSupabaseClient();
+            if (supabase) {
+              await supabase.from('user_tasks').upsert({
+                id: 'sys_team_roles_config',
+                title: '__SYS_ROLES_CONFIG__',
+                description: JSON.stringify(roles),
+                category: 'System',
+                assigned_to: 'system',
+                status: 'concluida',
+                completed: true,
+                created_by: 'system',
+                created_at_iso: new Date().toISOString()
+              }, { onConflict: 'id' });
+            }
+          }
+        } catch {}
+      }
+
+      // 5. Try deleting from public.users table if available
+      if (!this._usersTableMissing) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          try {
+            if (targetUid) {
+              await supabase.from('users').delete().eq('uid', targetUid);
+            }
+            if (targetEmail) {
+              await supabase.from('users').delete().eq('email', targetEmail);
+            }
+          } catch {}
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Erro ao excluir usuário:', err);
+      return false;
+    }
   },
 
   // 8. TEAM ROLES & CARGOS CONFIGURATION (Synchronized across all devices)

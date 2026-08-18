@@ -105,7 +105,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
     }
 
     try {
-      await supabaseService.deleteUserProfile(member.uid);
+      await supabaseService.deleteUserProfile(member.uid, member.email);
       await fetchUsers();
       setToastMsg(`Usuário ${formatUserName(member.name, member.email)} foi excluído do sistema com sucesso.`);
       setTimeout(() => setToastMsg(null), 4000);

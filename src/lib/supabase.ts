@@ -196,6 +196,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   role TEXT,
   unit TEXT,
   phone TEXT,
+  avatar_url TEXT,
+  can_post_feed BOOLEAN DEFAULT TRUE,
+  can_create_tasks BOOLEAN DEFAULT TRUE,
   is_online BOOLEAN DEFAULT FALSE,
   last_seen TIMESTAMPTZ DEFAULT NOW()
 );

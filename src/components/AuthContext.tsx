@@ -49,65 +49,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUsers = async (): Promise<UserProfile[]> => {
     try {
-      const [teamRoles, dbUsers] = await Promise.all([
-        supabaseService.fetchTeamRoles().catch(() => ({} as Record<string, string>)),
-        supabaseService.fetchUsers().catch(() => null)
-      ]);
+      const activeUsers = await supabaseService.fetchUsers();
+      const list: UserProfile[] = (activeUsers || []).map((u: any) => ({
+        uid: u.uid,
+        name: formatUserName(u.name, u.email),
+        email: (u.email || '').toLowerCase().trim(),
+        role: u.role || 'Colaborador',
+        avatarUrl: u.avatarUrl,
+        createdAt: u.createdAt || new Date().toISOString(),
+        isOnline: Boolean(u.isOnline),
+        lastSeen: u.lastSeen,
+        canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : true,
+        canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : true
+      }));
 
-      const defaults: Array<{ uid: string; name: string; email: string; defaultRole: string }> = [
-        { uid: 'u_lucas_dev', name: 'Lucas Rodrigues', email: 'lucasrodrigues@bahiaprev.com.br', defaultRole: 'Analista de Marketing' },
-        { uid: 'u_jairo_dir', name: 'Jairo Queiroz', email: 'jairoqueiroz@bahiaprev.com.br', defaultRole: 'Diretor' },
-        { uid: 'u_cauan_des', name: 'Cauan', email: 'cauan@bahiaprev.com.br', defaultRole: 'Designer Gráfico' },
-        { uid: 'u_nilton', name: 'Nilton', email: 'nilton@bahiaprev.com.br', defaultRole: 'Colaborador' },
-        { uid: 'u_thayan', name: 'Thayan', email: 'thayan@bahiaprev.com.br', defaultRole: 'Colaborador' },
-        { uid: 'u_vitor', name: 'Vitor', email: 'vitor@bahiaprev.com.br', defaultRole: 'Colaborador' },
-        { uid: 'u_paulo', name: 'Paulo', email: 'paulo@bahiaprev.com.br', defaultRole: 'Colaborador' }
-      ];
-
-      const emailMap = new Map<string, UserProfile>();
-
-      // 1. Seed defaults into map
-      defaults.forEach(d => {
-        const emailLower = d.email.toLowerCase();
-        const effectiveRole = teamRoles[emailLower] || d.defaultRole;
-        emailMap.set(emailLower, {
-          uid: d.uid,
-          name: formatUserName(d.name, d.email),
-          email: d.email,
-          role: effectiveRole,
-          createdAt: new Date().toISOString(),
-          isOnline: false,
-          canPostFeed: true,
-          canCreateTasks: true
-        });
-      });
-
-      // 2. Overlay dbUsers (overwriting defaults where db record exists, but preserving teamRoles precedence)
-      if (dbUsers && Array.isArray(dbUsers)) {
-        dbUsers.forEach((u: any) => {
-          const emailLower = (u.email || '').toLowerCase().trim();
-          if (!emailLower || emailLower === 'marketing@bahiaprev.com.br') return;
-
-          const effectiveRole = teamRoles[emailLower] || u.role || emailMap.get(emailLower)?.role || 'Colaborador';
-          const existing = emailMap.get(emailLower);
-          const formattedName = formatUserName(u.name || existing?.name, emailLower);
-
-          emailMap.set(emailLower, {
-            uid: u.uid || existing?.uid || `u_${emailLower.replace(/[^a-z0-9]/g, '_')}`,
-            name: formattedName,
-            email: u.email || existing?.email || emailLower,
-            role: effectiveRole,
-            avatarUrl: u.avatarUrl || existing?.avatarUrl,
-            createdAt: u.createdAt || u.lastSeen || existing?.createdAt || new Date().toISOString(),
-            isOnline: u.isOnline !== undefined ? u.isOnline : existing?.isOnline,
-            lastSeen: u.lastSeen || existing?.lastSeen,
-            canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : true,
-            canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : true
-          });
-        });
-      }
-
-      const list = Array.from(emailMap.values());
       const map: Record<string, UserProfile> = {};
       list.forEach(p => {
         map[p.uid] = p;
@@ -124,38 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [];
     }
   };
-
-  // Pre-seed system default users into Supabase 'users' table ONLY if table is empty
-  useEffect(() => {
-    const seedSystemUsers = async () => {
-      try {
-        // Clean up legacy marketing@bahiaprev.com.br duplicate from db if present
-        await supabaseService.deleteUser('u_lucas_mkt').catch(() => {});
-
-        const teamRoles = await supabaseService.fetchTeamRoles();
-        const existingUsers = await supabaseService.fetchUsers();
-        
-        // Only seed if existing users table returned empty array
-        if (existingUsers && existingUsers.length === 0) {
-          const defaults = [
-            { uid: 'u_lucas_dev', name: 'Lucas Rodrigues', email: 'lucasrodrigues@bahiaprev.com.br', role: teamRoles['lucasrodrigues@bahiaprev.com.br'] || 'Analista de Marketing' },
-            { uid: 'u_jairo_dir', name: 'Jairo Queiroz', email: 'jairoqueiroz@bahiaprev.com.br', role: teamRoles['jairoqueiroz@bahiaprev.com.br'] || 'Diretor' },
-            { uid: 'u_cauan_des', name: 'Cauan', email: 'cauan@bahiaprev.com.br', role: teamRoles['cauan@bahiaprev.com.br'] || 'Designer Gráfico' },
-            { uid: 'u_nilton', name: 'Nilton', email: 'nilton@bahiaprev.com.br', role: teamRoles['nilton@bahiaprev.com.br'] || 'Colaborador' },
-            { uid: 'u_thayan', name: 'Thayan', email: 'thayan@bahiaprev.com.br', role: teamRoles['thayan@bahiaprev.com.br'] || 'Colaborador' },
-            { uid: 'u_vitor', name: 'Vitor', email: 'vitor@bahiaprev.com.br', role: teamRoles['vitor@bahiaprev.com.br'] || 'Colaborador' },
-            { uid: 'u_paulo', name: 'Paulo', email: 'paulo@bahiaprev.com.br', role: teamRoles['paulo@bahiaprev.com.br'] || 'Colaborador' }
-          ];
-
-          for (const u of defaults) {
-            await supabaseService.saveUser({ ...u, isOnline: false, lastSeen: new Date().toISOString() });
-          }
-        }
-      } catch {}
-    };
-
-    seedSystemUsers().catch(() => {});
-  }, []);
 
   // Restore session from Supabase Auth or LocalStorage
   useEffect(() => {
@@ -179,10 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: sbUser.email || '',
               role: sbUser.user_metadata?.role || 'Colaborador',
               createdAt: new Date().toISOString(),
-              isOnline: true
+              isOnline: true,
+              canPostFeed: true,
+              canCreateTasks: true
             };
             setProfile(userProf);
-            await supabaseService.saveUser(userProf);
+            await supabaseService.saveUserProfile(userProf);
             await fetchUsers();
             setLoading(false);
             return;
@@ -224,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(parsedProf);
           localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(parsedUser));
           localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(parsedProf));
-          await supabaseService.saveUser({ ...parsedProf, isOnline: true });
+          await supabaseService.saveUserProfile({ ...parsedProf, isOnline: true });
         } catch {
           localStorage.removeItem('bahiaprev_supabase_session_user');
           localStorage.removeItem('bahiaprev_supabase_session_profile');
@@ -244,72 +169,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = getSupabaseClient();
 
     try {
+      // 1. Check if user was deleted or disabled
+      const registry = await supabaseService.fetchUsersRegistry();
+      if (registry.deletedEmails.includes(cleanEmail)) {
+        throw new Error('Esta conta de colaborador foi excluída ou desativada no sistema.');
+      }
+
+      // 2. Verify if user is registered in the system
+      const existingInRegistry = registry.users.find((u: any) => (u.email || '').toLowerCase().trim() === cleanEmail);
+      if (!existingInRegistry) {
+        throw new Error('Colaborador não cadastrado no sistema. Solicite seu cadastro ao Administrador.');
+      }
+
+      // 3. Password check (if user was registered with a specific password)
+      if (existingInRegistry.password && existingInRegistry.password !== password) {
+        throw new Error('Senha incorreta. Verifique suas credenciais de acesso.');
+      }
+
       const teamRoles = await supabaseService.fetchTeamRoles();
 
-      // 1. Try Supabase Auth first
+      // 4. Try Supabase Auth first (if user is synced with Auth)
       if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-        if (!error && data?.user) {
-          const sbUser = data.user;
-          const formattedName = formatUserName(sbUser.user_metadata?.name, cleanEmail);
-          const authU: AuthUser = { uid: sbUser.id, email: sbUser.email || cleanEmail, displayName: formattedName };
-          const userProf: UserProfile = {
-            uid: sbUser.id,
-            name: formattedName,
-            email: cleanEmail,
-            role: teamRoles[cleanEmail] || sbUser.user_metadata?.role || 'Colaborador',
-            createdAt: new Date().toISOString(),
-            isOnline: true
-          };
-          setUser(authU);
-          setProfile(userProf);
-          localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
-          localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
-          await supabaseService.saveUser(userProf);
-          await fetchUsers();
-          setLoading(false);
-          return;
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+          if (!error && data?.user) {
+            const sbUser = data.user;
+            const formattedName = formatUserName(sbUser.user_metadata?.name || existingInRegistry.name, cleanEmail);
+            const authU: AuthUser = { uid: sbUser.id || existingInRegistry.uid, email: cleanEmail, displayName: formattedName };
+            const userProf: UserProfile = {
+              uid: sbUser.id || existingInRegistry.uid,
+              name: formattedName,
+              email: cleanEmail,
+              role: teamRoles[cleanEmail] || existingInRegistry.role || sbUser.user_metadata?.role || 'Colaborador',
+              avatarUrl: existingInRegistry.avatarUrl,
+              createdAt: existingInRegistry.createdAt || new Date().toISOString(),
+              isOnline: true,
+              canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
+              canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true
+            };
+            setUser(authU);
+            setProfile(userProf);
+            localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
+            localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
+            await fetchUsers();
+            setLoading(false);
+            return;
+          }
+        } catch (authErr) {
+          console.warn('Supabase Auth signIn falhou, usando autenticação do registro interno:', authErr);
         }
       }
 
-      // 2. Direct User Profile Match (fallback for seed/custom accounts)
-      const resolvedName = formatUserName(null, cleanEmail);
-      let resolvedRole = teamRoles[cleanEmail] || 'Colaborador';
+      // 5. Authorized Internal User Profile Login
+      const resolvedName = formatUserName(existingInRegistry.name, cleanEmail);
+      const resolvedRole = teamRoles[cleanEmail] || existingInRegistry.role || 'Colaborador';
+      const uid = existingInRegistry.uid || ('u_' + cleanEmail.replace(/[^a-z0-9]/g, '_'));
 
-      if (!teamRoles[cleanEmail]) {
-        if (cleanEmail.includes('cauan')) {
-          resolvedRole = 'Designer Gráfico';
-        } else if (cleanEmail.includes('jairo')) {
-          resolvedRole = 'Diretor/Presidente';
-        } else if (cleanEmail.includes('lucas') || cleanEmail === 'marketing@bahiaprev.com.br') {
-          resolvedRole = teamRoles[cleanEmail] || teamRoles['lucasrodrigues@bahiaprev.com.br'] || 'Analista de Marketing';
-        } else if (cleanEmail.includes('nilton')) {
-          resolvedRole = 'Colaborador';
-        } else if (cleanEmail.includes('thayan')) {
-          resolvedRole = 'Colaborador';
-        } else if (cleanEmail.includes('vitor')) {
-          resolvedRole = 'Colaborador';
-        } else if (cleanEmail.includes('paulo')) {
-          resolvedRole = 'Colaborador';
-        }
-      }
-
-      const uid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
       const authU: AuthUser = { uid, email: cleanEmail, displayName: resolvedName };
       const userProf: UserProfile = {
         uid,
         name: resolvedName,
         email: cleanEmail,
         role: resolvedRole,
-        createdAt: new Date().toISOString(),
-        isOnline: true
+        avatarUrl: existingInRegistry.avatarUrl,
+        createdAt: existingInRegistry.createdAt || new Date().toISOString(),
+        isOnline: true,
+        canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
+        canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true
       };
 
       setUser(authU);
       setProfile(userProf);
       localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
       localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
-      await supabaseService.saveUser(userProf);
       await fetchUsers();
     } catch (err: any) {
       console.error('Erro no login:', err);
@@ -327,34 +259,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (supabase) {
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: { data: { name: formattedName, role } }
-        });
-        if (!error && data?.user) {
-          const uid = data.user.id;
-          const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
-          const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
-          setUser(authU);
-          setProfile(userProf);
-          localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
-          localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
-          await supabaseService.saveUser(userProf);
-          await fetchUsers();
-          setLoading(false);
-          return;
-        }
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email: cleanEmail,
+            password,
+            options: { data: { name: formattedName, role } }
+          });
+          if (!error && data?.user) {
+            const uid = data.user.id;
+            const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
+            const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: true, canCreateTasks: true };
+            setUser(authU);
+            setProfile(userProf);
+            localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
+            localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
+            await supabaseService.saveUserProfile(userProf);
+            await fetchUsers();
+            setLoading(false);
+            return;
+          }
+        } catch {}
       }
 
-      const uid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
+      const uid = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
       const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
-      const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
+      const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: true, canCreateTasks: true };
       setUser(authU);
       setProfile(userProf);
       localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
       localStorage.setItem('bahiaprev_supabase_session_profile', JSON.stringify(userProf));
-      await supabaseService.saveUser(userProf);
+      await supabaseService.saveUserProfile({ ...userProf, password });
       await fetchUsers();
     } catch (err: any) {
       throw new Error(err?.message || 'Erro ao cadastrar usuário.');

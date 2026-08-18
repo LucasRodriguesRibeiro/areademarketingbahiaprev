@@ -174,14 +174,16 @@ export const UserAdminSection: React.FC = () => {
         role: finalRole,
         canPostFeed: canPostFeed,
         canCreateTasks: canCreateTasks,
+        password: newPassword,
         createdAt: new Date().toISOString()
       };
 
       await supabaseService.saveUserProfile(userProfilePayload);
+      await fetchUsers();
 
       setStatusMessage({ 
         type: 'success', 
-        text: `Usuário ${newName.trim()} (${newEmail.trim()}) cadastrado e configurado com sucesso no Supabase!` 
+        text: `Usuário ${newName.trim()} (${newEmail.trim()}) cadastrado e sincronizado com sucesso no sistema!` 
       });
 
       // Clear form
@@ -191,8 +193,6 @@ export const UserAdminSection: React.FC = () => {
       setNewPassword('mkt@BP2025');
       setCanPostFeed(true);
       setCanCreateTasks(true);
-
-      fetchUsers().catch(() => {});
 
     } catch (err: any) {
       console.error('Error registering user:', err);
@@ -214,7 +214,7 @@ export const UserAdminSection: React.FC = () => {
           ...u,
           [field]: !currentValue
         });
-        fetchUsers().catch(() => {});
+        await fetchUsers();
       }
     } catch (err) {
       console.error('Error updating permission:', err);
@@ -244,7 +244,7 @@ export const UserAdminSection: React.FC = () => {
         canCreateTasks: editCanCreateTasks
       });
       setEditingUser(null);
-      fetchUsers().catch(() => {});
+      await fetchUsers();
     } catch (err) {
       console.error('Error saving user edit:', err);
     } finally {
@@ -257,7 +257,8 @@ export const UserAdminSection: React.FC = () => {
     if (!deletingUser) return;
     setIsDeleting(true);
     try {
-      await supabaseService.deleteUserProfile(deletingUser.uid);
+      await supabaseService.deleteUserProfile(deletingUser.uid, deletingUser.email);
+      await fetchUsers();
 
       setStatusMessage({
         type: 'success',
@@ -267,7 +268,6 @@ export const UserAdminSection: React.FC = () => {
       if (editingUser?.uid === deletingUser.uid) {
         setEditingUser(null);
       }
-      fetchUsers().catch(() => {});
     } catch (err: any) {
       console.error('Error deleting user:', err);
       setStatusMessage({

@@ -97,7 +97,7 @@ export const AuthForm: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      let friendlyError = 'Ocorreu um erro ao processar seu login.';
+      let friendlyError = err?.message || 'Ocorreu um erro ao processar seu login.';
       
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         friendlyError = 'E-mail ou senha incorretos. Verifique suas credenciais.';

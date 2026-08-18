@@ -1,164 +1,134 @@
 /**
  * Daily Motivational Quotes for Bahia Prev Hub
- * Changes deterministically every single day so all users see the same inspiring quote on a given day.
+ * Curated motivational and inspiring quotes for team drive, positivity, and daily excellence.
+ * Changes deterministically every single day so all users see the same inspiring quote.
  */
 
 export interface MotivationalQuote {
   quote: string;
-  author?: string;
   theme?: string;
 }
 
 export const MOTIVATIONAL_QUOTES: MotivationalQuote[] = [
   {
-    quote: "Grandes realizações começam com pequenos passos dados com dedicação todos os dias.",
-    author: "Bahia Prev",
+    quote: "Grandes realizações começam com pequenos passos dados com dedicação e entusiasmo todos os dias.",
     theme: "Dedicação"
   },
   {
-    quote: "O sucesso é a soma de pequenos esforços repetidos diariamente com excelência.",
-    author: "Robert Collier",
-    theme: "Foco"
+    quote: "O sucesso é a soma de pequenos esforços diários realizados com paixão e excelência.",
+    theme: "Excelência"
   },
   {
-    quote: "A persistência e o comprometimento transformam qualquer desafio em conquista.",
-    author: "Bahia Prev",
+    quote: "A persistência e o comprometimento transformam qualquer desafio em uma grande vitória.",
     theme: "Superação"
   },
   {
-    quote: "Com união, respeito e cooperação mútua, nossa equipe vai muito mais longe.",
-    author: "Bahia Prev",
-    theme: "Equipe"
-  },
-  {
-    quote: "Cada novo dia traz uma nova oportunidade para fazermos o nosso melhor.",
-    author: "Bahia Prev",
-    theme: "Otimismo"
-  },
-  {
-    quote: "O talento vence jogos, mas o trabalho em equipe e a inteligência vencem campeonatos.",
-    author: "Michael Jordan",
+    quote: "Com união, respeito e cooperação mútua, nossa equipe é capaz de ir além de qualquer limite.",
     theme: "Trabalho em Equipe"
   },
   {
-    quote: "Excelência não é um ato isolado, é um hábito construído a cada detalhe.",
-    author: "Aristóteles",
-    theme: "Qualidade"
+    quote: "Cada novo amanhecer traz uma nova oportunidade para fazermos o nosso melhor e superarmos expectativas.",
+    theme: "Otimismo"
   },
   {
-    quote: "Acredite no seu potencial e entregue o seu melhor em cada atendimento e tarefa.",
-    author: "Bahia Prev",
+    quote: "Acredite no seu potencial e entregue o seu melhor em cada detalhe, atendimento e tarefa de hoje.",
     theme: "Confiança"
   },
   {
-    quote: "Trabalhar com empatia e propósito transforma vidas e fortalece nossa missão.",
-    author: "Bahia Prev",
+    quote: "Trabalhar com empatia, dedicação e propósito fortalece nossa missão e transforma vidas.",
     theme: "Propósito"
   },
   {
-    quote: "A determinação de hoje é a chave para as grandes vitórias de amanhã.",
-    author: "Bahia Prev",
+    quote: "A determinação que você coloca no trabalho hoje é a chave para as grandes conquistas de amanhã.",
     theme: "Determinação"
   },
   {
-    quote: "A força da equipe está em cada membro, e a força de cada membro é a equipe.",
-    author: "Phil Jackson",
-    theme: "União"
+    quote: "Foco na meta, compromisso com a qualidade e paixão em servir sempre com o mais alto padrão.",
+    theme: "Foco & Qualidade"
   },
   {
-    quote: "Foco na meta, compromisso com a qualidade e paixão em servir sempre bem.",
-    author: "Bahia Prev",
-    theme: "Atendimento"
-  },
-  {
-    quote: "O segredo do progresso está em dar o primeiro passo com coragem e entusiasmo.",
-    author: "Mark Twain",
+    quote: "O progresso começa quando você decide dar o primeiro passo com coragem, disciplina e positividade.",
     theme: "Iniciativa"
   },
   {
-    quote: "Sua dedicação diária faz a diferença no crescimento de toda a nossa empresa.",
-    author: "Bahia Prev",
-    theme: "Reconhecimento"
+    quote: "Sua dedicação diária e sua energia positiva fazem toda a diferença no crescimento de toda a nossa empresa.",
+    theme: "Valorização"
   },
   {
-    quote: "Quem planta dedicação colhe conquistas e reconhecimento duradouros.",
-    author: "Bahia Prev",
+    quote: "Quem planta dedicação colhe conquistas sólidas, respeito e reconhecimento duradouros.",
     theme: "Colheita"
   },
   {
-    quote: "Juntos somos mais ágeis, mais fortes e prontos para qualquer desafio.",
-    author: "Bahia Prev",
-    theme: "Força"
+    quote: "Juntos somos mais ágeis, mais fortes e sempre preparados para superar qualquer desafio.",
+    theme: "Força Coletiva"
   },
   {
-    quote: "A melhor maneira de prever o futuro é construí-lo com dedicação no presente.",
-    author: "Peter Drucker",
-    theme: "Visão"
+    quote: "Um dia altamente produtivo começa com uma atitude positiva e uma mente focada na solução.",
+    theme: "Atitude Positiva"
   },
   {
-    quote: "Um dia produtivo começa com uma atitude positiva e mente focada na solução.",
-    author: "Bahia Prev",
-    theme: "Atitude"
-  },
-  {
-    quote: "Cuidar das pessoas com carinho e eficiência é a nossa maior vocação.",
-    author: "Bahia Prev",
-    theme: "Acolhimento"
-  },
-  {
-    quote: "Não espere o momento perfeito: faça de hoje um dia extraordinário.",
-    author: "Bahia Prev",
+    quote: "Não espere o momento perfeito: tome a iniciativa e faça do dia de hoje um dia extraordinário.",
     theme: "Ação"
   },
   {
-    quote: "A disciplina é a ponte entre as nossas metas e as nossas realizações.",
-    author: "Jim Rohn",
+    quote: "A disciplina diária é a ponte que liga nossos maiores objetivos às nossas maiores realizações.",
     theme: "Disciplina"
   },
   {
-    quote: "Grandes desafios são oportunidades disfarçadas para mostrarmos nossa competência.",
-    author: "Bahia Prev",
+    quote: "Grandes desafios são oportunidades perfeitas para demonstrarmos nossa força e competência.",
     theme: "Competência"
   },
   {
-    quote: "Cultive a gentileza e o profissionalismo em todas as suas interações de hoje.",
-    author: "Bahia Prev",
+    quote: "Cultive a gentileza, a proatividade e o profissionalismo em todas as suas interações de hoje.",
     theme: "Gentileza"
   },
   {
-    quote: "A união de talentos e o esforço coordenado geram resultados surpreendentes.",
-    author: "Bahia Prev",
+    quote: "A sinergia entre talentos e a vontade de vencer juntos geram resultados surpreendentes.",
     theme: "Sinergia"
   },
   {
-    quote: "Tenha orgulho do trabalho que você faz e do impacto positivo que você gera.",
-    author: "Bahia Prev",
-    theme: "Orgulho"
+    quote: "Tenha orgulho do trabalho que você realiza e do impacto positivo que ele gera todos os dias.",
+    theme: "Orgulho & Motivação"
   },
   {
-    quote: "A inovação e o aprendizado constante abrem caminhos para novos sucessos.",
-    author: "Bahia Prev",
+    quote: "A inovação constante e a vontade de aprender abrem portas para novos caminhos de sucesso.",
     theme: "Inovação"
   },
   {
-    quote: "Sorria, colabore e faça do ambiente de trabalho um lugar de crescimento mútuo.",
-    author: "Bahia Prev",
+    quote: "Sorria, colabore e faça do nosso ambiente de trabalho um espaço de crescimento mútuo e inspiração.",
     theme: "Harmonia"
   },
   {
-    quote: "O compromisso com a verdade e a ética é a base sólida de todo o nosso sucesso.",
-    author: "Bahia Prev",
-    theme: "Ética"
+    quote: "O compromisso com a ética, a verdade e o respeito é a base sólida de todo o nosso progresso.",
+    theme: "Ética & Respeito"
   },
   {
-    quote: "Cada esforço que você faz hoje constrói um futuro brilhante e promissor.",
-    author: "Bahia Prev",
-    theme: "Futuro"
+    quote: "Cada esforço que você faz hoje constrói um futuro brilhante, promissor e cheio de conquistas.",
+    theme: "Futuro Promissor"
   },
   {
-    quote: "Celebre cada conquista da equipe, pois juntos somos invencíveis!",
-    author: "Bahia Prev",
-    theme: "Vitória"
+    quote: "Celebre cada vitória da equipe, pois quando um colaborador vence, todos nós crescemos juntos.",
+    theme: "Vitória Coletiva"
+  },
+  {
+    quote: "A força para vencer está dentro de você. Confie na sua capacidade e faça o seu melhor hoje.",
+    theme: "Autoconfiança"
+  },
+  {
+    quote: "Seja a energia positiva que contagia o ambiente e inspira seus colegas de trabalho.",
+    theme: "Energia Positiva"
+  },
+  {
+    quote: "Com foco, paciência e determinação constante, não existem metas inalcançáveis.",
+    theme: "Foco & Paciência"
+  },
+  {
+    quote: "O carinho e a eficiência em cada atendimento são a marca registrada da nossa excelência.",
+    theme: "Excelência no Atendimento"
+  },
+  {
+    quote: "Hoje é um excelente dia para bater metas, superar limites e alcançar novos resultados!",
+    theme: "Superação de Metas"
   }
 ];
 

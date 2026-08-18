@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase';
 import { supabaseService } from '../lib/supabaseService';
+import { formatUserName } from '../utils/userNameFormatter';
 
 export interface UserProfile {
   uid: string;
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const effectiveRole = teamRoles[emailLower] || d.defaultRole;
         emailMap.set(emailLower, {
           uid: d.uid,
-          name: d.name,
+          name: formatUserName(d.name, d.email),
           email: d.email,
           role: effectiveRole,
           createdAt: new Date().toISOString(),
@@ -89,10 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const effectiveRole = teamRoles[emailLower] || u.role || emailMap.get(emailLower)?.role || 'Colaborador';
           const existing = emailMap.get(emailLower);
+          const formattedName = formatUserName(u.name || existing?.name, emailLower);
 
           emailMap.set(emailLower, {
             uid: u.uid || existing?.uid || `u_${emailLower.replace(/[^a-z0-9]/g, '_')}`,
-            name: (emailLower.includes('lucas') ? 'Lucas Rodrigues' : (u.name || existing?.name || (emailLower ? emailLower.split('@')[0] : 'Usuário'))),
+            name: formattedName,
             email: u.email || existing?.email || emailLower,
             role: effectiveRole,
             avatarUrl: u.avatarUrl || existing?.avatarUrl,
@@ -167,12 +169,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data } = await supabase.auth.getSession();
           if (data?.session?.user) {
             const sbUser = data.session.user;
-            const authU: AuthUser = { uid: sbUser.id, email: sbUser.email || '', displayName: sbUser.user_metadata?.name };
+            const formattedName = formatUserName(sbUser.user_metadata?.name, sbUser.email);
+            const authU: AuthUser = { uid: sbUser.id, email: sbUser.email || '', displayName: formattedName };
             setUser(authU);
 
             const userProf: UserProfile = {
               uid: sbUser.id,
-              name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Usuário',
+              name: formattedName,
               email: sbUser.email || '',
               role: sbUser.user_metadata?.role || 'Colaborador',
               createdAt: new Date().toISOString(),
@@ -202,10 +205,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (cleanEmail === 'marketing@bahiaprev.com.br') {
             cleanEmail = 'lucasrodrigues@bahiaprev.com.br';
             parsedUser.email = 'lucasrodrigues@bahiaprev.com.br';
-            parsedUser.displayName = 'Lucas Rodrigues';
-            parsedProf.email = 'lucasrodrigues@bahiaprev.com.br';
-            parsedProf.name = 'Lucas Rodrigues';
           }
+
+          const resolvedFormattedName = formatUserName(parsedProf.name || parsedUser.displayName, cleanEmail);
+          parsedUser.displayName = resolvedFormattedName;
+          parsedProf.name = resolvedFormattedName;
+          parsedProf.email = cleanEmail;
 
           // Check for role updates from Supabase
           const teamRoles = await supabaseService.fetchTeamRoles();
@@ -246,10 +251,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (!error && data?.user) {
           const sbUser = data.user;
-          const authU: AuthUser = { uid: sbUser.id, email: sbUser.email || cleanEmail, displayName: sbUser.user_metadata?.name };
+          const formattedName = formatUserName(sbUser.user_metadata?.name, cleanEmail);
+          const authU: AuthUser = { uid: sbUser.id, email: sbUser.email || cleanEmail, displayName: formattedName };
           const userProf: UserProfile = {
             uid: sbUser.id,
-            name: sbUser.user_metadata?.name || cleanEmail.split('@')[0],
+            name: formattedName,
             email: cleanEmail,
             role: teamRoles[cleanEmail] || sbUser.user_metadata?.role || 'Colaborador',
             createdAt: new Date().toISOString(),
@@ -267,30 +273,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 2. Direct User Profile Match (fallback for seed/custom accounts)
-      let resolvedName = cleanEmail.split('@')[0];
+      const resolvedName = formatUserName(null, cleanEmail);
       let resolvedRole = teamRoles[cleanEmail] || 'Colaborador';
 
       if (!teamRoles[cleanEmail]) {
         if (cleanEmail.includes('cauan')) {
-          resolvedName = 'Cauan';
           resolvedRole = 'Designer Gráfico';
         } else if (cleanEmail.includes('jairo')) {
-          resolvedName = 'Jairo Queiroz';
           resolvedRole = 'Diretor/Presidente';
         } else if (cleanEmail.includes('lucas') || cleanEmail === 'marketing@bahiaprev.com.br') {
-          resolvedName = 'Lucas Rodrigues';
           resolvedRole = teamRoles[cleanEmail] || teamRoles['lucasrodrigues@bahiaprev.com.br'] || 'Analista de Marketing';
         } else if (cleanEmail.includes('nilton')) {
-          resolvedName = 'Nilton';
           resolvedRole = 'Colaborador';
         } else if (cleanEmail.includes('thayan')) {
-          resolvedName = 'Thayan';
           resolvedRole = 'Colaborador';
         } else if (cleanEmail.includes('vitor')) {
-          resolvedName = 'Vitor';
           resolvedRole = 'Colaborador';
         } else if (cleanEmail.includes('paulo')) {
-          resolvedName = 'Paulo';
           resolvedRole = 'Colaborador';
         }
       }
@@ -323,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (name: string, email: string, password: string, role: string) => {
     setLoading(true);
     const cleanEmail = email.trim().toLowerCase();
+    const formattedName = formatUserName(name, cleanEmail);
     const supabase = getSupabaseClient();
 
     try {
@@ -330,12 +330,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
-          options: { data: { name, role } }
+          options: { data: { name: formattedName, role } }
         });
         if (!error && data?.user) {
           const uid = data.user.id;
-          const authU: AuthUser = { uid, email: cleanEmail, displayName: name };
-          const userProf: UserProfile = { uid, name, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
+          const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
+          const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
           setUser(authU);
           setProfile(userProf);
           localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
@@ -348,8 +348,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const uid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
-      const authU: AuthUser = { uid, email: cleanEmail, displayName: name };
-      const userProf: UserProfile = { uid, name, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
+      const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
+      const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true };
       setUser(authU);
       setProfile(userProf);
       localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
@@ -374,9 +374,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserProfile = async (data: { name?: string; role?: string; avatarUrl?: string }) => {
     if (!user || !profile) return;
     const cleanRole = data.role?.trim() || profile.role;
+    const updatedName = data.name ? formatUserName(data.name, profile.email) : profile.name;
     const updated = {
       ...profile,
-      name: data.name?.trim() || profile.name,
+      name: updatedName,
       role: cleanRole,
       avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : profile.avatarUrl
     };

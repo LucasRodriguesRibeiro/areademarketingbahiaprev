@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Upload, Camera, Check, User, AlertCircle, Briefcase } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { formatUserName } from '../utils/userNameFormatter';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -9,7 +10,7 @@ interface UserProfileModalProps {
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const { profile, updateUserProfile } = useAuth();
-  const [nameInput, setNameInput] = useState<string>(profile?.name || '');
+  const [nameInput, setNameInput] = useState<string>(formatUserName(profile?.name, profile?.email) || '');
   const [roleInput, setRoleInput] = useState<string>(profile?.role || 'Colaborador');
   const [previewUrl, setPreviewUrl] = useState<string>(profile?.avatarUrl || '');
   const [saving, setSaving] = useState(false);
@@ -20,7 +21,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
 
   useEffect(() => {
     if (profile) {
-      setNameInput(profile.name || '');
+      setNameInput(formatUserName(profile.name, profile.email) || '');
       setRoleInput(profile.role || 'Colaborador');
       setPreviewUrl(profile.avatarUrl || '');
     }
@@ -130,8 +131,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
     setSaving(true);
     setErrorMsg(null);
     try {
+      const formattedName = formatUserName(nameInput, profile?.email);
       const payload: { name: string; role: string; avatarUrl?: string } = {
-        name: nameInput.trim(),
+        name: formattedName,
         role: canEditRole ? roleInput.trim() : (profile?.role || 'Colaborador')
       };
       if (previewUrl) {

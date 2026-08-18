@@ -3,6 +3,7 @@ import { supabaseService } from '../lib/supabaseService';
 import { Users, Mail, CheckCircle2, Search, Briefcase, Camera, Edit3, Shield, Check, X, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from './AuthContext';
+import { formatUserName } from '../utils/userNameFormatter';
 
 interface MemberProfile {
   uid: string;
@@ -63,7 +64,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
 
       await supabaseService.saveUserProfile({
         uid: targetUid,
-        name: editingMember.name,
+        name: formatUserName(editingMember.name, cleanEmail),
         email: cleanEmail,
         role: updatedRole
       });
@@ -82,7 +83,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       await fetchUsers();
 
       setMembers(prev => prev.map(m => (m.email?.toLowerCase() === cleanEmail || m.uid === editingMember.uid) ? { ...m, role: updatedRole } : m));
-      setToastMsg(`Cargo de ${editingMember.name} atualizado para "${updatedRole}"!`);
+      setToastMsg(`Cargo de ${formatUserName(editingMember.name, cleanEmail)} atualizado para "${updatedRole}"!`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
     } catch (err) {
@@ -99,14 +100,14 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
       alert("Não é possível excluir a conta do Administrador Principal.");
       return;
     }
-    if (!window.confirm(`Tem certeza de que deseja excluir permanentemente o colaborador ${member.name} (${member.email}) do sistema?`)) {
+    if (!window.confirm(`Tem certeza de que deseja excluir permanentemente o colaborador ${formatUserName(member.name, member.email)} (${member.email}) do sistema?`)) {
       return;
     }
 
     try {
       await supabaseService.deleteUserProfile(member.uid);
       await fetchUsers();
-      setToastMsg(`Usuário ${member.name} foi excluído do sistema com sucesso.`);
+      setToastMsg(`Usuário ${formatUserName(member.name, member.email)} foi excluído do sistema com sucesso.`);
       setTimeout(() => setToastMsg(null), 4000);
       setEditingMember(null);
     } catch (err) {
@@ -133,16 +134,11 @@ export const MembersSection: React.FC<MembersSectionProps> = ({ onOpenProfileMod
         const isUserDoc = Boolean(user && (u.uid === user.uid || (user.email && user.email.toLowerCase() === emailLower)));
         const isOnline = isUserDoc ? true : Boolean(u.isOnline || (u.lastSeen && (new Date().getTime() - new Date(u.lastSeen).getTime() < 120000)));
 
-        let displayName = u.name;
-        if (emailLower.includes('lucas') || emailLower === 'marketing@bahiaprev.com.br') {
-          if (!displayName || displayName === 'Analista de Marketing' || displayName === 'Lucas' || displayName === 'marketing') {
-            displayName = 'Lucas Rodrigues';
-          }
-        }
+        const displayName = formatUserName(u.name, emailLower);
 
         return {
           uid: u.uid,
-          name: displayName || emailLower.split('@')[0] || 'Colaborador',
+          name: displayName,
           email: u.email,
           role: u.role || 'Colaborador',
           avatarUrl: (isUserDoc && profile?.avatarUrl) ? profile.avatarUrl : u.avatarUrl,

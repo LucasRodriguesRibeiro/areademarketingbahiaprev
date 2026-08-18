@@ -22,6 +22,8 @@ import {
 import { useAuth } from './AuthContext';
 import { BahiaPrevLogo } from './BahiaPrevLogo';
 import { checkFunerariaAccess } from '../utils/permissions';
+import { formatUserName } from '../utils/userNameFormatter';
+import { DailyMotivationalQuote } from './DailyMotivationalQuote';
 
 export type TabType = 'home' | 'feed' | 'pops' | 'marketing' | 'funeraria' | 'about' | 'members' | 'tasks' | 'admin' | 'install';
 
@@ -194,7 +196,12 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
         <div className="absolute top-0 right-1/3 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
+        <div className="max-w-7xl mx-auto relative flex flex-col items-center text-center">
+          {/* Daily Motivational Quote Card (Positioned on the Left where circled on Desktop, and centered at top on Mobile) */}
+          <div className="w-full lg:w-auto lg:absolute lg:left-0 lg:top-0 lg:max-w-xs xl:max-w-sm mb-4 lg:mb-0 z-20 flex justify-center lg:justify-start">
+            <DailyMotivationalQuote className="w-full max-w-sm sm:max-w-md lg:max-w-xs xl:max-w-sm" />
+          </div>
+
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -222,7 +229,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({ onSelectTab, onOpenProfi
             transition={{ duration: 0.4, delay: 0.15 }}
             className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight max-w-4xl"
           >
-            Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300">{profile?.name || 'Colaborador'}</span>!
+            Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300">{formatUserName(profile?.name, user?.email || profile?.email)}</span>!
           </motion.h1>
 
           <motion.p

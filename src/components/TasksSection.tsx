@@ -37,6 +37,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { SpellCheckInput, SpellCheckTextarea } from './SpellCheckField';
 import { supabaseService } from '../lib/supabaseService';
+import { formatUserName } from '../utils/userNameFormatter';
 
 export interface AttachmentItem {
   id?: string;
@@ -432,7 +433,7 @@ export const TasksSection: React.FC = () => {
       } else {
         map[uData.uid] = {
           uid: uData.uid,
-          name: uData.name || email.split('@')[0],
+          name: formatUserName(uData.name, uData.email),
           email: uData.email,
           role: uData.role || 'Colaborador',
           avatarUrl: uData.avatarUrl
@@ -1852,7 +1853,7 @@ export const TasksSection: React.FC = () => {
                             ) : (
                               <UserCheck className="h-3 w-3 text-blue-600 shrink-0" />
                             )}
-                            <span className="truncate max-w-[200px] sm:max-w-none">Destinado a: <strong>{task.assignedToName || 'Colaborador'}</strong></span>
+                            <span className="truncate max-w-[200px] sm:max-w-none">Destinado a: <strong>{formatUserName(task.assignedToName, task.assignedToEmail)}</strong></span>
                           </span>
                         );
                       })()}
@@ -2960,7 +2961,7 @@ export const TasksSection: React.FC = () => {
                       ) : (
                         <UserCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       )}
-                      <span>Para: <strong>{selectedTaskForView.assignedToName || 'Colaborador'}</strong></span>
+                      <span>Para: <strong>{formatUserName(selectedTaskForView.assignedToName, selectedTaskForView.assignedToEmail)}</strong></span>
                     </span>
                   </div>
 

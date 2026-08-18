@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { playNotificationSound } from '../utils/sound';
 import { useAuth } from './AuthContext';
 import { supabaseService } from '../lib/supabaseService';
+import { formatUserName } from '../utils/userNameFormatter';
 import { 
   MessageSquare, 
   Heart, 
@@ -288,9 +289,9 @@ export const FeedSection: React.FC = () => {
       const newPost: Post = {
         id: newId,
         authorUid: user.uid,
-        authorEmail: user.email || undefined,
-        authorName: profile.name || 'Colaborador',
-        authorRole: profile.role || 'Bahia Prev',
+        authorEmail: user.email || '',
+        authorName: formatUserName(profile.name, profile.email),
+        authorRole: profile.role || 'Colaborador',
         content: newContent.trim(),
         category: newCategory,
         imageUrl: finalImageUrl,
@@ -398,7 +399,7 @@ export const FeedSection: React.FC = () => {
         id: newCommentId,
         postId,
         authorUid: user.uid,
-        authorName: profile.name,
+        authorName: formatUserName(profile.name, profile.email),
         authorRole: profile.role,
         content: text,
         createdAtISO: new Date().toISOString()
@@ -459,7 +460,7 @@ export const FeedSection: React.FC = () => {
                 )}
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">
-                    {profile?.name}
+                    {formatUserName(profile?.name, profile?.email)}
                   </h3>
                   <p className="text-xs text-slate-500">
                     {profile?.role} • Bahia Prev
@@ -470,8 +471,8 @@ export const FeedSection: React.FC = () => {
               <form onSubmit={handleCreatePost} className="space-y-3">
                 <SpellCheckTextarea
                   value={newContent}
-                  onChangeValue={(val) => setNewContent(val)}
-                  placeholder={`No que você está pensando, ${profile?.name?.split(' ')[0]}? Compartilhe com a equipe...`}
+                  onChangeValue={setNewContent}
+                  placeholder={`No que você está pensando, ${formatUserName(profile?.name, profile?.email).split(' ')[0]}? Compartilhe com a equipe...`}
                   rows={3}
                 />
 
@@ -625,7 +626,7 @@ export const FeedSection: React.FC = () => {
                 );
                 
                 const userProfile = usersMap[post.authorUid];
-                const displayAuthorName = userProfile?.name || post.authorName || 'Colaborador';
+                const displayAuthorName = formatUserName(userProfile?.name || post.authorName, post.authorEmail || userProfile?.email);
                 const displayAuthorRole = userProfile?.role || post.authorRole || 'Bahia Prev';
                 const displayAuthorAvatar = userProfile?.avatarUrl;
 
@@ -797,7 +798,7 @@ export const FeedSection: React.FC = () => {
                             ) : (
                               commentsMap[post.id].map((c) => {
                                 const cUser = usersMap[c.authorUid];
-                                const cName = cUser?.name || c.authorName || 'Colaborador';
+                                const cName = formatUserName(cUser?.name || c.authorName, cUser?.email);
                                 const cAvatar = cUser?.avatarUrl;
                                 return (
                                   <div key={c.id} className="bg-slate-50 rounded-xl p-3 text-xs border border-slate-200/60 flex items-start gap-2.5">
@@ -866,7 +867,7 @@ export const FeedSection: React.FC = () => {
                 {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
-            <h3 className="font-bold text-slate-900 text-base">{profile?.name}</h3>
+            <h3 className="font-bold text-slate-900 text-base">{formatUserName(profile?.name, profile?.email)}</h3>
             <p className="text-xs font-semibold text-blue-600 mb-3">{profile?.role}</p>
             <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />

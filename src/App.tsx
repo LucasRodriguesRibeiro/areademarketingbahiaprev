@@ -21,7 +21,8 @@ import { Partner } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { AuthForm } from './components/AuthForm';
-import { LogOut, Camera, Home, AlertTriangle, Database, Wrench, X, ShieldAlert } from 'lucide-react';
+import { LogOut, Camera, Home, AlertTriangle, Database, X, ShieldAlert } from 'lucide-react';
+import { formatUserName } from './utils/userNameFormatter';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -37,7 +38,6 @@ function MainAppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-  const [showMaintenanceBanner, setShowMaintenanceBanner] = useState(true);
 
   const userRole = (profile?.role || '').trim().toLowerCase();
   const isFinanceiroOrCpd = userRole.includes('financeiro') || userRole.includes('cpd');
@@ -82,39 +82,10 @@ function MainAppContent() {
     return <AuthForm />;
   }
 
+  const formattedDisplayName = formatUserName(profile?.name, user?.email || profile?.email);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-500/15 selection:text-blue-900 antialiased font-sans">
-      {/* Top Maintenance Notice Banner */}
-      {showMaintenanceBanner && (
-        <div className="bg-amber-400 border-b border-amber-500 text-black text-xs py-2 px-3 sm:px-6 relative z-50 font-bold shadow-xs">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-6 w-6 rounded-lg bg-amber-500/40 border border-amber-600/50 flex items-center justify-center shrink-0">
-                <Wrench className="h-3.5 w-3.5 text-black animate-pulse" />
-              </div>
-              <div className="min-w-0 text-left">
-                <span className="font-black text-black mr-2 tracking-wide uppercase text-[11px]">
-                  ⚠️ AVISO DE MANUTENÇÃO & SISTEMA:
-                </span>
-                <span className="text-black font-semibold hidden sm:inline">
-                  O sistema está em manutenção preventiva para aplicação de melhorias de desempenho, otimização de velocidade e implementação de novas funcionalidades.
-                </span>
-                <span className="text-black font-semibold sm:hidden truncate block text-[11px]">
-                  Manutenção para melhorias de desempenho e novas funcionalidades.
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowMaintenanceBanner(false)}
-              className="p-1 text-black hover:bg-black/10 rounded-md transition-colors shrink-0 cursor-pointer"
-              title="Fechar aviso de manutenção"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Top User Status & Info Bar */}
       <div className={`bg-slate-950 text-white text-xs py-2 px-3 sm:px-6 shadow-inner ${activeTab === 'home' ? '' : 'border-b border-slate-800/80'}`}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
@@ -130,12 +101,12 @@ function MainAppContent() {
                 {profile?.avatarUrl ? (
                   <img
                     src={profile.avatarUrl}
-                    alt={profile.name}
+                    alt={formattedDisplayName}
                     className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover border-2 border-blue-500 shadow-md group-hover:scale-105 transition-transform"
                   />
                 ) : (
                   <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-tr from-blue-600 to-red-500 text-white font-black text-xs flex items-center justify-center shadow-md">
-                    {profile?.name ? profile.name.charAt(0).toUpperCase() : 'C'}
+                    {formattedDisplayName.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 border-2 border-slate-950 animate-pulse" />
@@ -144,7 +115,7 @@ function MainAppContent() {
               <div className="flex flex-col text-left truncate">
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-white font-bold text-xs tracking-tight group-hover:text-blue-300 transition-colors truncate max-w-[110px] xs:max-w-[160px] sm:max-w-none">
-                    {profile?.name || 'Colaborador'}
+                    {formattedDisplayName}
                   </span>
                   <span className="text-[9px] sm:text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded font-semibold shrink-0">
                     {profile?.role || 'Bahia Prev'}

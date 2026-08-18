@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './supabase';
+import { formatUserName } from '../utils/userNameFormatter';
 
 // Helper to convert camelCase OS object to Supabase snake_case table row
 export function mapOsToSupabaseRow(osData: any) {
@@ -622,7 +623,7 @@ export const supabaseService = {
     try {
       const { error } = await supabase.from('users').upsert({
         uid: String(user.uid || user.id),
-        name: user.name || user.displayName || '',
+        name: formatUserName(user.name || user.displayName, cleanEmail),
         email: cleanEmail,
         role: cleanRole || 'Colaborador',
         unit: user.unit || '',

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { supabaseService } from '../lib/supabaseService';
+import { formatUserName } from '../utils/userNameFormatter';
 
 interface ManagedUser {
   uid: string;
@@ -110,7 +111,7 @@ export const UserAdminSection: React.FC = () => {
         const uEmail = (item.email || '').toLowerCase().trim();
         const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : true;
         const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : true;
-        const finalName = (uEmail.includes('lucas') ? 'Lucas Rodrigues' : (item.name || (uEmail ? uEmail.split('@')[0] : 'Usuário')));
+        const finalName = formatUserName(item.name, uEmail);
         const finalEmail = item.email || '';
         const finalRole = item.role || 'Colaborador';
 
@@ -158,6 +159,7 @@ export const UserAdminSection: React.FC = () => {
     }
 
     const finalRole = newRole === 'Outro' ? (customRole.trim() || 'Colaborador') : newRole;
+    const formattedName = formatUserName(newName, newEmail);
 
     setSubmitting(true);
 
@@ -167,7 +169,7 @@ export const UserAdminSection: React.FC = () => {
 
       const userProfilePayload = {
         uid: createdUid,
-        name: newName.trim(),
+        name: formattedName,
         email: newEmail.trim().toLowerCase(),
         role: finalRole,
         canPostFeed: canPostFeed,
@@ -236,7 +238,7 @@ export const UserAdminSection: React.FC = () => {
     try {
       await supabaseService.saveUserProfile({
         ...editingUser,
-        name: editName.trim(),
+        name: formatUserName(editName, editingUser.email),
         role: editRole.trim(),
         canPostFeed: editCanPostFeed,
         canCreateTasks: editCanCreateTasks

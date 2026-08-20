@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase';
 import { supabaseService } from '../lib/supabaseService';
 import { formatUserName } from '../utils/userNameFormatter';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 export interface UserProfile {
   uid: string;
@@ -14,6 +15,7 @@ export interface UserProfile {
   lastSeen?: string;
   canPostFeed?: boolean;
   canCreateTasks?: boolean;
+  canAccessFuneraria?: boolean;
 }
 
 export interface AuthUser {
@@ -60,7 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOnline: Boolean(u.isOnline),
         lastSeen: u.lastSeen,
         canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo')),
-        canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo'))
+        canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo')),
+        canAccessFuneraria: u.canAccessFuneraria !== undefined ? Boolean(u.canAccessFuneraria) : checkFunerariaAccess({ role: u.role, email: u.email }, u.email)
       }));
 
       const map: Record<string, UserProfile> = {};
@@ -132,7 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               createdAt: existingU?.createdAt || new Date().toISOString(),
               isOnline: true,
               canPostFeed: existingU?.canPostFeed !== undefined ? Boolean(existingU.canPostFeed) : isLeaderUser,
-              canCreateTasks: existingU?.canCreateTasks !== undefined ? Boolean(existingU.canCreateTasks) : isLeaderUser
+              canCreateTasks: existingU?.canCreateTasks !== undefined ? Boolean(existingU.canCreateTasks) : isLeaderUser,
+              canAccessFuneraria: existingU?.canAccessFuneraria !== undefined ? Boolean(existingU.canAccessFuneraria) : checkFunerariaAccess({ role: sbUser.user_metadata?.role || existingU?.role, email: sbUser.email }, sbUser.email)
             };
             setProfile(userProf);
             await supabaseService.saveUserProfile(userProf);
@@ -233,7 +237,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               createdAt: existingInRegistry.createdAt || new Date().toISOString(),
               isOnline: true,
               canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
-              canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true
+              canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true,
+              canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: existingInRegistry.role, email: cleanEmail }, cleanEmail)
             };
             setUser(authU);
             setProfile(userProf);
@@ -263,7 +268,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: existingInRegistry.createdAt || new Date().toISOString(),
         isOnline: true,
         canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
-        canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true
+        canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true,
+        canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: existingInRegistry.role, email: cleanEmail }, cleanEmail)
       };
 
       setUser(authU);
@@ -297,7 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const uid = data.user.id;
             const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
             const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo');
-            const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser };
+            const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser, canAccessFuneraria: checkFunerariaAccess({ role, email: cleanEmail }, cleanEmail) };
             setUser(authU);
             setProfile(userProf);
             localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));
@@ -313,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const uid = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
       const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo');
       const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
-      const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser };
+      const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser, canAccessFuneraria: checkFunerariaAccess({ role, email: cleanEmail }, cleanEmail) };
       setUser(authU);
       setProfile(userProf);
       localStorage.setItem('bahiaprev_supabase_session_user', JSON.stringify(authU));

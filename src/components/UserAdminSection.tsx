@@ -20,8 +20,10 @@ import {
   RefreshCw,
   Check,
   X,
+  Cross,
   Trash2
 } from 'lucide-react';
+import { checkFunerariaAccess } from '../utils/permissions';
 import { useAuth } from './AuthContext';
 import { supabaseService } from '../lib/supabaseService';
 import { formatUserName } from '../utils/userNameFormatter';
@@ -34,6 +36,7 @@ interface ManagedUser {
   avatarUrl?: string;
   canPostFeed?: boolean;
   canCreateTasks?: boolean;
+  canAccessFuneraria?: boolean;
   createdAt?: string;
   isOnline?: boolean;
   lastSeen?: string;
@@ -87,6 +90,7 @@ export const UserAdminSection: React.FC = () => {
   const [customRole, setCustomRole] = useState('');
   const [canPostFeed, setCanPostFeed] = useState(false);
   const [canCreateTasks, setCanCreateTasks] = useState(false);
+  const [canAccessFuneraria, setCanAccessFuneraria] = useState(false);
 
   // Status & Feedback
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +102,7 @@ export const UserAdminSection: React.FC = () => {
   const [editRole, setEditRole] = useState('');
   const [editCanPostFeed, setEditCanPostFeed] = useState(false);
   const [editCanCreateTasks, setEditCanCreateTasks] = useState(false);
+  const [editCanAccessFuneraria, setEditCanAccessFuneraria] = useState(false);
 
   // Delete User Modal & State
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
@@ -115,6 +120,7 @@ export const UserAdminSection: React.FC = () => {
         const isLeaderRole = finalRole.toLowerCase().includes('admin') || finalRole.toLowerCase().includes('diretor') || finalRole.toLowerCase().includes('marketing') || uEmail.includes('lucas') || uEmail.includes('jairo');
         const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : isLeaderRole;
         const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : isLeaderRole;
+        const defaultCanFuneraria = item.canAccessFuneraria !== undefined ? Boolean(item.canAccessFuneraria) : checkFunerariaAccess({ role: finalRole, email: uEmail }, uEmail);
 
         return {
           uid: item.uid,
@@ -124,6 +130,7 @@ export const UserAdminSection: React.FC = () => {
           avatarUrl: item.avatarUrl,
           canPostFeed: defaultCanPost,
           canCreateTasks: defaultCanTasks,
+          canAccessFuneraria: defaultCanFuneraria,
           isOnline: item.isOnline,
           lastSeen: item.lastSeen,
           createdAt: item.createdAt
@@ -175,6 +182,7 @@ export const UserAdminSection: React.FC = () => {
         role: finalRole,
         canPostFeed: canPostFeed,
         canCreateTasks: canCreateTasks,
+        canAccessFuneraria: canAccessFuneraria,
         password: newPassword,
         createdAt: new Date().toISOString()
       };
@@ -194,6 +202,7 @@ export const UserAdminSection: React.FC = () => {
       setNewPassword('mkt@BP2025');
       setCanPostFeed(false);
       setCanCreateTasks(false);
+      setCanAccessFuneraria(false);
 
     } catch (err: any) {
       console.error('Error registering user:', err);
@@ -207,7 +216,7 @@ export const UserAdminSection: React.FC = () => {
   };
 
   // Toggle permission directly from table
-  const handleTogglePermission = async (userUid: string, field: 'canPostFeed' | 'canCreateTasks', currentValue: boolean) => {
+  const handleTogglePermission = async (userUid: string, field: 'canPostFeed' | 'canCreateTasks' | 'canAccessFuneraria', currentValue: boolean) => {
     try {
       const u = usersList.find(item => item.uid === userUid);
       if (u) {
@@ -229,6 +238,7 @@ export const UserAdminSection: React.FC = () => {
     setEditRole(u.role);
     setEditCanPostFeed(Boolean(u.canPostFeed));
     setEditCanCreateTasks(Boolean(u.canCreateTasks));
+    setEditCanAccessFuneraria(Boolean(u.canAccessFuneraria));
   };
 
   // Save Edit User
@@ -242,7 +252,8 @@ export const UserAdminSection: React.FC = () => {
         name: formatUserName(editName, editingUser.email),
         role: editRole.trim(),
         canPostFeed: editCanPostFeed,
-        canCreateTasks: editCanCreateTasks
+        canCreateTasks: editCanCreateTasks,
+        canAccessFuneraria: editCanAccessFuneraria
       });
       setEditingUser(null);
       await fetchUsers();
@@ -522,6 +533,30 @@ export const UserAdminSection: React.FC = () => {
                     <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${canCreateTasks ? 'translate-x-5' : 'translate-x-0'}`} />
                   </div>
                 </div>
+
+                {/* Permissão 3: Gestão Funerária */}
+                <div 
+                  onClick={() => setCanAccessFuneraria(!canAccessFuneraria)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    canAccessFuneraria 
+                      ? 'bg-purple-50/70 border-purple-200 text-purple-950' 
+                      : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${canAccessFuneraria ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                      <Cross className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Acesso ao Módulo Gestão Funerária</p>
+                      <p className="text-[10px] text-slate-500">Permite visualizar e gerenciar ordens de serviço e atendimentos.</p>
+                    </div>
+                  </div>
+
+                  <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${canAccessFuneraria ? 'bg-purple-600' : 'bg-slate-300'}`}>
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${canAccessFuneraria ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                </div>
               </div>
 
               {/* Submit Button */}
@@ -662,6 +697,20 @@ export const UserAdminSection: React.FC = () => {
                           <span>Tarefas: {u.canCreateTasks ? '✅ Sim' : '🚫 Não'}</span>
                         </button>
 
+                        {/* Funerária permission badge & button */}
+                        <button
+                          onClick={() => handleTogglePermission(u.uid, 'canAccessFuneraria', Boolean(u.canAccessFuneraria))}
+                          title="Clique para alternar permissão de Gestão Funerária"
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                            u.canAccessFuneraria 
+                              ? 'bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-200' 
+                              : 'bg-slate-200/70 border-slate-300 text-slate-600 hover:bg-slate-300'
+                          }`}
+                        >
+                          <Cross className="h-3 w-3 text-purple-600" />
+                          <span>Funerária: {u.canAccessFuneraria ? '✅ Sim' : '🚫 Não'}</span>
+                        </button>
+
                         {/* Edit Button */}
                         <button
                           onClick={() => openEditModal(u)}
@@ -778,6 +827,16 @@ export const UserAdminSection: React.FC = () => {
                       checked={editCanCreateTasks}
                       onChange={(e) => setEditCanCreateTasks(e.target.checked)}
                       className="h-4 w-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+                    <span className="text-xs font-bold text-slate-800">Acesso ao Módulo Gestão Funerária</span>
+                    <input
+                      type="checkbox"
+                      checked={editCanAccessFuneraria}
+                      onChange={(e) => setEditCanAccessFuneraria(e.target.checked)}
+                      className="h-4 w-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
                     />
                   </label>
                 </div>

@@ -1,5 +1,6 @@
 import { getSupabaseClient } from './supabase';
 import { formatUserName } from '../utils/userNameFormatter';
+import { checkFunerariaAccess } from '../utils/permissions';
 
 // Helper to convert camelCase OS object to Supabase snake_case table row
 export function mapOsToSupabaseRow(osData: any) {
@@ -807,6 +808,7 @@ export const supabaseService = {
               avatarUrl: row.avatar_url || undefined,
               canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
               canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+              canAccessFuneraria: row.can_access_funeraria !== undefined ? Boolean(row.can_access_funeraria) : checkFunerariaAccess({ role: row.role, email: emailLower }, emailLower),
               createdAt: row.created_at || row.created_at_iso || new Date().toISOString()
             };
 
@@ -891,6 +893,7 @@ export const supabaseService = {
           avatarUrl: u.avatarUrl,
           canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
           canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+          canAccessFuneraria: u.canAccessFuneraria !== undefined ? Boolean(u.canAccessFuneraria) : checkFunerariaAccess({ role: effectiveRole, email: emailLower }, emailLower),
           createdAt: u.createdAt || new Date().toISOString(),
           isOnline: Boolean(u.isOnline),
           lastSeen: u.lastSeen,
@@ -938,6 +941,7 @@ export const supabaseService = {
         avatarUrl: user.avatarUrl || undefined,
         canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
         canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
+        canAccessFuneraria: user.canAccessFuneraria !== undefined ? Boolean(user.canAccessFuneraria) : checkFunerariaAccess({ role: cleanRole, email: cleanEmail }, cleanEmail),
         createdAt: user.createdAt || new Date().toISOString(),
         isOnline: Boolean(user.isOnline),
         lastSeen: user.lastSeen || new Date().toISOString()

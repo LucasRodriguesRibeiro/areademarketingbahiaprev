@@ -1,8 +1,13 @@
 export function checkFunerariaAccess(
-  profile?: { role?: string; email?: string; name?: string } | null,
+  profile?: { role?: string; email?: string; name?: string; canAccessFuneraria?: boolean } | null,
   userEmail?: string | null
 ): boolean {
   if (!profile && !userEmail) return false;
+
+  // 1. Explicit permission setting takes precedence
+  if (profile?.canAccessFuneraria !== undefined) {
+    return Boolean(profile.canAccessFuneraria);
+  }
 
   const email = (profile?.email || userEmail || '').toLowerCase().trim();
   const role = (profile?.role || '').toLowerCase().trim();
@@ -20,11 +25,6 @@ export function checkFunerariaAccess(
   }
 
   // Allowed roles check:
-  // - Atendimento e Recepção
-  // - Diretor e Presidente
-  // - Gerente Funerário
-  // - Analista de Marketing
-  // - Agente Funerário
   const hasAllowedRole =
     role.includes('atendimento') ||
     role.includes('recepção') ||
@@ -41,3 +41,4 @@ export function checkFunerariaAccess(
 
   return hasAllowedRole;
 }
+

@@ -307,7 +307,7 @@ export const TasksSection: React.FC = () => {
 
   const isCauan = userEmail.toLowerCase().includes('cauan') || userName.toLowerCase().includes('cauan');
 
-  const isAdmin = profile?.canCreateTasks !== undefined
+  const canCreateTasksPermission = profile?.canCreateTasks !== undefined
     ? Boolean(profile.canCreateTasks)
     : (!isCauan && (
         userRole.toLowerCase().includes('admin') || 
@@ -318,6 +318,8 @@ export const TasksSection: React.FC = () => {
         userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
         userEmail === 'jairoqueiroz@bahiaprev.com.br'
       ));
+
+  const isAdmin = canCreateTasksPermission;
 
   // Derive registered team members from allUsers
   useEffect(() => {
@@ -751,6 +753,11 @@ export const TasksSection: React.FC = () => {
   // Handle Create Task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreateTasksPermission) {
+      alert('Seu perfil não possui permissão para criar ou atribuir tarefas.');
+      setIsModalOpen(false);
+      return;
+    }
     if (!newTitle.trim()) return;
 
     setSubmitting(true);
@@ -1777,13 +1784,15 @@ export const TasksSection: React.FC = () => {
         </div>
 
         {/* Add New Task Button */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Criar / Atribuir Tarefa</span>
-        </button>
+        {canCreateTasksPermission && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Criar / Atribuir Tarefa</span>
+          </button>
+        )}
       </div>
 
       {/* Task Cards List */}
@@ -2036,12 +2045,14 @@ export const TasksSection: React.FC = () => {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Todas as tarefas atribuídas ao seu nome ou para a equipe aparecem aqui.
             </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
-            >
-              Criar / Atribuir Nova Tarefa
-            </button>
+            {canCreateTasksPermission && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Criar / Atribuir Nova Tarefa
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -89,6 +89,41 @@ export function unpackTaskMetadata(description: string): { cleanDescription: str
   return { cleanDescription: description, meta: {} };
 }
 
+// Helper to pack extra metadata into post content (attachments, category, announcement flag, comments, etc.)
+export function packPostMetadata(content: string, post: any): string {
+  const meta: Record<string, any> = {};
+  if (post.category) meta.category = post.category;
+  if (post.isAnnouncement !== undefined) meta.isAnnouncement = post.isAnnouncement;
+  if (post.imageUrl) meta.imageUrl = post.imageUrl;
+  if (post.attachmentUrl) meta.attachmentUrl = post.attachmentUrl;
+  if (post.attachmentType) meta.attachmentType = post.attachmentType;
+  if (post.attachmentName) meta.attachmentName = post.attachmentName;
+  if (post.authorEmail) meta.authorEmail = post.authorEmail;
+  if (post.likesCount !== undefined) meta.likesCount = post.likesCount;
+  if (post.commentsCount !== undefined) meta.commentsCount = post.commentsCount;
+  if (post.comments && Array.isArray(post.comments)) meta.comments = post.comments;
+
+  const cleanContent = (content || '').replace(/^<!-- POST_META:[\s\S]*?-->\n?/i, '').trim();
+  if (Object.keys(meta).length === 0) return cleanContent;
+  return `<!-- POST_META:${JSON.stringify(meta)} -->\n${cleanContent}`;
+}
+
+// Helper to unpack metadata from post content
+export function unpackPostMetadata(content: string): { cleanContent: string; meta: Record<string, any> } {
+  if (!content) return { cleanContent: '', meta: {} };
+  const match = content.match(/^<!-- POST_META:([\s\S]*?)-->\n?/i);
+  if (match && match[1]) {
+    try {
+      const meta = JSON.parse(match[1]);
+      const cleanContent = content.replace(/^<!-- POST_META:[\s\S]*?-->\n?/i, '');
+      return { cleanContent, meta };
+    } catch {
+      return { cleanContent: content, meta: {} };
+    }
+  }
+  return { cleanContent: content, meta: {} };
+}
+
 export const supabaseService = {
   // 1. FUNERARIA OS
   async fetchOrders(): Promise<any[] | null> {
@@ -464,7 +499,7 @@ export const supabaseService = {
     }
   },
 
-  // 5. POSTS (FEED)
+  // 5. POSTS (FEED & COMUNICADOS)
   async fetchPosts(): Promise<any[] | null> {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
@@ -473,19 +508,49 @@ export const supabaseService = {
         .from('posts')
         .select('*')
         .order('created_at_iso', { ascending: false });
-      if (error) return null;
-      return (data || []).map((row: any) => ({
-        id: row.id,
-        authorName: row.author_name || '',
-        authorRole: row.author_role || '',
-        authorUid: row.author_uid || '',
-        content: row.content || '',
-        type: row.type || 'comunicado',
-        likes: row.likes || 0,
-        likedBy: Array.isArray(row.liked_by) ? row.liked_by : [],
-        createdAtISO: row.created_at_iso
-      }));
-    } catch {
+      if (error) {
+        console.warn('Erro ao buscar posts no Supabase:', error.message);
+        return null;
+      }
+      return (data || []).map((row: any) => {
+        const { cleanContent, meta } = unpackPostMetadata(row.content || '');
+        const dataJson = row.data_json && typeof row.data_json === 'object' ? row.data_json : {};
+
+        const category = row.category || dataJson.category || meta.category || (row.type === 'comunicado' || row.type === 'Comunicado' ? 'Comunicado' : (row.type || 'Geral'));
+        const isAnnouncement = row.is_announcement !== undefined 
+          ? Boolean(row.is_announcement) 
+          : (dataJson.isAnnouncement !== undefined 
+            ? Boolean(dataJson.isAnnouncement) 
+            : (meta.isAnnouncement !== undefined 
+              ? Boolean(meta.isAnnouncement) 
+              : (category === 'Comunicado' || row.type === 'comunicado' || row.type === 'Comunicado')));
+
+        const likedBy = Array.isArray(row.liked_by) ? row.liked_by : (Array.isArray(dataJson.likedBy) ? dataJson.likedBy : (Array.isArray(meta.likedBy) ? meta.likedBy : []));
+        const likesCount = row.likes_count ?? row.likes ?? meta.likesCount ?? likedBy.length;
+        const commentsCount = row.comments_count ?? meta.commentsCount ?? (Array.isArray(meta.comments) ? meta.comments.length : 0);
+
+        return {
+          id: row.id,
+          authorUid: row.author_uid || dataJson.authorUid || meta.authorUid || '',
+          authorEmail: row.author_email || dataJson.authorEmail || meta.authorEmail || '',
+          authorName: row.author_name || dataJson.authorName || meta.authorName || '',
+          authorRole: row.author_role || dataJson.authorRole || meta.authorRole || 'Colaborador',
+          content: cleanContent,
+          category: category,
+          isAnnouncement: isAnnouncement,
+          imageUrl: row.image_url || dataJson.imageUrl || meta.imageUrl || undefined,
+          attachmentUrl: row.attachment_url || dataJson.attachmentUrl || meta.attachmentUrl || undefined,
+          attachmentType: row.attachment_type || dataJson.attachmentType || meta.attachmentType || undefined,
+          attachmentName: row.attachment_name || dataJson.attachmentName || meta.attachmentName || undefined,
+          likesCount: likesCount,
+          likedBy: likedBy,
+          commentsCount: commentsCount,
+          comments: meta.comments || [],
+          createdAtISO: row.created_at_iso
+        };
+      });
+    } catch (err) {
+      console.warn('Falha na consulta de posts no Supabase:', err);
       return null;
     }
   },
@@ -494,19 +559,30 @@ export const supabaseService = {
     const supabase = getSupabaseClient();
     if (!supabase) return false;
     try {
-      const { error } = await supabase.from('posts').upsert({
+      const packedContent = packPostMetadata(post.content || '', post);
+      const likesCount = post.likesCount ?? post.likes ?? (Array.isArray(post.likedBy) ? post.likedBy.length : 0);
+      const likedBy = Array.isArray(post.likedBy) ? post.likedBy : (Array.isArray(post.liked_by) ? post.liked_by : []);
+
+      const payload: any = {
         id: String(post.id),
         author_name: post.authorName || post.author_name || '',
         author_role: post.authorRole || post.author_role || '',
         author_uid: post.authorUid || post.author_uid || '',
-        content: post.content || '',
-        type: post.type || 'comunicado',
-        likes: post.likes || 0,
-        liked_by: post.likedBy || post.liked_by || [],
+        content: packedContent,
+        type: post.category || post.type || (post.isAnnouncement ? 'Comunicado' : 'Geral'),
+        likes: likesCount,
+        liked_by: likedBy,
         created_at_iso: post.createdAtISO || post.createdAt || new Date().toISOString()
-      }, { onConflict: 'id' });
-      return !error;
-    } catch {
+      };
+
+      const { error } = await supabase.from('posts').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        console.warn('Erro ao salvar post no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Falha ao salvar post no Supabase:', err);
       return false;
     }
   },
@@ -516,8 +592,12 @@ export const supabaseService = {
     if (!supabase) return false;
     try {
       const { error } = await supabase.from('posts').delete().eq('id', postId);
-      return !error;
-    } catch {
+      if (error) {
+        console.error('Erro ao excluir post no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
       return false;
     }
   },
@@ -527,20 +607,42 @@ export const supabaseService = {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
     try {
+      // 1. Try fetching from public.posts_comments table
       const { data, error } = await supabase
         .from('posts_comments')
         .select('*')
         .eq('post_id', postId)
         .order('created_at_iso', { ascending: true });
-      if (error) return null;
-      return (data || []).map((row: any) => ({
-        id: row.id,
-        postId: row.post_id,
-        authorName: row.author_name || '',
-        content: row.content || '',
-        createdAtISO: row.created_at_iso
-      }));
-    } catch {
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map((row: any) => ({
+          id: row.id,
+          postId: row.post_id,
+          authorUid: row.author_uid || '',
+          authorName: row.author_name || '',
+          authorRole: row.author_role || '',
+          content: row.content || '',
+          createdAtISO: row.created_at_iso
+        }));
+      }
+
+      // 2. Fallback: extract comments from post metadata in posts table
+      const { data: postRow, error: postErr } = await supabase
+        .from('posts')
+        .select('content')
+        .eq('id', postId)
+        .single();
+
+      if (!postErr && postRow?.content) {
+        const { meta } = unpackPostMetadata(postRow.content);
+        if (Array.isArray(meta.comments)) {
+          return meta.comments;
+        }
+      }
+
+      return [];
+    } catch (err) {
+      console.warn('Falha ao buscar comentários no Supabase:', err);
       return null;
     }
   },
@@ -552,18 +654,57 @@ export const supabaseService = {
   async savePostComment(comment: any): Promise<boolean> {
     const supabase = getSupabaseClient();
     if (!supabase) return false;
+
+    const formattedComment = {
+      id: String(comment.id),
+      postId: String(comment.postId || comment.post_id),
+      authorUid: comment.authorUid || comment.author_uid || '',
+      authorName: comment.authorName || comment.author_name || '',
+      authorRole: comment.authorRole || comment.author_role || '',
+      content: comment.content || '',
+      createdAtISO: comment.createdAtISO || comment.createdAt || new Date().toISOString()
+    };
+
     try {
-      const { error } = await supabase.from('posts_comments').upsert({
-        id: String(comment.id),
-        post_id: String(comment.postId || comment.post_id),
-        author_name: comment.authorName || comment.author_name || '',
-        content: comment.content || '',
-        created_at_iso: comment.createdAtISO || comment.createdAt || new Date().toISOString()
+      await supabase.from('posts_comments').upsert({
+        id: formattedComment.id,
+        post_id: formattedComment.postId,
+        author_uid: formattedComment.authorUid,
+        author_name: formattedComment.authorName,
+        author_role: formattedComment.authorRole,
+        content: formattedComment.content,
+        created_at_iso: formattedComment.createdAtISO
       }, { onConflict: 'id' });
-      return !error;
-    } catch {
-      return false;
-    }
+    } catch {}
+
+    // Also sync comment into post's metadata in posts table (acts as robust backup & updates comments_count)
+    try {
+      const { data: postRow } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', formattedComment.postId)
+        .single();
+
+      if (postRow) {
+        const { cleanContent, meta } = unpackPostMetadata(postRow.content || '');
+        const existingComments = Array.isArray(meta.comments) ? meta.comments : [];
+        const commentIdx = existingComments.findIndex((c: any) => c.id === formattedComment.id);
+
+        if (commentIdx >= 0) {
+          existingComments[commentIdx] = formattedComment;
+        } else {
+          existingComments.push(formattedComment);
+        }
+
+        meta.comments = existingComments;
+        meta.commentsCount = existingComments.length;
+
+        const updatedContent = packPostMetadata(cleanContent, meta);
+        await supabase.from('posts').update({ content: updatedContent }).eq('id', formattedComment.postId);
+      }
+    } catch {}
+
+    return true;
   },
 
   async saveComment(comment: any): Promise<boolean> {
@@ -664,8 +805,9 @@ export const supabaseService = {
               isOnline: Boolean(row.is_online),
               lastSeen: row.last_seen,
               avatarUrl: row.avatar_url || undefined,
-              canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : true,
-              canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : true
+              canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+              canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+              createdAt: row.created_at || row.created_at_iso || new Date().toISOString()
             };
 
             if (existingIdx >= 0) {
@@ -747,8 +889,8 @@ export const supabaseService = {
           unit: u.unit || '',
           phone: u.phone || '',
           avatarUrl: u.avatarUrl,
-          canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : true,
-          canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : true,
+          canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+          canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
           createdAt: u.createdAt || new Date().toISOString(),
           isOnline: Boolean(u.isOnline),
           lastSeen: u.lastSeen,
@@ -794,8 +936,8 @@ export const supabaseService = {
         unit: user.unit || '',
         phone: user.phone || '',
         avatarUrl: user.avatarUrl || undefined,
-        canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : true,
-        canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : true,
+        canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
+        canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
         createdAt: user.createdAt || new Date().toISOString(),
         isOnline: Boolean(user.isOnline),
         lastSeen: user.lastSeen || new Date().toISOString()

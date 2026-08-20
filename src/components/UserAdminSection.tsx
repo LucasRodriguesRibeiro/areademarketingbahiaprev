@@ -85,8 +85,8 @@ export const UserAdminSection: React.FC = () => {
   const [newPassword, setNewPassword] = useState('mkt@BP2025');
   const [newRole, setNewRole] = useState('Analista de Marketing');
   const [customRole, setCustomRole] = useState('');
-  const [canPostFeed, setCanPostFeed] = useState(true);
-  const [canCreateTasks, setCanCreateTasks] = useState(true);
+  const [canPostFeed, setCanPostFeed] = useState(false);
+  const [canCreateTasks, setCanCreateTasks] = useState(false);
 
   // Status & Feedback
   const [submitting, setSubmitting] = useState(false);
@@ -109,11 +109,12 @@ export const UserAdminSection: React.FC = () => {
       .filter(item => (item.email || '').toLowerCase().trim() !== 'marketing@bahiaprev.com.br')
       .map((item) => {
         const uEmail = (item.email || '').toLowerCase().trim();
-        const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : true;
-        const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : true;
         const finalName = formatUserName(item.name, uEmail);
         const finalEmail = item.email || '';
         const finalRole = item.role || 'Colaborador';
+        const isLeaderRole = finalRole.toLowerCase().includes('admin') || finalRole.toLowerCase().includes('diretor') || finalRole.toLowerCase().includes('marketing') || uEmail.includes('lucas') || uEmail.includes('jairo');
+        const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : isLeaderRole;
+        const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : isLeaderRole;
 
         return {
           uid: item.uid,
@@ -191,8 +192,8 @@ export const UserAdminSection: React.FC = () => {
       setNewEmail('');
       setCustomRole('');
       setNewPassword('mkt@BP2025');
-      setCanPostFeed(true);
-      setCanCreateTasks(true);
+      setCanPostFeed(false);
+      setCanCreateTasks(false);
 
     } catch (err: any) {
       console.error('Error registering user:', err);

@@ -65,8 +65,9 @@ export interface Comment {
 }
 
 const CATEGORIES = [
-  { id: 'Todos', label: 'Todos os Posts', icon: Filter },
-  { id: 'Comunicado', label: '📢 Comunicados', color: 'bg-red-50 text-red-700 border-red-200' },
+  { id: 'Todos', label: 'Todos os Posts' },
+  { id: 'Comunicado', label: '📢 Comunicados Oficiais' },
+  { id: 'Geral', label: '📌 Geral' }
 ];
 
 export const FeedSection: React.FC = () => {
@@ -433,6 +434,7 @@ export const FeedSection: React.FC = () => {
   // Filter posts
   const filteredPosts = posts.filter(post => {
     if (selectedCategory === 'Todos') return true;
+    if (selectedCategory === 'Comunicado') return post.category === 'Comunicado' || post.isAnnouncement;
     return post.category === selectedCategory;
   });
 
@@ -551,7 +553,7 @@ export const FeedSection: React.FC = () => {
                       className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl border-0 focus:ring-2 focus:ring-blue-500/20 cursor-pointer shrink-0"
                     >
                       <option value="Geral">📌 Geral</option>
-                      <option value="Comunicado">📢 Comunicado</option>
+                      <option value="Comunicado">📢 Comunicado Oficial</option>
                     </select>
 
                     {/* Button to attach file directly from PC */}
@@ -595,7 +597,36 @@ export const FeedSection: React.FC = () => {
             </div>
           )}
 
+          {/* Category Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              const count = posts.filter(p => {
+                if (cat.id === 'Todos') return true;
+                if (cat.id === 'Comunicado') return p.category === 'Comunicado' || p.isAnnouncement;
+                return p.category === cat.id;
+              }).length;
 
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/70'
+                  }`}
+                >
+                  <span>{cat.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
           {/* Posts Feed Stream */}
           {loading ? (
@@ -669,7 +700,9 @@ export const FeedSection: React.FC = () => {
                             <span>{displayAuthorRole}</span>
                             <span>•</span>
                             <span className="text-slate-400">
-                              {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Recente'}
+                              {post.createdAtISO 
+                                ? new Date(post.createdAtISO).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                : (post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Recente')}
                             </span>
                           </p>
                         </div>
@@ -677,8 +710,12 @@ export const FeedSection: React.FC = () => {
 
                       {/* Category Tag & Actions */}
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/50">
-                          {post.category || 'Geral'}
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                          post.isAnnouncement || post.category === 'Comunicado'
+                            ? 'bg-red-50 text-red-700 border-red-200/80'
+                            : 'bg-slate-100 text-slate-700 border-slate-200/50'
+                        }`}>
+                          {post.isAnnouncement || post.category === 'Comunicado' ? '📢 Comunicado' : (post.category || 'Geral')}
                         </span>
                         {canDelete && (
                           <button
@@ -812,7 +849,10 @@ export const FeedSection: React.FC = () => {
                                     <div className="flex-1">
                                       <div className="flex items-center justify-between mb-0.5">
                                         <span className="font-bold text-slate-900">{cName}</span>
-                                        <span className="text-[10px] text-slate-400">{cUser?.role || c.authorRole}</span>
+                                        <span className="text-[10px] text-slate-400">
+                                          {cUser?.role || c.authorRole}
+                                          {c.createdAtISO ? ` • ${new Date(c.createdAtISO).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                        </span>
                                       </div>
                                       <p className="text-slate-700 leading-relaxed">{c.content}</p>
                                     </div>

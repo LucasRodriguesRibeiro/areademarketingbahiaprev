@@ -172,10 +172,20 @@ CREATE TABLE IF NOT EXISTS public.posts (
   author_name TEXT,
   author_role TEXT,
   author_uid TEXT,
+  author_email TEXT,
   content TEXT,
   type TEXT DEFAULT 'comunicado',
+  category TEXT DEFAULT 'Geral',
+  is_announcement BOOLEAN DEFAULT FALSE,
+  image_url TEXT,
+  attachment_url TEXT,
+  attachment_type TEXT,
+  attachment_name TEXT,
   likes INTEGER DEFAULT 0,
+  likes_count INTEGER DEFAULT 0,
   liked_by JSONB DEFAULT '[]'::jsonb,
+  comments_count INTEGER DEFAULT 0,
+  data_json JSONB,
   created_at_iso TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -183,7 +193,9 @@ CREATE TABLE IF NOT EXISTS public.posts (
 CREATE TABLE IF NOT EXISTS public.posts_comments (
   id TEXT PRIMARY KEY,
   post_id TEXT REFERENCES public.posts(id) ON DELETE CASCADE,
+  author_uid TEXT,
   author_name TEXT,
+  author_role TEXT,
   content TEXT,
   created_at_iso TIMESTAMPTZ DEFAULT NOW()
 );
@@ -202,6 +214,21 @@ CREATE TABLE IF NOT EXISTS public.users (
   is_online BOOLEAN DEFAULT FALSE,
   last_seen TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrações incrementais caso tabelas já existam
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS author_email TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_announcement BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS attachment_type TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS likes_count INTEGER DEFAULT 0;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS comments_count INTEGER DEFAULT 0;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS data_json JSONB;
+
+ALTER TABLE public.posts_comments ADD COLUMN IF NOT EXISTS author_uid TEXT;
+ALTER TABLE public.posts_comments ADD COLUMN IF NOT EXISTS author_role TEXT;
 
 -- Habilitar RLS e criar políticas públicas permissivas para teste
 ALTER TABLE public.funeraria_os ENABLE ROW LEVEL SECURITY;

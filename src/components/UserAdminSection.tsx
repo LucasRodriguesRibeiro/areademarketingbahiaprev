@@ -100,6 +100,7 @@ export const UserAdminSection: React.FC = () => {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [editCanPostFeed, setEditCanPostFeed] = useState(false);
   const [editCanCreateTasks, setEditCanCreateTasks] = useState(false);
   const [editCanAccessFuneraria, setEditCanAccessFuneraria] = useState(false);
@@ -236,6 +237,7 @@ export const UserAdminSection: React.FC = () => {
     setEditingUser(u);
     setEditName(u.name);
     setEditRole(u.role);
+    setEditPassword('');
     setEditCanPostFeed(Boolean(u.canPostFeed));
     setEditCanCreateTasks(Boolean(u.canCreateTasks));
     setEditCanAccessFuneraria(Boolean(u.canAccessFuneraria));
@@ -247,14 +249,18 @@ export const UserAdminSection: React.FC = () => {
     if (!editingUser) return;
     setSavingEdit(true);
     try {
-      await supabaseService.saveUserProfile({
+      const payload: any = {
         ...editingUser,
         name: formatUserName(editName, editingUser.email),
         role: editRole.trim(),
         canPostFeed: editCanPostFeed,
         canCreateTasks: editCanCreateTasks,
         canAccessFuneraria: editCanAccessFuneraria
-      });
+      };
+      if (editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
+      await supabaseService.saveUserProfile(payload);
       setEditingUser(null);
       await fetchUsers();
     } catch (err) {
@@ -805,6 +811,20 @@ export const UserAdminSection: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Redefinir Senha (Opcional):
+                  </label>
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Deixe em branco para manter a senha atual"
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Preencha este campo apenas se desejar redefinir a senha deste colaborador.</p>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 space-y-2">

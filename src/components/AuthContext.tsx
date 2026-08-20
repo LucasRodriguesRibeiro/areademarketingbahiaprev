@@ -37,6 +37,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateAvatarUrl: (url: string) => Promise<void>;
   updateUserProfile: (data: { name?: string; role?: string; avatarUrl?: string }) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -363,6 +364,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchUsers();
   };
 
+  const updatePassword = async (newPassword: string) => {
+    if (!user || !profile) {
+      throw new Error('Usuário não autenticado no sistema.');
+    }
+
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new Error('A nova senha deve ter no mínimo 6 caracteres.');
+    }
+
+    const cleanPassword = newPassword.trim();
+    const supabase = getSupabaseClient();
+    let supabaseSuccess = false;
+
+    // 1. Try Supabase Auth password update
+    if (supabase) {
+      try {
+        const { error } = await supabase.auth.updateUser({ password: cleanPassword });
+        if (!error) {
+          supabaseSuccess = true;
+        } else {
+          console.warn('Alerta ao atualizar senha no Supabase Auth:', error.message);
+        }
+      } catch (sbErr) {
+        console.warn('Exceção ao atualizar senha no Supabase Auth:', sbErr);
+      }
+    }
+
+    // 2. Update user profile in system registry (cloud & local)
+    const updatedProfile = {
+      ...profile,
+      password: cleanPassword
+    };
+
+    const savedRegistry = await supabaseService.saveUserProfile(updatedProfile);
+
+    if (!savedRegistry && !supabaseSuccess) {
+      throw new Error('Falha ao salvar a nova senha no servidor. Tente novamente.');
+    }
+
+    // Update remembered password if stored locally
+    try {
+      const remembered = localStorage.getItem('remembered_password');
+      if (remembered) {
+        localStorage.setItem('remembered_password', cleanPassword);
+      }
+    } catch {}
+
+    await fetchUsers();
+  };
+
   const logout = async () => {
     setLoading(true);
     const supabase = getSupabaseClient();
@@ -386,7 +437,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, allUsers, usersMap, fetchUsers, login, signUp, logout, updateAvatarUrl, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, providerNotEnabled, allUsers, usersMap, fetchUsers, login, signUp, logout, updateAvatarUrl, updateUserProfile, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

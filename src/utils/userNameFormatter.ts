@@ -60,47 +60,7 @@ export function extractNameFromEmail(email: string): string {
 export function formatUserName(name?: string | null, email?: string | null): string {
   const cleanEmail = (email || '').trim().toLowerCase();
 
-  // 1. Check known users mapping by exact email
-  if (cleanEmail && KNOWN_USERS_MAP[cleanEmail]) {
-    return KNOWN_USERS_MAP[cleanEmail];
-  }
-
-  // 2. Check known aliases based on email substring
-  if (cleanEmail.includes('lucas')) return 'Lucas Rodrigues';
-  if (cleanEmail.includes('jairo')) return 'Jairo Queiroz';
-  if (cleanEmail.includes('cauan')) {
-    // If a custom name with surname was provided, keep and capitalize it
-    if (name && name.toLowerCase().includes('cauan') && name.trim().split(' ').length > 1) {
-      return capitalizeWords(name);
-    }
-    return 'Cauan';
-  }
-  if (cleanEmail.includes('nilton')) {
-    if (name && name.toLowerCase().includes('nilton') && name.trim().split(' ').length > 1) {
-      return capitalizeWords(name);
-    }
-    return 'Nilton';
-  }
-  if (cleanEmail.includes('thayan') || cleanEmail.includes('thaya')) {
-    if (name && name.toLowerCase().includes('thay') && name.trim().split(' ').length > 1) {
-      return capitalizeWords(name);
-    }
-    return 'Thayan';
-  }
-  if (cleanEmail.includes('vitor')) {
-    if (name && name.toLowerCase().includes('vitor') && name.trim().split(' ').length > 1) {
-      return capitalizeWords(name);
-    }
-    return 'Vitor';
-  }
-  if (cleanEmail.includes('paulo')) {
-    if (name && name.toLowerCase().includes('paulo') && name.trim().split(' ').length > 1) {
-      return capitalizeWords(name);
-    }
-    return 'Paulo';
-  }
-
-  // 3. Clean and check provided name
+  // 1. Clean and check explicitly provided name first
   if (name && typeof name === 'string') {
     let cleanName = name.trim();
     // Remove cargo in parentheses if appended like "Lucas Rodrigues (Analista de Marketing)"
@@ -108,16 +68,27 @@ export function formatUserName(name?: string | null, email?: string | null): str
 
     // If the name is an email address, extract clean name from it
     if (cleanName.includes('@')) {
-      return extractNameFromEmail(cleanName);
+      cleanName = extractNameFromEmail(cleanName);
     }
 
-    if (cleanName) {
-      const lowerName = cleanName.toLowerCase();
-      if (lowerName === 'lucas' || lowerName.includes('lucas rodrigues')) return 'Lucas Rodrigues';
-      if (lowerName === 'jairo' || lowerName.includes('jairo queiroz')) return 'Jairo Queiroz';
+    if (cleanName && cleanName.toLowerCase() !== 'colaborador') {
       return capitalizeWords(cleanName);
     }
   }
+
+  // 2. Check known users mapping by exact email as fallback
+  if (cleanEmail && KNOWN_USERS_MAP[cleanEmail]) {
+    return KNOWN_USERS_MAP[cleanEmail];
+  }
+
+  // 3. Check known aliases based on email substring as fallback
+  if (cleanEmail.includes('lucas')) return 'Lucas Rodrigues';
+  if (cleanEmail.includes('jairo')) return 'Jairo Queiroz';
+  if (cleanEmail.includes('cauan')) return 'Cauan';
+  if (cleanEmail.includes('nilton')) return 'Nilton';
+  if (cleanEmail.includes('thayan') || cleanEmail.includes('thaya')) return 'Thayan';
+  if (cleanEmail.includes('vitor')) return 'Vitor';
+  if (cleanEmail.includes('paulo')) return 'Paulo';
 
   // 4. Fallback to extracting from email
   if (cleanEmail) {

@@ -211,11 +211,16 @@ CREATE TABLE IF NOT EXISTS public.users (
   avatar_url TEXT,
   can_post_feed BOOLEAN DEFAULT TRUE,
   can_create_tasks BOOLEAN DEFAULT TRUE,
+  can_access_funeraria BOOLEAN DEFAULT FALSE,
   is_online BOOLEAN DEFAULT FALSE,
   last_seen TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Migrações incrementais caso tabelas já existam
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS can_post_feed BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS can_create_tasks BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS can_access_funeraria BOOLEAN DEFAULT FALSE;
+
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS author_email TEXT;
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS category TEXT;
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_announcement BOOLEAN DEFAULT FALSE;

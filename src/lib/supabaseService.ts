@@ -796,6 +796,22 @@ export const supabaseService = {
             if (!emailLower || registry.deletedEmails.includes(emailLower) || registry.deletedUids.includes(row.uid)) return;
 
             const existingIdx = registry.users.findIndex(u => u.uid === row.uid || (u.email && u.email.toLowerCase() === emailLower));
+            const existingUser = existingIdx >= 0 ? registry.users[existingIdx] : null;
+
+            const isLeaderRole = row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo');
+
+            const resolvedCanPost = (row.can_post_feed !== undefined && row.can_post_feed !== null) 
+              ? Boolean(row.can_post_feed) 
+              : (existingUser?.canPostFeed !== undefined ? Boolean(existingUser.canPostFeed) : isLeaderRole);
+
+            const resolvedCanTasks = (row.can_create_tasks !== undefined && row.can_create_tasks !== null) 
+              ? Boolean(row.can_create_tasks) 
+              : (existingUser?.canCreateTasks !== undefined ? Boolean(existingUser.canCreateTasks) : isLeaderRole);
+
+            const resolvedCanFuneraria = (row.can_access_funeraria !== undefined && row.can_access_funeraria !== null) 
+              ? Boolean(row.can_access_funeraria) 
+              : (existingUser?.canAccessFuneraria !== undefined ? Boolean(existingUser.canAccessFuneraria) : checkFunerariaAccess({ role: row.role, email: emailLower }, emailLower));
+
             const formatted = {
               uid: row.uid,
               name: formatUserName(row.name, emailLower),
@@ -806,9 +822,9 @@ export const supabaseService = {
               isOnline: Boolean(row.is_online),
               lastSeen: row.last_seen,
               avatarUrl: row.avatar_url || undefined,
-              canPostFeed: row.can_post_feed !== undefined ? Boolean(row.can_post_feed) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
-              canCreateTasks: row.can_create_tasks !== undefined ? Boolean(row.can_create_tasks) : (row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
-              canAccessFuneraria: row.can_access_funeraria !== undefined ? Boolean(row.can_access_funeraria) : checkFunerariaAccess({ role: row.role, email: emailLower }, emailLower),
+              canPostFeed: resolvedCanPost,
+              canCreateTasks: resolvedCanTasks,
+              canAccessFuneraria: resolvedCanFuneraria,
               createdAt: row.created_at || row.created_at_iso || new Date().toISOString()
             };
 
@@ -980,12 +996,30 @@ export const supabaseService = {
               role: cleanRole,
               unit: user.unit || '',
               phone: user.phone || '',
+              avatar_url: user.avatarUrl || null,
+              can_post_feed: userObject.canPostFeed,
+              can_create_tasks: userObject.canCreateTasks,
+              can_access_funeraria: userObject.canAccessFuneraria,
               is_online: Boolean(user.isOnline),
               last_seen: user.lastSeen || new Date().toISOString()
             }, { onConflict: 'uid' });
 
-            if (error && (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205' || error.message?.includes('not exist'))) {
-              this._usersTableMissing = true;
+            if (error) {
+              if (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205' || error.message?.includes('not exist')) {
+                this._usersTableMissing = true;
+              } else if (error.message?.includes('column')) {
+                // Retry without permission columns if table schema in DB doesn't have them yet
+                await supabase.from('users').upsert({
+                  uid,
+                  name: formattedName,
+                  email: cleanEmail,
+                  role: cleanRole,
+                  unit: user.unit || '',
+                  phone: user.phone || '',
+                  is_online: Boolean(user.isOnline),
+                  last_seen: user.lastSeen || new Date().toISOString()
+                }, { onConflict: 'uid' });
+              }
             }
           } catch {}
         }

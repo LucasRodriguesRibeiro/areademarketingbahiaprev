@@ -214,18 +214,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Colaborador não cadastrado no sistema. Solicite seu cadastro ao Administrador.');
       }
 
-      // 3. Password check (if user was registered with a specific password)
-      if (existingInRegistry.password && existingInRegistry.password !== password) {
-        throw new Error('Senha incorreta. Verifique suas credenciais de acesso.');
-      }
+      // 3. Password check (Custom user password or default system password 'mkt@BP2025')
+      const expectedPassword = existingInRegistry.password || 'mkt@BP2025';
+      let passwordMatched = (password === expectedPassword);
 
       const teamRoles = await supabaseService.fetchTeamRoles();
+      const resolvedRole = teamRoles[cleanEmail] || existingInRegistry.role || 'Colaborador';
+      const isLeaderUser = resolvedRole.toLowerCase().includes('admin') || 
+                          resolvedRole.toLowerCase().includes('diretor') || 
+                          resolvedRole.toLowerCase().includes('marketing') || 
+                          cleanEmail.includes('lucas') || 
+                          cleanEmail.includes('jairo');
 
       // 4. Try Supabase Auth first (if user is synced with Auth)
       if (supabase) {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
           if (!error && data?.user) {
+            passwordMatched = true;
             const sbUser = data.user;
             const formattedName = formatUserName(sbUser.user_metadata?.name || existingInRegistry.name, cleanEmail);
             const authU: AuthUser = { uid: sbUser.id || existingInRegistry.uid, email: cleanEmail, displayName: formattedName };
@@ -233,13 +239,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uid: sbUser.id || existingInRegistry.uid,
               name: formattedName,
               email: cleanEmail,
-              role: teamRoles[cleanEmail] || existingInRegistry.role || sbUser.user_metadata?.role || 'Colaborador',
+              role: resolvedRole,
               avatarUrl: existingInRegistry.avatarUrl,
               createdAt: existingInRegistry.createdAt || new Date().toISOString(),
               isOnline: true,
-              canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
-              canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true,
-              canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: existingInRegistry.role, email: cleanEmail }, cleanEmail)
+              canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : isLeaderUser,
+              canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : isLeaderUser,
+              canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: resolvedRole, email: cleanEmail }, cleanEmail)
             };
             setUser(authU);
             setProfile(userProf);
@@ -249,14 +255,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             return;
           }
-        } catch (authErr) {
+        } catch (authErr: any) {
           console.warn('Supabase Auth signIn falhou, usando autenticação do registro interno:', authErr);
         }
       }
 
+      if (!passwordMatched) {
+        throw new Error('Senha incorreta. Verifique suas credenciais de acesso.');
+      }
+
       // 5. Authorized Internal User Profile Login
       const resolvedName = formatUserName(existingInRegistry.name, cleanEmail);
-      const resolvedRole = teamRoles[cleanEmail] || existingInRegistry.role || 'Colaborador';
       const uid = existingInRegistry.uid || ('u_' + cleanEmail.replace(/[^a-z0-9]/g, '_'));
 
       const authU: AuthUser = { uid, email: cleanEmail, displayName: resolvedName };
@@ -268,9 +277,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatarUrl: existingInRegistry.avatarUrl,
         createdAt: existingInRegistry.createdAt || new Date().toISOString(),
         isOnline: true,
-        canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : true,
-        canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : true,
-        canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: existingInRegistry.role, email: cleanEmail }, cleanEmail)
+        canPostFeed: existingInRegistry.canPostFeed !== undefined ? Boolean(existingInRegistry.canPostFeed) : isLeaderUser,
+        canCreateTasks: existingInRegistry.canCreateTasks !== undefined ? Boolean(existingInRegistry.canCreateTasks) : isLeaderUser,
+        canAccessFuneraria: existingInRegistry.canAccessFuneraria !== undefined ? Boolean(existingInRegistry.canAccessFuneraria) : checkFunerariaAccess({ role: resolvedRole, email: cleanEmail }, cleanEmail)
       };
 
       setUser(authU);

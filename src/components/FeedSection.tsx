@@ -87,9 +87,11 @@ export const FeedSection: React.FC = () => {
         profile?.role === 'Administrador' || 
         profile?.role === 'Diretor' || 
         profile?.role === 'Analista de Marketing' || 
+        profile?.role?.toLowerCase().includes('gerente') ||
         profile?.email === 'marketing@bahiaprev.com.br' || 
         profile?.email === 'lucasrodrigues@bahiaprev.com.br' || 
-        profile?.email === 'jairoqueiroz@bahiaprev.com.br'
+        profile?.email === 'jairoqueiroz@bahiaprev.com.br' ||
+        profile?.email?.toLowerCase().includes('nilton')
       ));
 
   // New post form state

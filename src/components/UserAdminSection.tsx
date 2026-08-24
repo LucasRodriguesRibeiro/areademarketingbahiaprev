@@ -118,7 +118,7 @@ export const UserAdminSection: React.FC = () => {
         const finalName = formatUserName(item.name, uEmail);
         const finalEmail = item.email || '';
         const finalRole = item.role || 'Colaborador';
-        const isLeaderRole = finalRole.toLowerCase().includes('admin') || finalRole.toLowerCase().includes('diretor') || finalRole.toLowerCase().includes('marketing') || uEmail.includes('lucas') || uEmail.includes('jairo');
+        const isLeaderRole = finalRole.toLowerCase().includes('admin') || finalRole.toLowerCase().includes('diretor') || finalRole.toLowerCase().includes('marketing') || finalRole.toLowerCase().includes('gerente') || uEmail.includes('lucas') || uEmail.includes('jairo') || uEmail.includes('nilton');
         const defaultCanPost = item.canPostFeed !== undefined ? Boolean(item.canPostFeed) : isLeaderRole;
         const defaultCanTasks = item.canCreateTasks !== undefined ? Boolean(item.canCreateTasks) : isLeaderRole;
         const defaultCanFuneraria = item.canAccessFuneraria !== undefined ? Boolean(item.canAccessFuneraria) : checkFunerariaAccess({ role: finalRole, email: uEmail }, uEmail);

@@ -62,8 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: u.createdAt || new Date().toISOString(),
         isOnline: Boolean(u.isOnline),
         lastSeen: u.lastSeen,
-        canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo')),
-        canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo')),
+        canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || u.role?.toLowerCase().includes('gerente') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo') || (u.email || '').toLowerCase().includes('nilton')),
+        canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (u.role?.toLowerCase().includes('admin') || u.role?.toLowerCase().includes('diretor') || u.role?.toLowerCase().includes('marketing') || u.role?.toLowerCase().includes('gerente') || (u.email || '').toLowerCase().includes('lucas') || (u.email || '').toLowerCase().includes('jairo') || (u.email || '').toLowerCase().includes('nilton')),
         canAccessFuneraria: u.canAccessFuneraria !== undefined ? Boolean(u.canAccessFuneraria) : checkFunerariaAccess({ role: u.role, email: u.email }, u.email)
       }));
 
@@ -124,8 +124,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const isLeaderUser = (sbUser.user_metadata?.role || existingU?.role || '').toLowerCase().includes('admin') || 
                                 (sbUser.user_metadata?.role || existingU?.role || '').toLowerCase().includes('diretor') || 
                                 (sbUser.user_metadata?.role || existingU?.role || '').toLowerCase().includes('marketing') || 
+                                (sbUser.user_metadata?.role || existingU?.role || '').toLowerCase().includes('gerente') || 
                                 (sbUser.email || '').toLowerCase().includes('lucas') || 
-                                (sbUser.email || '').toLowerCase().includes('jairo');
+                                (sbUser.email || '').toLowerCase().includes('jairo') ||
+                                (sbUser.email || '').toLowerCase().includes('nilton');
 
             const userProf: UserProfile = {
               uid: sbUser.id,
@@ -223,8 +225,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isLeaderUser = resolvedRole.toLowerCase().includes('admin') || 
                           resolvedRole.toLowerCase().includes('diretor') || 
                           resolvedRole.toLowerCase().includes('marketing') || 
+                          resolvedRole.toLowerCase().includes('gerente') || 
                           cleanEmail.includes('lucas') || 
-                          cleanEmail.includes('jairo');
+                          cleanEmail.includes('jairo') ||
+                          cleanEmail.includes('nilton');
 
       // 4. Try Supabase Auth first (if user is synced with Auth)
       if (supabase) {
@@ -312,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!error && data?.user) {
             const uid = data.user.id;
             const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
-            const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo');
+            const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || role.toLowerCase().includes('gerente') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo') || cleanEmail.includes('nilton');
             const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser, canAccessFuneraria: checkFunerariaAccess({ role, email: cleanEmail }, cleanEmail) };
             setUser(authU);
             setProfile(userProf);
@@ -327,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const uid = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-      const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo');
+      const isLeaderUser = role.toLowerCase().includes('admin') || role.toLowerCase().includes('diretor') || role.toLowerCase().includes('marketing') || role.toLowerCase().includes('gerente') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo') || cleanEmail.includes('nilton');
       const authU: AuthUser = { uid, email: cleanEmail, displayName: formattedName };
       const userProf: UserProfile = { uid, name: formattedName, email: cleanEmail, role, createdAt: new Date().toISOString(), isOnline: true, canPostFeed: isLeaderUser, canCreateTasks: isLeaderUser, canAccessFuneraria: checkFunerariaAccess({ role, email: cleanEmail }, cleanEmail) };
       setUser(authU);

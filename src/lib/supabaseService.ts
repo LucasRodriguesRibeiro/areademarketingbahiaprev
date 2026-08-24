@@ -798,7 +798,7 @@ export const supabaseService = {
             const existingIdx = registry.users.findIndex(u => u.uid === row.uid || (u.email && u.email.toLowerCase() === emailLower));
             const existingUser = existingIdx >= 0 ? registry.users[existingIdx] : null;
 
-            const isLeaderRole = row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo');
+            const isLeaderRole = row.role?.toLowerCase().includes('admin') || row.role?.toLowerCase().includes('diretor') || row.role?.toLowerCase().includes('marketing') || row.role?.toLowerCase().includes('gerente') || emailLower.includes('lucas') || emailLower.includes('jairo') || emailLower.includes('nilton');
 
             const resolvedCanPost = (row.can_post_feed !== undefined && row.can_post_feed !== null) 
               ? Boolean(row.can_post_feed) 
@@ -837,6 +837,20 @@ export const supabaseService = {
         }
       } catch {}
     }
+
+    // Ensure Nilton / Gerente Funerário explicitly has feed and task creation permissions
+    registry.users = registry.users.map((u: any) => {
+      const emailLower = (u.email || '').toLowerCase().trim();
+      const roleLower = (u.role || '').toLowerCase().trim();
+      if (emailLower.includes('nilton') || roleLower.includes('gerente funerári') || roleLower.includes('gerente funerari')) {
+        return {
+          ...u,
+          canPostFeed: true,
+          canCreateTasks: true,
+        };
+      }
+      return u;
+    });
 
     return registry;
   },
@@ -907,8 +921,8 @@ export const supabaseService = {
           unit: u.unit || '',
           phone: u.phone || '',
           avatarUrl: u.avatarUrl,
-          canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
-          canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || emailLower.includes('lucas') || emailLower.includes('jairo')),
+          canPostFeed: u.canPostFeed !== undefined ? Boolean(u.canPostFeed) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || effectiveRole.toLowerCase().includes('gerente') || emailLower.includes('lucas') || emailLower.includes('jairo') || emailLower.includes('nilton')),
+          canCreateTasks: u.canCreateTasks !== undefined ? Boolean(u.canCreateTasks) : (effectiveRole.toLowerCase().includes('admin') || effectiveRole.toLowerCase().includes('diretor') || effectiveRole.toLowerCase().includes('marketing') || effectiveRole.toLowerCase().includes('gerente') || emailLower.includes('lucas') || emailLower.includes('jairo') || emailLower.includes('nilton')),
           canAccessFuneraria: u.canAccessFuneraria !== undefined ? Boolean(u.canAccessFuneraria) : checkFunerariaAccess({ role: effectiveRole, email: emailLower }, emailLower),
           createdAt: u.createdAt || new Date().toISOString(),
           isOnline: Boolean(u.isOnline),
@@ -955,8 +969,8 @@ export const supabaseService = {
         unit: user.unit || '',
         phone: user.phone || '',
         avatarUrl: user.avatarUrl || undefined,
-        canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
-        canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo')),
+        canPostFeed: user.canPostFeed !== undefined ? Boolean(user.canPostFeed) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanRole.toLowerCase().includes('gerente') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo') || cleanEmail.includes('nilton')),
+        canCreateTasks: user.canCreateTasks !== undefined ? Boolean(user.canCreateTasks) : (cleanRole.toLowerCase().includes('admin') || cleanRole.toLowerCase().includes('diretor') || cleanRole.toLowerCase().includes('marketing') || cleanRole.toLowerCase().includes('gerente') || cleanEmail.includes('lucas') || cleanEmail.includes('jairo') || cleanEmail.includes('nilton')),
         canAccessFuneraria: user.canAccessFuneraria !== undefined ? Boolean(user.canAccessFuneraria) : checkFunerariaAccess({ role: cleanRole, email: cleanEmail }, cleanEmail),
         createdAt: user.createdAt || new Date().toISOString(),
         isOnline: Boolean(user.isOnline),

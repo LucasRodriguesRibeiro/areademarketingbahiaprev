@@ -314,9 +314,11 @@ export const TasksSection: React.FC = () => {
         userRole.toLowerCase().includes('diretor') || 
         userRole.toLowerCase().includes('marketing') ||
         userRole.toLowerCase().includes('analista') ||
+        userRole.toLowerCase().includes('gerente') ||
         userEmail === 'marketing@bahiaprev.com.br' ||
         userEmail === 'lucasrodrigues@bahiaprev.com.br' ||
-        userEmail === 'jairoqueiroz@bahiaprev.com.br'
+        userEmail === 'jairoqueiroz@bahiaprev.com.br' ||
+        userEmail.toLowerCase().includes('nilton')
       ));
 
   const isAdmin = canCreateTasksPermission;
